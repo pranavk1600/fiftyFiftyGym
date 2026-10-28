@@ -25,6 +25,21 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // Automatically purge invalid/expired sessions on 401 Unauthorized
+    if (error.response?.status === 401) {
+      localStorage.removeItem('fiftyfifty_token');
+      localStorage.removeItem('fiftyfifty_user');
+
+      const path = window.location.pathname;
+      if (!path.includes('/login')) {
+        if (path.startsWith('/admin')) {
+          window.location.href = '/superadmin/login';
+        } else {
+          window.location.href = '/admin/login';
+        }
+      }
+    }
+
     const message = error.response?.data?.message || error.message || 'Something went wrong';
     return Promise.reject(new Error(message));
   }

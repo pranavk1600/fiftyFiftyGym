@@ -66,7 +66,7 @@ export const parseDbConfig = (connString) => {
         : false,
       max: parseInt(process.env.DB_POOL_MAX || '10', 10),
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 7000 // 7-second connection timeout
+      connectionTimeoutMillis: 15000 // 15-second connection timeout for remote cloud pooler
     };
   } catch (err) {
     console.error('[Database Config Error] Failed to parse DATABASE_URL:', err.message);
