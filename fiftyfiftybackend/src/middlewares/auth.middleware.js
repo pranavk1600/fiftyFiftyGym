@@ -10,6 +10,39 @@ export const authenticate = (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
+
+    // In development mode, support dev tokens generated during offline fallback
+    if (process.env.NODE_ENV !== 'production' && token.startsWith('dev_token_')) {
+      if (token.startsWith('dev_token_superadmin')) {
+        req.user = {
+          id: 'usr_superadmin_dev',
+          email: 'admin@fiftyfifty.com',
+          role: 'SUPER_ADMIN',
+          gymId: null,
+          fullName: 'Platform Super Admin'
+        };
+        return next();
+      } else if (token.startsWith('dev_token_owner')) {
+        req.user = {
+          id: 'usr_owner_dev',
+          email: 'owner@fiftyfifty.com',
+          role: 'GYM_OWNER',
+          gymId: 'gym_alpha_1',
+          fullName: 'Gym Owner'
+        };
+        return next();
+      } else if (token.startsWith('dev_token_member')) {
+        req.user = {
+          id: 'usr_member_dev',
+          email: 'member@fiftyfifty.com',
+          role: 'MEMBER',
+          gymId: 'gym_alpha_1',
+          fullName: 'Member'
+        };
+        return next();
+      }
+    }
+
     const decoded = jwt.verify(token, secret);
 
     req.user = decoded; // { id, email, role, gymId }
@@ -31,7 +64,18 @@ export const optionalAuthenticate = (req, res, next) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
-      req.user = jwt.verify(token, secret);
+
+      if (process.env.NODE_ENV !== 'production' && token.startsWith('dev_token_')) {
+        if (token.startsWith('dev_token_superadmin')) {
+          req.user = { id: 'usr_superadmin_dev', email: 'admin@fiftyfifty.com', role: 'SUPER_ADMIN', gymId: null, fullName: 'Platform Super Admin' };
+        } else if (token.startsWith('dev_token_owner')) {
+          req.user = { id: 'usr_owner_dev', email: 'owner@fiftyfifty.com', role: 'GYM_OWNER', gymId: 'gym_alpha_1', fullName: 'Gym Owner' };
+        } else if (token.startsWith('dev_token_member')) {
+          req.user = { id: 'usr_member_dev', email: 'member@fiftyfifty.com', role: 'MEMBER', gymId: 'gym_alpha_1', fullName: 'Member' };
+        }
+      } else {
+        req.user = jwt.verify(token, secret);
+      }
     }
     next();
   } catch (_e) {
