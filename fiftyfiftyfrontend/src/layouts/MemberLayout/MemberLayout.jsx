@@ -2,14 +2,15 @@ import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { User, CalendarCheck, Receipt, LogOut, Dumbbell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
 
 export const MemberLayout = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   const navLinks = [
@@ -24,12 +25,12 @@ export const MemberLayout = () => {
       <header className="member-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Dumbbell size={24} color="var(--brand-primary)" />
-          <span style={{ fontWeight: 800, fontFamily: 'var(--font-display)' }}>
+          <span style={{ fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
             FIFTY<span style={{ color: 'var(--brand-primary)' }}>FIFTY</span> MEMBER
           </span>
         </div>
 
-        <nav style={{ display: 'flex', gap: 16 }}>
+        <nav className="member-nav-links">
           {navLinks.map((item) => (
             <NavLink
               key={item.to}
@@ -41,10 +42,13 @@ export const MemberLayout = () => {
           ))}
         </nav>
 
-        <button onClick={handleLogout} className="btn btn-secondary btn-sm">
-          <LogOut size={16} />
-          <span>Exit</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <ThemeToggle />
+          <button onClick={handleLogout} className="btn btn-secondary btn-sm">
+            <LogOut size={16} />
+            <span>Exit</span>
+          </button>
+        </div>
       </header>
 
       <main className="member-content">

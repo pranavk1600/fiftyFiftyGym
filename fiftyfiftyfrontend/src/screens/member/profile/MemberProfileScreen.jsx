@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { User, Phone, Mail, Lock } from 'lucide-react';
 import { Input } from '../../../shared/components/Input/Input';
 import { Button } from '../../../shared/components/Button/Button';
 import { useAuth } from '../../../context/AuthContext';
@@ -11,6 +10,7 @@ export const MemberProfileScreen = () => {
 
   const [fullName, setFullName] = useState(user?.fullName || 'Alex Mercer');
   const [phone, setPhone] = useState('+91 98765 43210');
+  const [email, setEmail] = useState(user?.email || 'alex.mercer@gmail.com');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
@@ -31,14 +31,22 @@ export const MemberProfileScreen = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: 640 }}>
+    <div className="animate-fade-in" style={{ maxWidth: 680 }}>
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: '1.75rem', marginBottom: 4 }}>Account Settings</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Manage your personal details and security</p>
+        <h1 style={{ fontSize: '1.85rem', marginBottom: 4, color: 'var(--text-primary)' }}>Account Settings</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>Manage your personal details, emergency contact, and password security</p>
       </div>
 
-      <div style={{ background: 'var(--bg-surface)', padding: 28, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', marginBottom: 24 }}>
-        <h2 style={{ fontSize: '1.15rem', marginBottom: 20 }}>Personal Information</h2>
+      {/* Personal Info Card */}
+      <div style={{
+        background: 'var(--bg-surface)',
+        padding: 28,
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--shadow-sm)',
+        marginBottom: 24
+      }}>
+        <h2 style={{ fontSize: '1.2rem', marginBottom: 20, color: 'var(--text-primary)' }}>Personal Information</h2>
         <form onSubmit={handleUpdateProfile}>
           <Input
             label="Full Name"
@@ -54,17 +62,32 @@ export const MemberProfileScreen = () => {
             onChange={(e) => setPhone(e.target.value)}
             required
           />
+          <Input
+            label="Email Address"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
           <Button type="submit">Save Profile Changes</Button>
         </form>
       </div>
 
-      <div style={{ background: 'var(--bg-surface)', padding: 28, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
-        <h2 style={{ fontSize: '1.15rem', marginBottom: 20 }}>Change Password</h2>
+      {/* Password Change Card */}
+      <div style={{
+        background: 'var(--bg-surface)',
+        padding: 28,
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        <h2 style={{ fontSize: '1.2rem', marginBottom: 20, color: 'var(--text-primary)' }}>Security & Password</h2>
         <form onSubmit={handleChangePassword}>
           <Input
             label="Current Password"
             name="currentPassword"
             type="password"
+            placeholder="••••••••"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
           />
@@ -72,6 +95,7 @@ export const MemberProfileScreen = () => {
             label="New Password"
             name="newPassword"
             type="password"
+            placeholder="••••••••"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />

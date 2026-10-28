@@ -1,11 +1,15 @@
 /* Admin-specific layout extensions */
 .admin-badge {
-  background: rgba(0, 229, 255, 0.12);
+  background: var(--brand-secondary-bg);
   color: var(--brand-secondary);
+  border: 1px solid rgba(2, 132, 199, 0.25);
   font-size: 0.75rem;
   font-weight: 700;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

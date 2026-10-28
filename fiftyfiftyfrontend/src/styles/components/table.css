@@ -4,6 +4,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .custom-table {
@@ -15,22 +16,25 @@
 
 .custom-table th {
   padding: 14px 20px;
-  background: var(--bg-surface-elevated);
+  background: var(--table-th-bg);
   color: var(--text-secondary);
   font-weight: 600;
   border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
 }
 
 .custom-table td {
   padding: 14px 20px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
+  background: transparent;
+  transition: background-color 0.15s ease;
 }
 
 .custom-table tr:last-child td {
   border-bottom: none;
 }
 
-.custom-table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+.custom-table tbody tr:hover td {
+  background: var(--table-row-hover);
 }

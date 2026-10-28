@@ -1,29 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Shield, LogOut, Dumbbell } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Dumbbell, Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
 
 export const AdminLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/superadmin/login');
   };
 
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  // Only the two main modules required by Super Admin scope
   const navLinks = [
-    { to: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
-    { to: '/admin/gyms', label: 'Gym Accounts', icon: Building2 },
-    { to: '/admin/access', label: 'Access Control', icon: Shield }
+    { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/admin/gyms', label: 'Gym Management', icon: Building2 }
   ];
 
   return (
     <div className="app-layout-wrapper">
-      <aside className="app-sidebar">
+      {/* Mobile Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={closeMobileMenu}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <aside className={`app-sidebar ${isMobileMenuOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand">
           <Dumbbell size={24} color="var(--brand-secondary)" />
-          <span><span style={{ color: 'var(--brand-secondary)' }}>ADMIN</span>PORTAL</span>
+          <span><span style={{ color: 'var(--brand-secondary)' }}>SUPER</span> ADMIN</span>
+          {isMobileMenuOpen && (
+            <button
+              onClick={closeMobileMenu}
+              style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}
+              aria-label="Close navigation"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
@@ -33,6 +58,7 @@ export const AdminLayout = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={closeMobileMenu}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               >
                 <Icon size={18} />
@@ -54,10 +80,27 @@ export const AdminLayout = () => {
         </div>
       </aside>
 
+      {/* Main Viewport */}
       <div className="app-main-viewport">
         <header className="app-topbar">
-          <span className="admin-badge">Platform Super Admin</span>
-          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{user?.email || 'admin@fiftyfifty.com'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              className="mobile-sidebar-toggle"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Open sidebar menu"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="admin-badge">FiftyFifty Super Admin</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ThemeToggle />
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              {user?.email || 'leopardxtechnology@gmail.com'}
+            </div>
+          </div>
         </header>
 
         <main className="app-content">

@@ -10,7 +10,9 @@ import OwnerLayout from '../layouts/OwnerLayout/OwnerLayout';
 import MemberLayout from '../layouts/MemberLayout/MemberLayout';
 
 // Screens
-import LoginScreen from '../screens/auth/login/LoginScreen';
+import SuperAdminLoginScreen from '../screens/auth/superadmin-login/SuperAdminLoginScreen';
+import GymAdminLoginScreen from '../screens/auth/gym-admin-login/GymAdminLoginScreen';
+import ResetPasswordScreen from '../screens/auth/reset-password/ResetPasswordScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
 import GymManagementScreen from '../screens/admin/gym-management/GymManagementScreen';
 import OwnerDashboardScreen from '../screens/owner/dashboard/OwnerDashboardScreen';
@@ -27,24 +29,38 @@ import MemberProfileScreen from '../screens/member/profile/MemberProfileScreen';
 export const AppRoutes = () => {
   return (
     <Routes>
+      {/* Root redirect to safe least-privileged login */}
+      <Route path="/" element={<Navigate to="/admin/login" replace />} />
+
       {/* Public Auth Routes */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginScreen />} />
+        {/* 1. Dedicated Super Admin Login URL */}
+        <Route path="/superadmin/login" element={<SuperAdminLoginScreen />} />
+        <Route path="/superadmin" element={<Navigate to="/superadmin/login" replace />} />
+
+        {/* 2. Dedicated Gym Admin / Owner Login URL */}
+        <Route path="/admin/login" element={<GymAdminLoginScreen />} />
+
+        {/* 3. Generic /login redirect to Gym Admin login */}
+        <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+
+        {/* 4. Super Admin Password Reset */}
+        <Route path="/reset-password" element={<ResetPasswordScreen />} />
       </Route>
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
-        {/* 1. Platform Admin Routes */}
-        <Route element={<RoleRoute allowedRoles={['PLATFORM_ADMIN']} />}>
+        {/* 1. Super Admin Protected Routes */}
+        <Route element={<RoleRoute allowedRoles={['PLATFORM_ADMIN', 'SUPER_ADMIN', 'super_admin']} />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
             <Route path="/admin/gyms" element={<GymManagementScreen />} />
-            <Route path="/admin/access" element={<AdminDashboardScreen />} />
+            <Route path="/admin/access" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
         </Route>
 
-        {/* 2. Gym Owner Routes */}
+        {/* 2. Gym Owner Protected Routes */}
         <Route element={<RoleRoute allowedRoles={['GYM_OWNER']} />}>
           <Route element={<OwnerLayout />}>
             <Route path="/owner" element={<Navigate to="/owner/dashboard" replace />} />
@@ -69,8 +85,8 @@ export const AppRoutes = () => {
         </Route>
       </Route>
 
-      {/* Fallback to Login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Catch-all Fallback */}
+      <Route path="*" element={<Navigate to="/admin/login" replace />} />
     </Routes>
   );
 };

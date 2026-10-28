@@ -7,12 +7,14 @@ export const RoleRoute = ({ allowedRoles = [] }) => {
 
   if (isLoading) return null;
 
-  if (!allowedRoles.includes(role)) {
-    // Redirect to their respective home dashboard based on role
-    if (role === 'PLATFORM_ADMIN') return <Navigate to="/admin/dashboard" replace />;
+  const isSuperAdmin = role === 'PLATFORM_ADMIN' || role === 'SUPER_ADMIN' || role === 'super_admin';
+  const hasAccess = allowedRoles.includes(role) || (isSuperAdmin && (allowedRoles.includes('PLATFORM_ADMIN') || allowedRoles.includes('SUPER_ADMIN')));
+
+  if (!hasAccess) {
+    if (isSuperAdmin) return <Navigate to="/admin/dashboard" replace />;
     if (role === 'GYM_OWNER') return <Navigate to="/owner/dashboard" replace />;
     if (role === 'MEMBER') return <Navigate to="/member/dashboard" replace />;
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   return <Outlet />;

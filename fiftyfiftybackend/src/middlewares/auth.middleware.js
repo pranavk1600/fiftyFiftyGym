@@ -24,3 +24,22 @@ export const authenticate = (req, res, next) => {
     }
   }
 };
+
+export const optionalAuthenticate = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
+      req.user = jwt.verify(token, secret);
+    }
+    next();
+  } catch (_e) {
+    next();
+  }
+};
+
+export default {
+  authenticate,
+  optionalAuthenticate
+};

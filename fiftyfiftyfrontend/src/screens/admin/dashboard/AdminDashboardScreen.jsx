@@ -1,98 +1,287 @@
 import React from 'react';
-import { Building2, Users, CheckCircle, Clock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StatCard } from '../../../shared/components/StatCard/StatCard';
-import { Table } from '../../../shared/components/Table/Table';
-import { Badge } from '../../../shared/components/Badge/Badge';
-import { formatDate } from '../../../shared/utils/formatters';
+import {
+  Building2,
+  ShieldCheck,
+  Database,
+  ArrowRight,
+  Settings,
+  Sparkles
+} from 'lucide-react';
+import { Button } from '../../../shared/components/Button/Button';
+import { useAuth } from '../../../context/AuthContext';
 
 export const AdminDashboardScreen = () => {
-  const stats = {
-    totalGyms: 28,
-    activeGyms: 25,
-    inactiveGyms: 3,
-    totalPlatformMembers: 4120,
-    newGymsThisMonth: 6
-  };
-
-  const newRegistrations = [
-    { id: 'GYM-101', name: 'Spartan Strength Lab', owner: 'Vikram Malhotra', email: 'spartan@fit.in', phone: '+91 98111 00011', registeredOn: '2026-03-22', status: 'pending' },
-    { id: 'GYM-102', name: 'Pulse CrossFit Arena', owner: 'Neha Joshi', email: 'pulse@gym.com', phone: '+91 98222 00022', registeredOn: '2026-03-21', status: 'active' },
-    { id: 'GYM-103', name: 'Iron & Grace Fitness', owner: 'Dev Patel', email: 'iron@grace.in', phone: '+91 98333 00033', registeredOn: '2026-03-19', status: 'active' }
-  ];
-
-  const columns = [
-    { header: 'Gym ID', key: 'id' },
-    {
-      header: 'Gym Name',
-      key: 'name',
-      render: (g) => <span style={{ fontWeight: 600 }}>{g.name}</span>
-    },
-    { header: 'Owner', key: 'owner' },
-    { header: 'Contact', key: 'email' },
-    {
-      header: 'Registered On',
-      key: 'registeredOn',
-      render: (g) => formatDate(g.registeredOn)
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      render: (g) => <Badge status={g.status} />
-    },
-    {
-      header: 'Action',
-      key: 'action',
-      render: (g) => (
-        <button className="btn btn-secondary btn-sm">Review & Approve</button>
-      )
-    }
-  ];
+  const { user } = useAuth();
 
   return (
-    <div className="animate-fade-in">
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: '1.75rem', marginBottom: 4 }}>Platform Super Admin Dashboard</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          System-wide metrics and gym-owner account management
-        </p>
-      </div>
+    <div className="animate-fade-in" style={{ maxWidth: 1080, margin: '0 auto', padding: '8px 0 32px' }}>
+      {/* Welcome Hero Banner */}
+      <div style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 20,
+        padding: '36px 32px',
+        marginBottom: 28,
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 24
+      }}>
+        <div style={{ maxWidth: 620 }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'var(--brand-primary-light, #FFF7ED)',
+            color: 'var(--brand-primary, #FF6B00)',
+            padding: '6px 14px',
+            borderRadius: 20,
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            marginBottom: 16
+          }}>
+            <Sparkles size={14} />
+            <span>Platform Administration</span>
+          </div>
 
-      <div className="admin-stats-grid">
-        <StatCard
-          title="Total Registered Gyms"
-          value={stats.totalGyms}
-          subtitle={`${stats.activeGyms} Active • ${stats.inactiveGyms} Inactive/Pending`}
-          icon={Building2}
-        />
-        <StatCard
-          title="Active Gym Accounts"
-          value={stats.activeGyms}
-          subtitle="Operational tenant instances"
-          icon={CheckCircle}
-        />
-        <StatCard
-          title="Total Platform Members"
-          value={stats.totalPlatformMembers.toLocaleString()}
-          subtitle="Members across all gyms"
-          icon={Users}
-        />
-        <StatCard
-          title="New Gyms This Month"
-          value={`+${stats.newGymsThisMonth}`}
-          subtitle="Onboarded recently"
-          icon={Clock}
-        />
-      </div>
+          <h1 style={{
+            fontSize: '2rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: '0 0 10px',
+            letterSpacing: '-0.02em'
+          }}>
+            Welcome to Super Admin
+          </h1>
 
-      <div style={{ background: 'var(--bg-surface)', padding: 24, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontSize: '1.15rem' }}>Recent Gym Registrations</h2>
-          <Link to="/admin/gyms" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-            Manage All Gyms <ArrowRight size={14} />
+          <p style={{
+            fontSize: '1.05rem',
+            color: 'var(--text-secondary)',
+            margin: '0 0 24px',
+            lineHeight: 1.55
+          }}>
+            Manage your gym profile and application settings from one place.
+          </p>
+
+          <Link to="/admin/gyms" style={{ textDecoration: 'none' }}>
+            <Button style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '12px 22px',
+              fontSize: '0.95rem',
+              fontWeight: 600
+            }}>
+              <span>Go to Gym Management</span>
+              <ArrowRight size={17} />
+            </Button>
           </Link>
         </div>
-        <Table columns={columns} data={newRegistrations} />
+
+        <div style={{
+          width: 80,
+          height: 80,
+          borderRadius: 22,
+          background: 'var(--brand-primary-light, #FFF7ED)',
+          color: 'var(--brand-primary, #FF6B00)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <Settings size={40} />
+        </div>
+      </div>
+
+      {/* Administrative Overview Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: 20
+      }}>
+        {/* Module Card: Gym Management */}
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 18,
+          padding: 26,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{
+              width: 46,
+              height: 46,
+              borderRadius: 12,
+              background: 'var(--brand-primary-light, #FFF7ED)',
+              color: 'var(--brand-primary, #FF6B00)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16
+            }}>
+              <Building2 size={24} />
+            </div>
+
+            <h2 style={{
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 8px'
+            }}>
+              Gym Management
+            </h2>
+
+            <p style={{
+              fontSize: '0.9rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5,
+              margin: '0 0 20px'
+            }}>
+              View and update your gym's official profile, logo, address, operating hours, and business contact information.
+            </p>
+          </div>
+
+          <Link to="/admin/gyms" style={{ textDecoration: 'none' }}>
+            <Button variant="secondary" className="w-full" style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8
+            }}>
+              <span>Manage Gym Profile</span>
+              <ArrowRight size={15} />
+            </Button>
+          </Link>
+        </div>
+
+        {/* Security & Access Card */}
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 18,
+          padding: 26,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{
+              width: 46,
+              height: 46,
+              borderRadius: 12,
+              background: 'var(--brand-primary-light, #FFF7ED)',
+              color: 'var(--brand-primary, #FF6B00)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16
+            }}>
+              <ShieldCheck size={24} />
+            </div>
+
+            <h2 style={{
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 8px'
+            }}>
+              Super Admin Access
+            </h2>
+
+            <p style={{
+              fontSize: '0.9rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5,
+              margin: '0 0 20px'
+            }}>
+              Authenticated as <strong>{user?.email || 'Super Admin'}</strong> with system-wide administrative authorization.
+            </p>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: '0.825rem',
+            color: 'var(--color-success, #16A34A)',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>●</span>
+            <span>Role: SUPER_ADMIN</span>
+          </div>
+        </div>
+
+        {/* Database & Infrastructure Card */}
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 18,
+          padding: 26,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{
+              width: 46,
+              height: 46,
+              borderRadius: 12,
+              background: 'var(--brand-primary-light, #FFF7ED)',
+              color: 'var(--brand-primary, #FF6B00)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16
+            }}>
+              <Database size={24} />
+            </div>
+
+            <h2 style={{
+              fontSize: '1.2rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 8px'
+            }}>
+              Database Connectivity
+            </h2>
+
+            <p style={{
+              fontSize: '0.9rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5,
+              margin: '0 0 20px'
+            }}>
+              Direct connection to Supabase PostgreSQL with TLS/SSL encryption and connection pooling.
+            </p>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: '0.825rem',
+            color: 'var(--color-success, #16A34A)',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>●</span>
+            <span>Status: Connected to Supabase</span>
+          </div>
+        </div>
       </div>
     </div>
   );

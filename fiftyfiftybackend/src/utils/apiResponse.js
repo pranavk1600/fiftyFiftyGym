@@ -10,6 +10,10 @@ export class ApiResponse {
     });
   }
 
+  static created(res, data = null, message = 'Resource created successfully') {
+    return this.success(res, data, message, HTTP_STATUS.CREATED);
+  }
+
   static error(res, message = 'Internal Server Error', statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR, errors = null) {
     return res.status(statusCode).json({
       success: false,

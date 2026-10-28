@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -8,17 +8,25 @@ import {
   Receipt,
   Bell,
   LogOut,
-  Dumbbell
+  Dumbbell,
+  Menu,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
 
 export const OwnerLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/admin/login');
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
   };
 
   const navLinks = [
@@ -32,10 +40,29 @@ export const OwnerLayout = () => {
 
   return (
     <div className="app-layout-wrapper">
-      <aside className="app-sidebar">
+      {/* Mobile Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={closeMobileMenu}
+          aria-label="Close sidebar"
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <aside className={`app-sidebar ${isMobileMenuOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand">
           <Dumbbell size={24} color="var(--brand-primary)" />
           <span><span className="brand-highlight">FIFTY</span>FIFTY</span>
+          {isMobileMenuOpen && (
+            <button
+              onClick={closeMobileMenu}
+              style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}
+              aria-label="Close navigation"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
@@ -45,6 +72,7 @@ export const OwnerLayout = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={closeMobileMenu}
                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
               >
                 <Icon size={18} />
@@ -66,19 +94,81 @@ export const OwnerLayout = () => {
         </div>
       </aside>
 
+      {/* Main Viewport */}
       <div className="app-main-viewport">
         <header className="app-topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Gym:</span>
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-              {user?.gymName || 'FiftyFifty Gym'}
-            </span>
+            <button
+              type="button"
+              className="mobile-sidebar-toggle"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Open sidebar menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {user?.gymLogoUrl || user?.logo_url || user?.gym?.logo_url ? (
+                <img
+                  src={user.gymLogoUrl || user.logo_url || user.gym?.logo_url}
+                  alt={user?.gymName || 'Gym Logo'}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    objectFit: 'cover',
+                    border: '1px solid var(--border-subtle)',
+                    background: '#FFFFFF'
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  background: 'var(--brand-primary-light, #FFF7ED)',
+                  color: 'var(--brand-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid rgba(255, 107, 0, 0.2)'
+                }}>
+                  <Dumbbell size={16} />
+                </div>
+              )}
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                {user?.gymName || user?.gym?.name || 'FiftyFifty Downtown Fitness'}
+              </span>
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{user?.fullName || 'Gym Owner'}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gym Manager</div>
+            <ThemeToggle />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {user?.fullName || 'Gym Owner'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Gym Manager</div>
+              </div>
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--radius-full)',
+                background: 'var(--brand-primary-soft)',
+                color: 'var(--brand-primary)',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid var(--brand-primary-soft-border)',
+                userSelect: 'none'
+              }}>
+                {(user?.fullName || 'G').charAt(0)}
+              </div>
             </div>
           </div>
         </header>

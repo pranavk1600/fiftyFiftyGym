@@ -1,0 +1,194 @@
+.attendance-chart-widget {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.attendance-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.attendance-chart-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attendance-trend-pill {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.01em;
+}
+
+.attendance-chart-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Chart display mode switcher */
+.chart-mode-toggle {
+  display: inline-flex;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+
+.chart-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chart-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.chart-mode-btn.active {
+  background: var(--bg-surface);
+  color: var(--brand-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* SVG Chart Elements */
+.attendance-svg-wrapper {
+  width: 100%;
+  position: relative;
+  overflow: visible;
+  user-select: none;
+}
+
+.attendance-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chart-grid-line {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.chart-axis-y-text {
+  fill: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  text-anchor: end;
+}
+
+.chart-axis-x-text {
+  fill: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-family);
+  font-weight: 600;
+  text-anchor: middle;
+  transition: fill 0.2s ease, font-weight 0.2s ease;
+}
+
+.chart-axis-x-text.active-day-label {
+  fill: var(--brand-primary);
+  font-weight: 700;
+}
+
+.chart-bar-track {
+  fill: var(--bg-surface-elevated);
+  opacity: 0.6;
+}
+
+.chart-bar-rect {
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.chart-bar-rect:hover,
+.chart-bar-rect.bar-hovered {
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 8px rgba(255, 107, 0, 0.3));
+}
+
+.chart-col-hover-area {
+  cursor: pointer;
+}
+
+/* Floating interactive tooltip */
+.chart-tooltip-box {
+  fill: var(--bg-surface);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+.chart-tooltip-text {
+  fill: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-family);
+  font-weight: 700;
+}
+
+/* Point circle hover */
+.chart-point-circle {
+  transition: r 0.15s ease;
+  cursor: pointer;
+}
+
+/* Bottom Chart Highlights Footer */
+.attendance-chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.chart-footer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chart-footer-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chart-footer-value {
+  font-size: 0.925rem;
+  color: var(--text-primary);
+}
+
+.chart-footer-value strong {
+  font-weight: 700;
+}

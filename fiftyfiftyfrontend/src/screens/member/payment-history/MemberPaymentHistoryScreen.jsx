@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Receipt, Download, Printer } from 'lucide-react';
+import { Receipt, Printer } from 'lucide-react';
 import { Table } from '../../../shared/components/Table/Table';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { Modal } from '../../../shared/components/Modal/Modal';
@@ -17,7 +17,11 @@ export const MemberPaymentHistoryScreen = () => {
 
   const columns = [
     { header: 'Receipt No.', key: 'id' },
-    { header: 'Plan Description', key: 'plan' },
+    {
+      header: 'Plan Description',
+      key: 'plan',
+      render: (p) => <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.plan}</span>
+    },
     {
       header: 'Amount Paid',
       key: 'amount',
@@ -27,7 +31,11 @@ export const MemberPaymentHistoryScreen = () => {
         </span>
       )
     },
-    { header: 'Payment Method', key: 'mode' },
+    {
+      header: 'Payment Method',
+      key: 'mode',
+      render: (p) => <Badge status="info">{p.mode}</Badge>
+    },
     {
       header: 'Date',
       key: 'date',
@@ -53,7 +61,7 @@ export const MemberPaymentHistoryScreen = () => {
   return (
     <div className="animate-fade-in">
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: '1.75rem', marginBottom: 4 }}>My Payment History & Receipts</h1>
+        <h1 style={{ fontSize: '1.85rem', marginBottom: 4, color: 'var(--text-primary)' }}>My Payment History & Receipts</h1>
         <p style={{ color: 'var(--text-secondary)' }}>
           View past subscription fees, payment modes, and printable receipts
         </p>
@@ -73,30 +81,42 @@ export const MemberPaymentHistoryScreen = () => {
         }
       >
         {selectedReceipt && (
-          <div style={{ padding: 12, border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <h3>FiftyFifty Downtown Fitness</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Payment Acknowledgment</p>
+          <div style={{
+            padding: 20,
+            border: '1px dashed var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--bg-surface-elevated)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>FiftyFifty Downtown Fitness</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Official Payment Acknowledgment</p>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Receipt Number:</span>
-              <strong style={{ fontFamily: 'monospace' }}>{selectedReceipt.id}</strong>
+              <strong style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{selectedReceipt.id}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Plan:</span>
-              <span>{selectedReceipt.plan}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Plan Description:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedReceipt.plan}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Date:</span>
-              <span>{formatDate(selectedReceipt.date)}</span>
+              <span style={{ color: 'var(--text-primary)' }}>{formatDate(selectedReceipt.date)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.9rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Payment Mode:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Payment Method:</span>
               <Badge status="info">{selectedReceipt.mode}</Badge>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
-              <strong>Total Paid:</strong>
-              <strong style={{ color: 'var(--brand-accent)', fontSize: '1.2rem' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop: '1px solid var(--border-subtle)'
+            }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Total Paid:</strong>
+              <strong style={{ color: 'var(--brand-accent)', fontSize: '1.3rem' }}>
                 {formatCurrency(selectedReceipt.amount)}
               </strong>
             </div>

@@ -1,13 +1,14 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--modal-overlay-bg);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   z-index: 1000;
+  animation: fadeIn 0.15s ease-out;
 }
 
 .modal-container {
@@ -19,6 +20,7 @@
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: fadeIn 0.2s ease-out;
+  color: var(--text-primary);
 }
 
 .modal-header {
@@ -27,12 +29,20 @@
   justify-content: space-between;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.modal-header h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .modal-body {
   padding: 24px;
   max-height: 75vh;
   overflow-y: auto;
+  color: var(--text-primary);
 }
 
 .modal-footer {
@@ -42,5 +52,5 @@
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--modal-footer-bg);
 }

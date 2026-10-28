@@ -1,26 +1,39 @@
 import { Router } from 'express';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { checkDatabaseHealth } from '../config/db.js';
+
+import authRoutes from './auth.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
+import membersRoutes from './members.routes.js';
+import plansRoutes from './plans.routes.js';
+import attendanceRoutes from './attendance.routes.js';
+import paymentsRoutes from './payments.routes.js';
+import notificationsRoutes from './notifications.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const router = Router();
 
-// Health check endpoint
-router.get('/health', (req, res) => {
+// Health check endpoint with safe database probe
+router.get('/health', async (req, res) => {
+  const dbHealth = await checkDatabaseHealth();
+
   return ApiResponse.success(res, {
     status: 'healthy',
     environment: process.env.NODE_ENV || 'development',
-    time: new Date().toISOString()
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: dbHealth,
+    timestamp: new Date().toISOString()
   }, 'FiftyFifty Gym API is operating normally');
 });
 
-// Placeholders for module routers (to be attached as modules are built)
-// router.use('/auth', authRoutes);
-// router.use('/admin', adminRoutes);
-// router.use('/owner', ownerRoutes);
-// router.use('/members', memberRoutes);
-// router.use('/plans', planRoutes);
-// router.use('/attendance', attendanceRoutes);
-// router.use('/payments', paymentRoutes);
-// router.use('/notifications', notificationRoutes);
-// router.use('/portal', memberPortalRoutes);
+// Mount module routers
+router.use('/auth', authRoutes);
+router.use('/owner', dashboardRoutes);
+router.use('/members', membersRoutes);
+router.use('/plans', plansRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/payments', paymentsRoutes);
+router.use('/notifications', notificationsRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;

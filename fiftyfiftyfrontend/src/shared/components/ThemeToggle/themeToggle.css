@@ -1,0 +1,58 @@
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-surface);
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(255, 107, 0, 0.15);
+}
+
+.theme-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-toggle-btn:hover .sun-icon {
+  transform: rotate(45deg);
+  color: var(--brand-primary);
+}
+
+.theme-toggle-btn:hover .moon-icon {
+  transform: rotate(-15deg);
+  color: var(--brand-secondary);
+}
+
+.sun-icon {
+  color: var(--brand-primary);
+}
+
+.moon-icon {
+  color: var(--brand-secondary);
+}
+
+.theme-toggle-label {
+  letter-spacing: 0.01em;
+}
