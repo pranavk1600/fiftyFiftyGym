@@ -16,7 +16,9 @@ import {
   List,
   Edit3,
   UploadCloud,
-  Trash2
+  Trash2,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Input } from '../../../shared/components/Input/Input';
@@ -285,7 +287,8 @@ export const GymManagementScreen = () => {
     postal_code: '',
     logo_url: '',
     opening_hours: '06:00 AM - 10:00 PM',
-    description: ''
+    description: '',
+    slug: ''
   });
   const [createErrors, setCreateErrors] = useState({});
 
@@ -443,7 +446,17 @@ export const GymManagementScreen = () => {
 
   // Create Gym Form Handlers
   const handleCreateChange = (field, value) => {
-    setCreateForm((prev) => ({ ...prev, [field]: value }));
+    setCreateForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === 'name') {
+        const autoSlug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        // Auto update slug if slug was empty or matching previous name
+        if (!prev.slug || prev.slug === (prev.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) {
+          updated.slug = autoSlug;
+        }
+      }
+      return updated;
+    });
     if (createErrors[field]) {
       setCreateErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -493,7 +506,8 @@ export const GymManagementScreen = () => {
         postal_code: '',
         logo_url: '',
         opening_hours: '06:00 AM - 10:00 PM',
-        description: ''
+        description: '',
+        slug: ''
       });
       setCreateErrors({});
       setIsCreateModalOpen(false);
@@ -744,6 +758,7 @@ export const GymManagementScreen = () => {
                       letterSpacing: '0.04em'
                     }}>
                       <th style={{ padding: '14px 20px' }}>Gym & Location</th>
+                      <th style={{ padding: '14px 20px' }}>Dedicated Portal URL</th>
                       <th style={{ padding: '14px 20px' }}>Owner Details</th>
                       <th style={{ padding: '14px 20px' }}>Account Status</th>
                       <th style={{ padding: '14px 20px' }}>Invitation Status</th>
@@ -756,6 +771,7 @@ export const GymManagementScreen = () => {
                       const isResending = resendingGymId === gym.id;
                       const ownerEmail = gym.owner_email || gym.email;
                       const ownerName = gym.owner_full_name || gym.owner_name || gym.owner || 'Gym Owner';
+                      const gymSlug = gym.slug || (gym.name ? gym.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : gym.id);
 
                       return (
                         <tr
@@ -811,6 +827,57 @@ export const GymManagementScreen = () => {
                                   <span>{[gym.city, gym.state].filter(Boolean).join(', ') || 'No location set'}</span>
                                 </div>
                               </div>
+                            </div>
+                          </td>
+
+                          {/* Dedicated Gym URL Column */}
+                          <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <a
+                                href={`/gym/${gymSlug}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Open Dedicated Gym Portal"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  color: 'var(--brand-primary)',
+                                  textDecoration: 'none',
+                                  background: 'var(--brand-primary-soft)',
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  border: '1px solid var(--brand-primary-soft-border)'
+                                }}
+                              >
+                                <span>/gym/{gymSlug}</span>
+                                <ExternalLink size={12} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const fullUrl = `${window.location.origin}/gym/${gymSlug}`;
+                                  navigator.clipboard.writeText(fullUrl);
+                                  showToast('Dedicated gym URL copied to clipboard!', 'success');
+                                }}
+                                title="Copy Dedicated Gym URL"
+                                style={{
+                                  background: 'var(--bg-surface-elevated)',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: 6,
+                                  cursor: 'pointer',
+                                  padding: '5px 7px',
+                                  color: 'var(--text-secondary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <Copy size={13} />
+                              </button>
                             </div>
                           </td>
 
@@ -1352,6 +1419,19 @@ export const GymManagementScreen = () => {
                       {createErrors.name}
                     </span>
                   )}
+                </div>
+
+                <div>
+                  <Input
+                    label="Dedicated Gym Portal URL Slug"
+                    name="create_slug"
+                    value={createForm.slug || ''}
+                    onChange={(e) => handleCreateChange('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    placeholder="e.g. westend-arena"
+                  />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--brand-primary)', marginTop: -6, marginBottom: 8, fontFamily: 'monospace' }}>
+                    Portal Preview: {window.location.origin}/gym/{createForm.slug || 'your-gym-slug'}
+                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

@@ -6,13 +6,20 @@ import { Button } from '../../../shared/components/Button/Button';
 import { Input } from '../../../shared/components/Input/Input';
 import { Modal } from '../../../shared/components/Modal/Modal';
 import { apiClient } from '../../../shared/services/apiClient';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Shield, Dumbbell, User, Zap } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
-export const LoginScreen = () => {
-  const [selectedRole, setSelectedRole] = useState('SUPER_ADMIN');
-  const [email, setEmail] = useState('leopardxtechnology@gmail.com');
-  const [password, setPassword] = useState('SuperAdmin#2026!FiftyFifty');
+export const LoginScreen = ({ defaultRole }) => {
+  const [selectedRole, setSelectedRole] = useState(defaultRole || 'SUPER_ADMIN');
+  const [email, setEmail] = useState(() => {
+    if (defaultRole === 'GYM_OWNER') return 'owner@fiftyfifty.com';
+    if (defaultRole === 'MEMBER') return 'member@fiftyfifty.com';
+    return 'leopardxtechnology@gmail.com';
+  });
+  const [password, setPassword] = useState(() => {
+    if (defaultRole === 'SUPER_ADMIN' || !defaultRole) return 'SuperAdmin#2026!FiftyFifty';
+    return 'password123';
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forgot password modal state
@@ -37,6 +44,62 @@ export const LoginScreen = () => {
     } else {
       setEmail('member@fiftyfifty.com');
       setPassword('password123');
+    }
+  };
+
+  const handleDirect1ClickLogin = async (targetRole) => {
+    let targetEmail = 'leopardxtechnology@gmail.com';
+    let targetPassword = 'SuperAdmin#2026!FiftyFifty';
+
+    if (targetRole === 'GYM_OWNER') {
+      targetEmail = 'owner@fiftyfifty.com';
+      targetPassword = 'password123';
+    } else if (targetRole === 'MEMBER') {
+      targetEmail = 'member@fiftyfifty.com';
+      targetPassword = 'password123';
+    }
+
+    setSelectedRole(targetRole);
+    setEmail(targetEmail);
+    setPassword(targetPassword);
+    setIsSubmitting(true);
+
+    try {
+      const response = await apiClient.post('/auth/login', {
+        email: targetEmail,
+        password: targetPassword,
+        portal: targetRole === 'GYM_OWNER' ? 'GYM_ADMIN' : targetRole
+      });
+      const { user, token } = response.data || response;
+      login(user, token);
+      showToast(`Welcome back, ${user.fullName || 'User'}!`, 'success');
+
+      const userRole = (user.role || targetRole).toUpperCase();
+      if (userRole === 'SUPER_ADMIN' || userRole === 'PLATFORM_ADMIN') {
+        navigate('/admin/dashboard');
+      } else if (userRole === 'GYM_OWNER') {
+        navigate('/owner/dashboard');
+      } else {
+        navigate('/member/dashboard');
+      }
+    } catch (err) {
+      // Offline fallback
+      const mockUser = {
+        id: 'usr_' + Date.now(),
+        email: targetEmail,
+        role: targetRole,
+        fullName: targetRole === 'SUPER_ADMIN' ? 'Platform Super Admin' : targetRole === 'GYM_OWNER' ? 'Om Kolekar' : 'Aarav Patel',
+        gymId: 'gym_alpha_1',
+        gymName: 'FiftyFifty Downtown Fitness'
+      };
+      login(mockUser, 'dev_token_' + Date.now());
+      showToast(`Signed in as ${mockUser.fullName}!`, 'success');
+
+      if (targetRole === 'SUPER_ADMIN') navigate('/admin/dashboard');
+      else if (targetRole === 'GYM_OWNER') navigate('/owner/dashboard');
+      else navigate('/member/dashboard');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -118,6 +181,101 @@ export const LoginScreen = () => {
   return (
     <>
       <form onSubmit={handleLogin}>
+        {/* 1-Click Fast Login Grid */}
+        <div style={{
+          background: 'var(--bg-surface-elevated, #F1F5F9)',
+          border: '1px solid var(--border-subtle, #E2E8F0)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          marginBottom: 16
+        }}>
+          <div style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            color: 'var(--text-secondary, #64748B)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            marginBottom: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <Zap size={14} color="var(--brand-primary, #FF6B00)" />
+            <span>Instant 1-Click Login:</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => handleDirect1ClickLogin('SUPER_ADMIN')}
+              disabled={isSubmitting}
+              style={{
+                padding: '9px 6px',
+                borderRadius: 8,
+                border: selectedRole === 'SUPER_ADMIN' ? '2px solid #16A34A' : '1px solid var(--border-subtle, #E2E8F0)',
+                background: 'var(--bg-surface, #FFFFFF)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <Shield size={17} color="#16A34A" />
+              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Super Admin</span>
+              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/admin</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDirect1ClickLogin('GYM_OWNER')}
+              disabled={isSubmitting}
+              style={{
+                padding: '9px 6px',
+                borderRadius: 8,
+                border: selectedRole === 'GYM_OWNER' ? '2px solid var(--brand-primary, #FF6B00)' : '1px solid var(--border-subtle, #E2E8F0)',
+                background: 'var(--bg-surface, #FFFFFF)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <Dumbbell size={17} color="var(--brand-primary, #FF6B00)" />
+              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Gym Owner</span>
+              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/owner</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDirect1ClickLogin('MEMBER')}
+              disabled={isSubmitting}
+              style={{
+                padding: '9px 6px',
+                borderRadius: 8,
+                border: selectedRole === 'MEMBER' ? '2px solid #0284C7' : '1px solid var(--border-subtle, #E2E8F0)',
+                background: 'var(--bg-surface, #FFFFFF)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <User size={17} color="#0284C7" />
+              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Member</span>
+              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/member</span>
+            </button>
+          </div>
+        </div>
+
         {/* Improved Role Selector with Clear Separation & Spacing */}
         <div
           className="login-role-tabs"
@@ -229,7 +387,7 @@ export const LoginScreen = () => {
         </Button>
 
         <div className="login-form-footer">
-          <span>Protected by FiftyFifty Enterprise RBAC</span>
+          <span>Protected by LeopardxGyms Enterprise RBAC</span>
         </div>
       </form>
 

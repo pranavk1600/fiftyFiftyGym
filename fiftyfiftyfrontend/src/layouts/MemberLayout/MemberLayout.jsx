@@ -26,7 +26,7 @@ export const MemberLayout = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Dumbbell size={24} color="var(--brand-primary)" />
           <span style={{ fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            FIFTY<span style={{ color: 'var(--brand-primary)' }}>FIFTY</span> MEMBER
+            LEOPARDX<span style={{ color: 'var(--brand-primary)' }}>GYMS</span> MEMBER
           </span>
         </div>
 

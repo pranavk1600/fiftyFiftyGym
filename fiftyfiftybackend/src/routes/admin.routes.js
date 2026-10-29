@@ -175,7 +175,7 @@ router.get('/gyms', async (req, res, next) => {
   try {
     const result = await db.query(`
       SELECT 
-        g.id, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
+        g.id, g.slug, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
         g.logo_url, g.address, g.city, g.state, g.postal_code, g.opening_hours, g.description,
         g.business_contact, g.invitation_status, g.invitation_sent_at, g.created_at, g.updated_at,
         o.id AS owner_user_id,
@@ -200,6 +200,7 @@ router.get('/gyms', async (req, res, next) => {
 
       return {
         ...gym,
+        slug: gym.slug || (gym.name ? gym.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : gym.id),
         displayInvitationStatus
       };
     });
@@ -219,7 +220,7 @@ router.get('/gyms/:id', async (req, res, next) => {
     const { id } = req.params;
     const result = await db.query(`
       SELECT 
-        g.id, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
+        g.id, g.slug, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
         g.logo_url, g.address, g.city, g.state, g.postal_code, g.opening_hours, g.description,
         g.business_contact, g.invitation_status, g.invitation_sent_at, g.created_at, g.updated_at,
         o.id AS owner_user_id,
@@ -301,7 +302,8 @@ router.post('/gyms', async (req, res, next) => {
       postal_code,
       logo_url,
       opening_hours,
-      description
+      description,
+      slug
     } = req.body || {};
 
     // 1. Validation & normalization
@@ -362,13 +364,27 @@ router.post('/gyms', async (req, res, next) => {
     client = await db.getClient();
     await client.query('BEGIN');
 
+    // Generate unique slug
+    let baseSlug = (slug && slug.trim())
+      ? slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      : gymNameClean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gym';
+
+    let uniqueSlug = baseSlug;
+    let slugIndex = 1;
+    while (true) {
+      const checkRes = await client.query('SELECT id FROM gyms WHERE LOWER(slug) = $1 LIMIT 1', [uniqueSlug]);
+      if (checkRes.rows.length === 0) break;
+      slugIndex++;
+      uniqueSlug = `${baseSlug}-${slugIndex}`;
+    }
+
     const gymInsertSql = `
       INSERT INTO gyms (
         id, name, owner_name, email, phone,
         address, city, state, postal_code, logo_url,
         opening_hours, description, business_contact, status,
-        invitation_status, invitation_sent_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active', 'pending', CURRENT_TIMESTAMP)
+        invitation_status, invitation_sent_at, slug
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active', 'pending', CURRENT_TIMESTAMP, $14)
       RETURNING *;
     `;
     const gymResult = await client.query(gymInsertSql, [
@@ -384,7 +400,8 @@ router.post('/gyms', async (req, res, next) => {
       logo_url ? logo_url.trim() : null,
       hoursClean,
       description ? description.trim() : null,
-      phoneClean
+      phoneClean,
+      uniqueSlug
     ]);
 
     const ownerInsertSql = `
@@ -602,11 +619,22 @@ router.put('/gyms/:id', async (req, res, next) => {
       opening_hours,
       description,
       business_contact,
-      status
+      status,
+      slug
     } = req.body || {};
 
     if (!name || !name.trim()) {
       return ApiResponse.error(res, 'Gym name is required', 400);
+    }
+
+    let finalSlug = null;
+    if (slug && slug.trim()) {
+      const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const existingSlug = await db.query('SELECT id FROM gyms WHERE LOWER(slug) = $1 AND id != $2 LIMIT 1', [cleanSlug, id]);
+      if (existingSlug.rows.length > 0) {
+        return ApiResponse.error(res, `Slug "${cleanSlug}" is already taken by another gym. Please choose a different slug.`, 409);
+      }
+      finalSlug = cleanSlug;
     }
 
     const updateSql = `
@@ -625,8 +653,9 @@ router.put('/gyms/:id', async (req, res, next) => {
         description = $11,
         business_contact = COALESCE($12, business_contact),
         status = COALESCE($13, status),
+        slug = COALESCE($14, slug),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
+      WHERE id = $15
       RETURNING *;
     `;
 
@@ -644,6 +673,7 @@ router.put('/gyms/:id', async (req, res, next) => {
       description ? description.trim() : null,
       business_contact ? business_contact.trim() : null,
       status || null,
+      finalSlug,
       id
     ];
 

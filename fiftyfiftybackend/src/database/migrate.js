@@ -173,6 +173,26 @@ export const runMigrations = async () => {
     `);
     console.log('[Migration] password_reset_tokens foreign key verified to super_admins.');
 
+    // 6. Backfill slugs for existing gyms if empty
+    try {
+      const gymsWithoutSlug = await db.query("SELECT id, name FROM gyms WHERE slug IS NULL OR slug = ''");
+      for (const g of gymsWithoutSlug.rows) {
+        let baseSlug = (g.name || 'gym').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'gym';
+        let candidateSlug = baseSlug;
+        let counter = 1;
+        while (true) {
+          const check = await db.query('SELECT id FROM gyms WHERE LOWER(slug) = $1 AND id != $2', [candidateSlug, g.id]);
+          if (check.rows.length === 0) break;
+          counter++;
+          candidateSlug = `${baseSlug}-${counter}`;
+        }
+        await db.query('UPDATE gyms SET slug = $1 WHERE id = $2', [candidateSlug, g.id]);
+        console.log(`[Migration] Assigned slug "${candidateSlug}" to gym "${g.name}" (${g.id})`);
+      }
+    } catch (_slugErr) {
+      console.warn('[Migration] Note: Gym slug backfill skipped or column pending:', _slugErr.message);
+    }
+
     return { success: true, health };
   } catch (err) {
     console.error('[Migration Error] Failed to execute schema statements:', err.message);

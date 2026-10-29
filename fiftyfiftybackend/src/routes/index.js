@@ -10,6 +10,7 @@ import attendanceRoutes from './attendance.routes.js';
 import paymentsRoutes from './payments.routes.js';
 import notificationsRoutes from './notifications.routes.js';
 import adminRoutes from './admin.routes.js';
+import publicRoutes from './public.routes.js';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.get('/health', async (req, res) => {
 });
 
 // Mount module routers
+router.use('/public', publicRoutes);
 router.use('/auth', authRoutes);
 router.use('/owner', dashboardRoutes);
 router.use('/members', membersRoutes);

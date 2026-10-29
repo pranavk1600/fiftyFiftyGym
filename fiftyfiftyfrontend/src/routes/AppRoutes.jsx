@@ -10,6 +10,9 @@ import OwnerLayout from '../layouts/OwnerLayout/OwnerLayout';
 import MemberLayout from '../layouts/MemberLayout/MemberLayout';
 
 // Screens
+import LandingScreen from '../screens/public/LandingScreen';
+import GymPortalScreen from '../screens/public/GymPortalScreen';
+import LoginScreen from '../screens/auth/login/LoginScreen';
 import SuperAdminLoginScreen from '../screens/auth/superadmin-login/SuperAdminLoginScreen';
 import GymAdminLoginScreen from '../screens/auth/gym-admin-login/GymAdminLoginScreen';
 import ResetPasswordScreen from '../screens/auth/reset-password/ResetPasswordScreen';
@@ -29,22 +32,21 @@ import MemberProfileScreen from '../screens/member/profile/MemberProfileScreen';
 export const AppRoutes = () => {
   return (
     <Routes>
-      {/* Root redirect to safe least-privileged login */}
-      <Route path="/" element={<Navigate to="/admin/login" replace />} />
+      {/* 1. Public SaaS Landing Page */}
+      <Route path="/" element={<LandingScreen />} />
 
-      {/* Public Auth Routes */}
+      {/* 2. Multi-Tenant Dedicated Gym Portal */}
+      <Route path="/gym/:slug" element={<GymPortalScreen />} />
+
+      {/* 3. Public Auth Routes */}
       <Route element={<AuthLayout />}>
-        {/* 1. Dedicated Super Admin Login URL */}
-        <Route path="/superadmin/login" element={<SuperAdminLoginScreen />} />
+        {/* Unified Login Endpoints for Every Role */}
+        <Route path="/superadmin/login" element={<LoginScreen defaultRole="SUPER_ADMIN" />} />
         <Route path="/superadmin" element={<Navigate to="/superadmin/login" replace />} />
+        <Route path="/admin/login" element={<LoginScreen defaultRole="GYM_OWNER" />} />
+        <Route path="/login" element={<LoginScreen defaultRole="SUPER_ADMIN" />} />
 
-        {/* 2. Dedicated Gym Admin / Owner Login URL */}
-        <Route path="/admin/login" element={<GymAdminLoginScreen />} />
-
-        {/* 3. Generic /login redirect to Gym Admin login */}
-        <Route path="/login" element={<Navigate to="/admin/login" replace />} />
-
-        {/* 4. Super Admin Password Reset */}
+        {/* Super Admin Password Reset */}
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
       </Route>
 
@@ -86,7 +88,7 @@ export const AppRoutes = () => {
       </Route>
 
       {/* Catch-all Fallback */}
-      <Route path="*" element={<Navigate to="/admin/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
