@@ -52,7 +52,7 @@ router.get('/dashboard', async (req, res, next) => {
 
 /**
  * GET /api/admin/gym
- * Returns the gym's full profile and settings.
+ * Returns the primary gym's full profile and settings.
  * All gym-specific information is maintained exclusively inside Gym Management.
  */
 router.get('/gym', async (req, res, next) => {
@@ -169,7 +169,7 @@ router.put('/gym', async (req, res, next) => {
 
 /**
  * GET /api/admin/gyms
- * Returns all gyms in the system with owner details and invitation status.
+ * Returns all gyms in the system with owner metadata and invitation status from gym_owners table.
  */
 router.get('/gyms', async (req, res, next) => {
   try {
@@ -178,14 +178,14 @@ router.get('/gyms', async (req, res, next) => {
         g.id, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
         g.logo_url, g.address, g.city, g.state, g.postal_code, g.opening_hours, g.description,
         g.business_contact, g.invitation_status, g.invitation_sent_at, g.created_at, g.updated_at,
-        u.id AS owner_user_id,
-        u.email AS owner_email,
-        u.full_name AS owner_full_name,
-        u.status AS owner_status,
-        u.must_change_password,
-        u.last_login_at
+        o.id AS owner_user_id,
+        o.email AS owner_email,
+        o.full_name AS owner_full_name,
+        o.status AS owner_status,
+        o.must_change_password,
+        o.last_login_at
       FROM gyms g
-      LEFT JOIN users u ON u.gym_id = g.id AND u.role = 'GYM_OWNER'
+      LEFT JOIN gym_owners o ON o.gym_id = g.id
       ORDER BY g.created_at DESC;
     `);
 
@@ -212,7 +212,7 @@ router.get('/gyms', async (req, res, next) => {
 
 /**
  * GET /api/admin/gyms/:id
- * Returns a specific gym's full profile and owner details.
+ * Returns a specific gym's full profile and owner details from gym_owners.
  */
 router.get('/gyms/:id', async (req, res, next) => {
   try {
@@ -222,14 +222,14 @@ router.get('/gyms/:id', async (req, res, next) => {
         g.id, g.name, g.owner_name, g.owner_name AS owner, g.email, g.phone, g.status,
         g.logo_url, g.address, g.city, g.state, g.postal_code, g.opening_hours, g.description,
         g.business_contact, g.invitation_status, g.invitation_sent_at, g.created_at, g.updated_at,
-        u.id AS owner_user_id,
-        u.email AS owner_email,
-        u.full_name AS owner_full_name,
-        u.status AS owner_status,
-        u.must_change_password,
-        u.last_login_at
+        o.id AS owner_user_id,
+        o.email AS owner_email,
+        o.full_name AS owner_full_name,
+        o.status AS owner_status,
+        o.must_change_password,
+        o.last_login_at
       FROM gyms g
-      LEFT JOIN users u ON u.gym_id = g.id AND u.role = 'GYM_OWNER'
+      LEFT JOIN gym_owners o ON o.gym_id = g.id
       WHERE g.id = $1
       LIMIT 1;
     `, [id]);
@@ -288,7 +288,7 @@ router.post('/upload-logo', handleLogoUpload, handleLogoUploadAction);
  * and sends a Brevo invitation email with secure temporary credentials.
  */
 router.post('/gyms', async (req, res, next) => {
-  const client = await db.getClient();
+  let client = null;
   try {
     const {
       name,
@@ -322,15 +322,27 @@ router.post('/gyms', async (req, res, next) => {
       return ApiResponse.error(res, 'Owner phone number is required', 400);
     }
 
-    // 2. Enforce unique owner email across accounts
-    const existingUser = await db.query(
-      'SELECT id, email, role FROM users WHERE LOWER(email) = $1 LIMIT 1',
+    // 2. Enforce unique owner email across gym_owners and super_admins
+    const existingOwner = await db.query(
+      'SELECT id, email FROM gym_owners WHERE LOWER(email) = $1 LIMIT 1',
       [normalizedEmail]
     );
-    if (existingUser.rows.length > 0) {
+    if (existingOwner.rows.length > 0) {
       return ApiResponse.error(
         res,
         `An account with email "${normalizedEmail}" already exists. Each gym owner must have a unique email.`,
+        409
+      );
+    }
+
+    const existingSuperAdmin = await db.query(
+      'SELECT id, email FROM super_admins WHERE LOWER(email) = $1 LIMIT 1',
+      [normalizedEmail]
+    );
+    if (existingSuperAdmin.rows.length > 0) {
+      return ApiResponse.error(
+        res,
+        `An account with email "${normalizedEmail}" already exists. Super Admin emails cannot be reused as Gym Owners.`,
         409
       );
     }
@@ -346,7 +358,8 @@ router.post('/gyms', async (req, res, next) => {
     const phoneClean = phone.trim();
     const hoursClean = opening_hours && opening_hours.trim() ? opening_hours.trim() : '06:00 AM - 10:00 PM';
 
-    // 4. Atomic Database Transaction: Insert Gym + Owner User
+    // 4. Atomic Database Transaction: Insert Gym + Gym Owner Account
+    client = await db.getClient();
     await client.query('BEGIN');
 
     const gymInsertSql = `
@@ -374,18 +387,19 @@ router.post('/gyms', async (req, res, next) => {
       phoneClean
     ]);
 
-    const userInsertSql = `
-      INSERT INTO users (
-        id, email, password_hash, full_name, role, gym_id, status,
+    const ownerInsertSql = `
+      INSERT INTO gym_owners (
+        id, email, password_hash, full_name, phone, role, gym_id, status,
         must_change_password, invitation_status, invitation_sent_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'active', true, 'pending', CURRENT_TIMESTAMP)
-      RETURNING id, email, full_name, role, gym_id, status, must_change_password, created_at;
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', true, 'pending', CURRENT_TIMESTAMP)
+      RETURNING id, email, full_name, phone, role, gym_id, status, must_change_password, created_at;
     `;
-    const userResult = await client.query(userInsertSql, [
+    const ownerResult = await client.query(ownerInsertSql, [
       ownerUserId,
       normalizedEmail,
       passwordHash,
       ownerNameClean,
+      phoneClean,
       ROLES.GYM_OWNER,
       gymId
     ]);
@@ -393,7 +407,8 @@ router.post('/gyms', async (req, res, next) => {
     await client.query('COMMIT');
 
     // 5. Brevo Owner Invitation Email (Sent after transaction commits)
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
     const loginUrl = `${frontendUrl}/admin/login`;
 
     let emailDelivered = false;
@@ -421,13 +436,13 @@ router.post('/gyms', async (req, res, next) => {
 
     const invitationStatus = emailDelivered ? 'invitation_sent' : 'invitation_failed';
 
-    // Update invitation status record
+    // Update invitation status record in gyms and gym_owners
     await db.query(
       'UPDATE gyms SET invitation_status = $1, invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $2',
       [invitationStatus, gymId]
     );
     await db.query(
-      'UPDATE users SET invitation_status = $1, invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE gym_owners SET invitation_status = $1, invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $2',
       [invitationStatus, ownerUserId]
     );
 
@@ -455,21 +470,25 @@ router.post('/gyms', async (req, res, next) => {
 
     return ApiResponse.created(res, responsePayload, responseMessage);
   } catch (error) {
-    try {
-      await client.query('ROLLBACK');
-    } catch (_rbErr) {
-      // rollback error ignored
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rbErr) {
+        // rollback error ignored
+      }
     }
     next(error);
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 });
 
 /**
  * POST /api/admin/gyms/:id/resend-invitation
  * Regenerates a temporary password and resends the invitation email to the gym owner.
- * Never creates duplicate gym or user accounts.
+ * Never creates duplicate gym or owner accounts.
  */
 router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
   try {
@@ -485,10 +504,10 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
     }
     const gym = gymResult.rows[0];
 
-    // 2. Fetch linked Gym Owner user
+    // 2. Fetch linked Gym Owner from gym_owners table
     const ownerResult = await db.query(
-      'SELECT id, email, full_name, role, status FROM users WHERE gym_id = $1 AND role = $2 LIMIT 1',
-      [id, ROLES.GYM_OWNER]
+      'SELECT id, email, full_name, role, status FROM gym_owners WHERE gym_id = $1 LIMIT 1',
+      [id]
     );
     if (ownerResult.rows.length === 0) {
       return ApiResponse.error(res, 'No linked Gym Owner account found for this gym', 404);
@@ -500,13 +519,14 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
     const newPasswordHash = await bcrypt.hash(newTemporaryPassword, 10);
 
     await db.query(`
-      UPDATE users 
+      UPDATE gym_owners 
       SET password_hash = $1, must_change_password = true, updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
     `, [newPasswordHash, owner.id]);
 
-    // 4. Send Brevo invitation email
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    // 4. Send Brevo invitation email using configured FRONTEND_URL
+    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
     const loginUrl = `${frontendUrl}/admin/login`;
 
     let emailDelivered = false;
@@ -539,7 +559,7 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
       [invitationStatus, id]
     );
     await db.query(
-      'UPDATE users SET invitation_status = $1, invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $2',
+      'UPDATE gym_owners SET invitation_status = $1, invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $2',
       [invitationStatus, owner.id]
     );
 

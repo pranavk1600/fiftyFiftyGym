@@ -1,0 +1,242 @@
+// Prisma Schema for FiftyFifty Gym Management Software
+// Supports separate tables: super_admins, gym_owners, and gyms
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model SuperAdmin {
+  id           String    @id @db.VarChar(50)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(255)
+  role         String    @default("SUPER_ADMIN") @db.VarChar(50)
+  status       String    @default("active") @db.VarChar(50)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("super_admins")
+}
+
+model Gym {
+  id               String    @id @db.VarChar(50)
+  name             String    @db.VarChar(255)
+  ownerName        String?   @map("owner_name") @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(50)
+  status           String?   @default("active") @db.VarChar(50)
+  logoUrl          String?   @map("logo_url")
+  address          String?
+  city             String?   @db.VarChar(100)
+  state            String?   @db.VarChar(100)
+  postalCode       String?   @map("postal_code") @db.VarChar(20)
+  openingHours     String?   @map("opening_hours") @db.VarChar(100)
+  description      String?
+  businessContact  String?   @map("business_contact") @db.VarChar(100)
+  invitationStatus String?   @default("pending") @map("invitation_status") @db.VarChar(50)
+  invitationSentAt DateTime? @map("invitation_sent_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gymOwners           GymOwner[]
+  membershipPlans     MembershipPlan[]
+  members             Member[]
+  memberSubscriptions MemberSubscription[]
+  attendance          Attendance[]
+  payments            Payment[]
+  notifications       Notification[]
+
+  @@map("gyms")
+}
+
+model GymOwner {
+  id                 String    @id @db.VarChar(50)
+  email              String    @unique @db.VarChar(255)
+  passwordHash       String    @map("password_hash") @db.VarChar(255)
+  fullName           String    @map("full_name") @db.VarChar(255)
+  phone              String?   @db.VarChar(50)
+  role               String    @default("GYM_OWNER") @db.VarChar(50)
+  gymId              String    @map("gym_id") @db.VarChar(50)
+  status             String    @default("active") @db.VarChar(50)
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  invitationStatus   String    @default("pending") @map("invitation_status") @db.VarChar(50)
+  invitationSentAt   DateTime? @map("invitation_sent_at") @db.Timestamptz(6)
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId], map: "idx_gym_owners_gym_id")
+  @@map("gym_owners")
+}
+
+model User {
+  id                 String    @id @db.VarChar(50)
+  email              String    @unique @db.VarChar(255)
+  passwordHash       String    @map("password_hash") @db.VarChar(255)
+  fullName           String    @map("full_name") @db.VarChar(255)
+  role               String    @default("MEMBER") @db.VarChar(50)
+  gymId              String?   @map("gym_id") @db.VarChar(50)
+  status             String?   @default("active") @db.VarChar(50)
+  mustChangePassword Boolean?  @default(false) @map("must_change_password")
+  invitationStatus   String?   @default("pending") @map("invitation_status") @db.VarChar(50)
+  invitationSentAt   DateTime? @map("invitation_sent_at") @db.Timestamptz(6)
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+model MembershipPlan {
+  id            Int      @id @default(autoincrement())
+  gymId         String   @map("gym_id") @db.VarChar(50)
+  name          String   @db.VarChar(255)
+  durationDays  Int      @map("duration_days")
+  durationLabel String?  @map("duration_label") @db.VarChar(100)
+  price         Decimal  @db.Decimal(10, 2)
+  features      String[] @default([])
+  isPopular     Boolean  @default(false) @map("is_popular")
+  status        String   @default("active") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gym                 Gym                  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  members             Member[]
+  memberSubscriptions MemberSubscription[]
+
+  @@index([gymId], map: "idx_plans_gym_id")
+  @@map("membership_plans")
+}
+
+model Member {
+  id               String    @id @db.VarChar(50)
+  gymId            String    @map("gym_id") @db.VarChar(50)
+  userId           String?   @map("user_id") @db.VarChar(50)
+  fullName         String    @map("full_name") @db.VarChar(255)
+  phone            String    @db.VarChar(50)
+  email            String?   @db.VarChar(255)
+  currentPlanId    Int?      @map("current_plan_id")
+  currentPlanName  String?   @map("current_plan_name") @db.VarChar(255)
+  joinDate         DateTime  @default(now()) @map("join_date") @db.Date
+  expiryDate       DateTime? @map("expiry_date") @db.Date
+  status           String    @default("active") @db.VarChar(50)
+  emergencyContact String?   @map("emergency_contact") @db.VarChar(100)
+  totalVisits      Int       @default(0) @map("total_visits")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  gym                 Gym                  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  currentPlan         MembershipPlan?      @relation(fields: [currentPlanId], references: [id], onDelete: SetNull)
+  memberSubscriptions MemberSubscription[]
+  attendance          Attendance[]
+  payments            Payment[]
+
+  @@index([gymId], map: "idx_members_gym_id")
+  @@index([phone], map: "idx_members_phone")
+  @@index([status], map: "idx_members_status")
+  @@map("members")
+}
+
+model MemberSubscription {
+  id         Int      @id @default(autoincrement())
+  memberId   String   @map("member_id") @db.VarChar(50)
+  planId     Int      @map("plan_id")
+  gymId      String   @map("gym_id") @db.VarChar(50)
+  startDate  DateTime @map("start_date") @db.Date
+  endDate    DateTime @map("end_date") @db.Date
+  amountPaid Decimal  @map("amount_paid") @db.Decimal(10, 2)
+  status     String   @default("ACTIVE") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  member Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan   MembershipPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  gym    Gym            @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([memberId], map: "idx_subscriptions_member_id")
+  @@map("member_subscriptions")
+}
+
+model Attendance {
+  id           Int       @id @default(autoincrement())
+  gymId        String    @map("gym_id") @db.VarChar(50)
+  memberId     String    @map("member_id") @db.VarChar(50)
+  memberName   String    @map("member_name") @db.VarChar(255)
+  phone        String?   @db.VarChar(50)
+  planName     String?   @map("plan_name") @db.VarChar(255)
+  checkInTime  DateTime  @default(now()) @map("check_in_time") @db.Timestamptz(6)
+  checkOutTime DateTime? @map("check_out_time") @db.Timestamptz(6)
+  sessionFocus String?   @map("session_focus") @db.VarChar(255)
+  status       String    @default("IN_GYM") @db.VarChar(50)
+  date         DateTime  @default(now()) @db.Date
+
+  gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([gymId], map: "idx_attendance_gym_id")
+  @@index([date], map: "idx_attendance_date")
+  @@index([memberId], map: "idx_attendance_member_id")
+  @@map("attendance")
+}
+
+model Payment {
+  id         String   @id @db.VarChar(50)
+  gymId      String   @map("gym_id") @db.VarChar(50)
+  memberId   String?  @map("member_id") @db.VarChar(50)
+  memberName String   @map("member_name") @db.VarChar(255)
+  planName   String?  @map("plan_name") @db.VarChar(255)
+  amount     Decimal  @db.Decimal(10, 2)
+  mode       String   @default("UPI") @db.VarChar(50)
+  status     String   @default("paid") @db.VarChar(50)
+  date       DateTime @default(now()) @db.Date
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  gym    Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  member Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([gymId], map: "idx_payments_gym_id")
+  @@index([date], map: "idx_payments_date")
+  @@map("payments")
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  gymId       String   @map("gym_id") @db.VarChar(50)
+  type        String   @db.VarChar(50)
+  title       String   @db.VarChar(255)
+  description String
+  level       String   @default("info") @db.VarChar(50)
+  isUnread    Boolean  @default(true) @map("is_unread")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId], map: "idx_notifications_gym_id")
+  @@index([gymId, isUnread], map: "idx_notifications_unread")
+  @@map("notifications")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    String    @map("user_id") @db.VarChar(50)
+  tokenHash String    @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  superAdmin SuperAdmin @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash], map: "idx_reset_token_hash")
+  @@index([userId], map: "idx_reset_user_id")
+  @@map("password_reset_tokens")
+}
