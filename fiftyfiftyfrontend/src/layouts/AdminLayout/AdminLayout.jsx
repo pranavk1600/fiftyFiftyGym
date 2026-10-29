@@ -92,7 +92,7 @@ export const AdminLayout = () => {
             >
               <Menu size={20} />
             </button>
-            <span className="admin-badge">FiftyFifty Super Admin</span>
+            <span className="admin-badge">LeopardxGyms Super Admin</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

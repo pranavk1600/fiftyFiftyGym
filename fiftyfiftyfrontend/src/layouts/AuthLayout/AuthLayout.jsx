@@ -13,9 +13,9 @@ export const AuthLayout = () => {
         <div className="auth-header">
           <div className="auth-logo">
             <Dumbbell size={32} color="var(--brand-primary)" />
-            <span>FIFTY</span>FIFTY
+            <span>Leopardx</span>Gyms
           </div>
-          <p className="auth-subtitle">High-Performance Gym Management Platform</p>
+          <p className="auth-subtitle">High-Performance Multi-Tenant Gym Platform</p>
         </div>
         <Outlet />
       </div>
