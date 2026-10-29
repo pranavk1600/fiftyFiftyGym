@@ -33,38 +33,145 @@ export const runMigrations = async () => {
   const schemaSql = fs.readFileSync(schemaPath, 'utf-8');
 
   try {
+    // 1. Apply base schema statements
     await db.query(schemaSql);
     console.log('[Migration] Schema tables and indices ensured successfully.');
 
-    // Bootstrap Super Admin accounts from secure environment variables
+    // 2. Safe non-destructive backup table for users before modifications
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS legacy_users_backup (
+        id VARCHAR(50) PRIMARY KEY,
+        email VARCHAR(255),
+        password_hash VARCHAR(255),
+        full_name VARCHAR(255),
+        role VARCHAR(50),
+        gym_id VARCHAR(50),
+        status VARCHAR(50),
+        must_change_password BOOLEAN,
+        invitation_status VARCHAR(50),
+        invitation_sent_at TIMESTAMP WITH TIME ZONE,
+        last_login_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE,
+        backed_up_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      INSERT INTO legacy_users_backup (
+        id, email, password_hash, full_name, role, gym_id, status,
+        must_change_password, invitation_status, invitation_sent_at,
+        last_login_at, created_at, updated_at
+      )
+      SELECT 
+        id, email, password_hash, full_name, role, gym_id, status,
+        must_change_password, invitation_status, invitation_sent_at,
+        last_login_at, created_at, updated_at
+      FROM users
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    // 3. Migrate Super Admin account (leopardxtechnology@gmail.com) into super_admins table
     const superadminEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
     const initialPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
 
-    const userCheck = await db.query('SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = $1', [superadminEmail]);
-    if (userCheck.rows.length === 0) {
-      const hash = await bcrypt.hash(initialPassword, 10);
-      await db.query(`
-        INSERT INTO users (id, email, password_hash, full_name, role, gym_id, status)
-        VALUES ($1, $2, $3, $4, $5, NULL, 'active')
-      `, [`usr_superadmin_${Date.now()}`, superadminEmail, hash, 'Super Admin', 'SUPER_ADMIN']);
-      console.log(`[Migration] Super Admin account created successfully for: ${superadminEmail}`);
+    // Check if superadmin is in legacy users table to preserve password hash
+    const userSuperAdmin = await db.query(
+      'SELECT id, email, password_hash, full_name, role, status, last_login_at, created_at, updated_at FROM users WHERE LOWER(email) = $1 LIMIT 1',
+      [superadminEmail]
+    );
+
+    const existingSuperAdminInTable = await db.query(
+      'SELECT id, email, password_hash FROM super_admins WHERE LOWER(email) = $1 LIMIT 1',
+      [superadminEmail]
+    );
+
+    if (existingSuperAdminInTable.rows.length === 0) {
+      if (userSuperAdmin.rows.length > 0) {
+        const u = userSuperAdmin.rows[0];
+        await db.query(`
+          INSERT INTO super_admins (id, email, password_hash, full_name, role, status, last_login_at, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', $5, $6, $7, $8)
+          ON CONFLICT (email) DO NOTHING;
+        `, [
+          u.id,
+          superadminEmail,
+          u.password_hash,
+          u.full_name || 'Super Admin',
+          u.status || 'active',
+          u.last_login_at || null,
+          u.created_at || new Date(),
+          u.updated_at || new Date()
+        ]);
+        console.log(`[Migration] Migrated existing Super Admin account from users to super_admins: ${superadminEmail}`);
+      } else {
+        const hash = await bcrypt.hash(initialPassword, 10);
+        await db.query(`
+          INSERT INTO super_admins (id, email, password_hash, full_name, role, status)
+          VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', 'active')
+          ON CONFLICT (email) DO NOTHING;
+        `, [`usr_superadmin_${Date.now()}`, superadminEmail, hash, 'Super Admin']);
+        console.log(`[Migration] Super Admin account bootstrapped in super_admins: ${superadminEmail}`);
+      }
     } else {
-      await db.query(`
-        UPDATE users SET role = 'SUPER_ADMIN', status = 'active' WHERE LOWER(email) = $1
-      `, [superadminEmail]);
-      console.log(`[Migration] Existing Super Admin account confirmed for: ${superadminEmail}`);
+      console.log(`[Migration] Super Admin verified in super_admins: ${superadminEmail}`);
     }
 
-    // Optional legacy fallback platform admin account
-    const fallbackAdminCheck = await db.query('SELECT id FROM users WHERE LOWER(email) = $1', ['admin@fiftyfifty.com']);
-    if (fallbackAdminCheck.rows.length === 0) {
-      const adminHash = await bcrypt.hash('admin123', 10);
+    // 4. Migrate Gym Owner accounts (kondhalkarp1600@gmail.com and any other GYM_OWNERs) into gym_owners table
+    const legacyOwners = await db.query(`
+      SELECT id, email, password_hash, full_name, role, gym_id, status, must_change_password, invitation_status, invitation_sent_at, last_login_at, created_at, updated_at
+      FROM users
+      WHERE LOWER(email) = 'kondhalkarp1600@gmail.com' OR role = 'GYM_OWNER'
+    `);
+
+    for (const owner of legacyOwners.rows) {
+      const normalizedOwnerEmail = owner.email.toLowerCase().trim();
       await db.query(`
-        INSERT INTO users (id, email, password_hash, full_name, role, gym_id, status)
-        VALUES ('usr_admin_1', 'admin@fiftyfifty.com', $1, 'Platform Super Admin', 'SUPER_ADMIN', NULL, 'active')
-        ON CONFLICT (email) DO NOTHING;
-      `, [adminHash]);
+        INSERT INTO gym_owners (
+          id, email, password_hash, full_name, phone, role, gym_id,
+          status, must_change_password, invitation_status, invitation_sent_at,
+          last_login_at, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, NULL, 'GYM_OWNER', $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (email) DO UPDATE SET
+          password_hash = EXCLUDED.password_hash,
+          full_name = EXCLUDED.full_name,
+          gym_id = EXCLUDED.gym_id,
+          status = EXCLUDED.status,
+          must_change_password = EXCLUDED.must_change_password,
+          invitation_status = EXCLUDED.invitation_status,
+          invitation_sent_at = EXCLUDED.invitation_sent_at,
+          last_login_at = EXCLUDED.last_login_at,
+          updated_at = CURRENT_TIMESTAMP;
+      `, [
+        owner.id,
+        normalizedOwnerEmail,
+        owner.password_hash,
+        owner.full_name,
+        owner.gym_id,
+        owner.status || 'active',
+        Boolean(owner.must_change_password),
+        owner.invitation_status || 'pending',
+        owner.invitation_sent_at,
+        owner.last_login_at,
+        owner.created_at || new Date(),
+        owner.updated_at || new Date()
+      ]);
+      console.log(`[Migration] Gym Owner preserved and synchronized in gym_owners: ${normalizedOwnerEmail}`);
     }
+
+    // 5. Update foreign key constraints on password_reset_tokens
+    await db.query(`
+      ALTER TABLE password_reset_tokens DROP CONSTRAINT IF EXISTS password_reset_tokens_user_id_fkey;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'password_reset_tokens_super_admin_fkey'
+        ) THEN
+          ALTER TABLE password_reset_tokens
+          ADD CONSTRAINT password_reset_tokens_super_admin_fkey
+          FOREIGN KEY (user_id) REFERENCES super_admins(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+    console.log('[Migration] password_reset_tokens foreign key verified to super_admins.');
 
     return { success: true, health };
   } catch (err) {

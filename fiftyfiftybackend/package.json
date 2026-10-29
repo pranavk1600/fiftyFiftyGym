@@ -1,13 +1,14 @@
 {
   "name": "fiftyfiftybackend",
   "version": "1.0.0",
-  "description": "",
+  "description": "FiftyFifty Gym Backend API with PostgreSQL on Supabase",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/database/migrate.js",
+    "prisma:validate": "node scripts/validate_prisma.js",
     "test": "node src/tests/verify.test.js"
   },
   "keywords": [],

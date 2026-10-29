@@ -25,30 +25,12 @@ async function cleanGymData() {
   console.log('--- 1. AUDIT BEFORE CLEANUP ---');
   const gymsBefore = await db.query('SELECT id, name, owner_name, email FROM gyms ORDER BY created_at ASC');
   console.log(`Total Gyms: ${gymsBefore.rows.length}`);
-  gymsBefore.rows.forEach((g, idx) => {
-    console.log(`  [${idx + 1}] ID: ${g.id} | Name: "${g.name}" | Owner: ${g.owner_name} (${g.email})`);
-  });
 
-  const usersBefore = await db.query('SELECT id, email, role, gym_id FROM users ORDER BY created_at ASC');
-  console.log(`\nTotal Users: ${usersBefore.rows.length}`);
-  usersBefore.rows.forEach((u, idx) => {
-    console.log(`  [${idx + 1}] ID: ${u.id} | Email: ${u.email} | Role: ${u.role} | GymId: ${u.gym_id || 'null'}`);
-  });
+  const superAdminsBefore = await db.query('SELECT id, email, role FROM super_admins ORDER BY created_at ASC');
+  console.log(`Total Super Admins: ${superAdminsBefore.rows.length}`);
 
-  const plansBefore = await db.query('SELECT COUNT(*) FROM membership_plans');
-  const membersBefore = await db.query('SELECT COUNT(*) FROM members');
-  const attendanceBefore = await db.query('SELECT COUNT(*) FROM attendance');
-  const paymentsBefore = await db.query('SELECT COUNT(*) FROM payments');
-  const notifsBefore = await db.query('SELECT COUNT(*) FROM notifications');
-  const tokensBefore = await db.query('SELECT COUNT(*) FROM password_reset_tokens');
-
-  console.log(`\nOther Tables:`);
-  console.log(`- membership_plans: ${plansBefore.rows[0].count}`);
-  console.log(`- members: ${membersBefore.rows[0].count}`);
-  console.log(`- attendance: ${attendanceBefore.rows[0].count}`);
-  console.log(`- payments: ${paymentsBefore.rows[0].count}`);
-  console.log(`- notifications: ${notifsBefore.rows[0].count}`);
-  console.log(`- password_reset_tokens: ${tokensBefore.rows[0].count} (Will be preserved for Super Admin)\n`);
+  const gymOwnersBefore = await db.query('SELECT id, email, role, gym_id FROM gym_owners ORDER BY created_at ASC');
+  console.log(`Total Gym Owners: ${gymOwnersBefore.rows.length}`);
 
   // Step 3: Atomic Transactional Deletion
   console.log('--- 2. EXECUTING SAFE TRANSACTIONAL CLEANUP ---');
@@ -57,40 +39,20 @@ async function cleanGymData() {
     await client.query('BEGIN');
 
     // 1. Delete dependent transactional records
-    const notifDel = await client.query('DELETE FROM notifications');
-    console.log(`  Deleted ${notifDel.rowCount} notifications`);
+    await client.query('DELETE FROM notifications');
+    await client.query('DELETE FROM payments');
+    await client.query('DELETE FROM attendance');
+    await client.query('DELETE FROM member_subscriptions');
+    await client.query('DELETE FROM members');
+    await client.query('DELETE FROM membership_plans');
 
-    const payDel = await client.query('DELETE FROM payments');
-    console.log(`  Deleted ${payDel.rowCount} payments`);
-
-    const attDel = await client.query('DELETE FROM attendance');
-    console.log(`  Deleted ${attDel.rowCount} attendance logs`);
-
-    const subDel = await client.query('DELETE FROM member_subscriptions');
-    console.log(`  Deleted ${subDel.rowCount} member subscriptions`);
-
-    const memDel = await client.query('DELETE FROM members');
-    console.log(`  Deleted ${memDel.rowCount} members`);
-
-    const planDel = await client.query('DELETE FROM membership_plans');
-    console.log(`  Deleted ${planDel.rowCount} membership plans`);
-
-    // 2. Delete ONLY gym owner and member accounts linked to gyms.
-    // Explicitly protect Super Admin accounts!
-    const userDel = await client.query(`
-      DELETE FROM users 
-      WHERE (role = 'GYM_OWNER' OR role = 'MEMBER' OR gym_id IS NOT NULL)
-        AND role NOT IN ('SUPER_ADMIN', 'PLATFORM_ADMIN')
-        AND LOWER(email) NOT IN ('leopardxtechnology@gmail.com', 'admin@fiftyfifty.com')
-      RETURNING id, email, role;
-    `);
-    console.log(`  Deleted ${userDel.rowCount} gym owner / member accounts:`);
-    userDel.rows.forEach(u => console.log(`    - ${u.email} (${u.role})`));
+    // 2. Delete gym owners (protecting super_admins completely)
+    const ownerDel = await client.query('DELETE FROM gym_owners RETURNING id, email');
+    console.log(`  Deleted ${ownerDel.rowCount} gym owner accounts`);
 
     // 3. Delete all gyms
     const gymDel = await client.query('DELETE FROM gyms RETURNING id, name');
-    console.log(`  Deleted ${gymDel.rowCount} gym records:`);
-    gymDel.rows.forEach(g => console.log(`    - ${g.name} (${g.id})`));
+    console.log(`  Deleted ${gymDel.rowCount} gym records`);
 
     await client.query('COMMIT');
     console.log('\n[Transaction Committed Successfully]');
@@ -107,16 +69,11 @@ async function cleanGymData() {
   const gymsAfter = await db.query('SELECT COUNT(*) FROM gyms');
   console.log(`Total Gyms in DB: ${gymsAfter.rows[0].count}`);
 
-  const usersAfter = await db.query('SELECT id, email, role, status FROM users ORDER BY created_at ASC');
-  console.log(`\nRemaining Users in DB (${usersAfter.rows.length}):`);
-  usersAfter.rows.forEach(u => {
+  const superAdminsAfter = await db.query('SELECT id, email, role, status FROM super_admins');
+  console.log(`\nPreserved Super Admins (${superAdminsAfter.rows.length}):`);
+  superAdminsAfter.rows.forEach(u => {
     console.log(`  - ${u.email} | Role: ${u.role} | Status: ${u.status}`);
   });
-
-  const superAdminExists = usersAfter.rows.some(u => 
-    (u.role === 'SUPER_ADMIN' || u.role === 'PLATFORM_ADMIN') && u.email === 'leopardxtechnology@gmail.com'
-  );
-  console.log(`\nSuper Admin preserved and active: ${superAdminExists ? 'YES ✓' : 'NO ✗'}`);
 
   console.log('\n========================================================');
   console.log('Database successfully cleaned. Zero gyms ready for fresh creation.');

@@ -3,7 +3,22 @@
 -- Safe, non-destructive, idempotent DDL (CREATE TABLE IF NOT EXISTS)
 -- ==============================================================================
 
--- 1. GYM TENANTS TABLE
+-- 1. SUPER ADMINS TABLE (Super Admin Accounts Only)
+CREATE TABLE IF NOT EXISTS super_admins (
+  id VARCHAR(50) PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'SUPER_ADMIN',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  last_login_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_super_admins_email ON super_admins(LOWER(email));
+
+-- 2. GYM TENANTS TABLE (Gym Profile Data)
 CREATE TABLE IF NOT EXISTS gyms (
   id VARCHAR(50) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -27,7 +42,28 @@ ALTER TABLE gyms ADD COLUMN IF NOT EXISTS business_contact VARCHAR(100);
 ALTER TABLE gyms ADD COLUMN IF NOT EXISTS invitation_status VARCHAR(50) DEFAULT 'pending';
 ALTER TABLE gyms ADD COLUMN IF NOT EXISTS invitation_sent_at TIMESTAMP WITH TIME ZONE;
 
--- 2. USERS & RBAC ROLES TABLE
+-- 3. GYM OWNERS TABLE (Gym Owner Accounts Only)
+CREATE TABLE IF NOT EXISTS gym_owners (
+  id VARCHAR(50) PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
+  role VARCHAR(50) NOT NULL DEFAULT 'GYM_OWNER',
+  gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  must_change_password BOOLEAN DEFAULT false,
+  invitation_status VARCHAR(50) DEFAULT 'pending',
+  invitation_sent_at TIMESTAMP WITH TIME ZONE,
+  last_login_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_gym_owners_email ON gym_owners(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_gym_owners_gym_id ON gym_owners(gym_id);
+
+-- 4. USERS & RBAC ROLES TABLE (Preserved for compatibility and Members)
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(50) PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -48,7 +84,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZON
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_gym_id ON users(gym_id);
 
--- 3. MEMBERSHIP PLANS TABLE
+-- 5. MEMBERSHIP PLANS TABLE
 CREATE TABLE IF NOT EXISTS membership_plans (
   id SERIAL PRIMARY KEY,
   gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
@@ -65,7 +101,7 @@ CREATE TABLE IF NOT EXISTS membership_plans (
 
 CREATE INDEX IF NOT EXISTS idx_plans_gym_id ON membership_plans(gym_id);
 
--- 4. MEMBERS TABLE
+-- 6. MEMBERS TABLE
 CREATE TABLE IF NOT EXISTS members (
   id VARCHAR(50) PRIMARY KEY,
   gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
@@ -88,7 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_members_gym_id ON members(gym_id);
 CREATE INDEX IF NOT EXISTS idx_members_phone ON members(phone);
 CREATE INDEX IF NOT EXISTS idx_members_status ON members(status);
 
--- 5. MEMBER SUBSCRIPTIONS HISTORY TABLE
+-- 7. MEMBER SUBSCRIPTIONS HISTORY TABLE
 CREATE TABLE IF NOT EXISTS member_subscriptions (
   id SERIAL PRIMARY KEY,
   member_id VARCHAR(50) REFERENCES members(id) ON DELETE CASCADE,
@@ -103,7 +139,7 @@ CREATE TABLE IF NOT EXISTS member_subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_member_id ON member_subscriptions(member_id);
 
--- 6. ATTENDANCE CHECK-IN LOGS TABLE
+-- 8. ATTENDANCE CHECK-IN LOGS TABLE
 CREATE TABLE IF NOT EXISTS attendance (
   id SERIAL PRIMARY KEY,
   gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
@@ -122,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_gym_id ON attendance(gym_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(date);
 CREATE INDEX IF NOT EXISTS idx_attendance_member_id ON attendance(member_id);
 
--- 7. PAYMENTS & TRANSACTIONS TABLE
+-- 9. PAYMENTS & TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS payments (
   id VARCHAR(50) PRIMARY KEY,
   gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
@@ -140,7 +176,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_gym_id ON payments(gym_id);
 CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
 
--- 8. OPERATIONAL NOTIFICATIONS TABLE
+-- 10. OPERATIONAL NOTIFICATIONS TABLE
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
   gym_id VARCHAR(50) REFERENCES gyms(id) ON DELETE CASCADE,
@@ -155,10 +191,10 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_gym_id ON notifications(gym_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(gym_id, is_unread);
 
--- 9. PASSWORD RESET TOKENS TABLE (Secure Single-Use Cryptographic Tokens)
+-- 11. PASSWORD RESET TOKENS TABLE (Secure Single-Use Cryptographic Tokens for Super Admin)
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id SERIAL PRIMARY KEY,
-  user_id VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id VARCHAR(50) NOT NULL,
   token_hash VARCHAR(255) NOT NULL,
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
   used_at TIMESTAMP WITH TIME ZONE,
