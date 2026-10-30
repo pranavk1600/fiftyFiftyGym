@@ -8,9 +8,9 @@ export const MemberProfileScreen = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const [fullName, setFullName] = useState(user?.fullName || 'Alex Mercer');
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [email, setEmail] = useState(user?.email || 'alex.mercer@gmail.com');
+  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 

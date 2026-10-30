@@ -15,8 +15,12 @@ export const ProtectedRoute = () => {
     if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/superadmin')) {
       return <Navigate to="/superadmin/login" replace />;
     }
-    // If attempting to access Gym Owner protected paths, direct to Gym Admin login
+    // If attempting to access Gym Owner protected paths, direct to gym-specific login or platform login
     if (location.pathname.startsWith('/owner')) {
+      const lastGymSlug = localStorage.getItem('fiftyfifty_last_gym_slug');
+      if (lastGymSlug) {
+        return <Navigate to={`/gym/${lastGymSlug}/login`} replace />;
+      }
       return <Navigate to="/admin/login" replace />;
     }
     // Default safe redirect to Gym Admin login

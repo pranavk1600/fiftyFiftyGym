@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Receipt, Plus, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Receipt, Plus, Printer, RefreshCw } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { Badge } from '../../../shared/components/Badge/Badge';
@@ -7,6 +7,7 @@ import { Modal } from '../../../shared/components/Modal/Modal';
 import { Input } from '../../../shared/components/Input/Input';
 import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
 import { useToast } from '../../../context/ToastContext';
+import { apiClient } from '../../../shared/services/apiClient';
 
 export const PaymentManagementScreen = () => {
   const { showToast } = useToast();
@@ -14,81 +15,81 @@ export const PaymentManagementScreen = () => {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [modeFilter, setModeFilter] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState([]);
 
   const [paymentForm, setPaymentForm] = useState({
     memberName: '',
     amount: '',
     mode: 'UPI',
-    plan: 'Quarterly Pro',
+    plan: 'General Membership',
     status: 'paid'
   });
 
-  const [payments, setPayments] = useState([
-    {
-      id: 'RCP-2026-90412',
-      memberName: 'Rahul Sharma',
-      amount: 4500,
-      mode: 'UPI',
-      date: '2026-03-20',
-      status: 'paid',
-      plan: 'Quarterly Pro'
-    },
-    {
-      id: 'RCP-2026-88123',
-      memberName: 'Ananya Roy',
-      amount: 14000,
-      mode: 'ONLINE',
-      date: '2026-03-18',
-      status: 'paid',
-      plan: 'Annual Gold Elite'
-    },
-    {
-      id: 'RCP-2026-77341',
-      memberName: 'Vikram Singh',
-      amount: 1800,
-      mode: 'CASH',
-      date: '2026-03-15',
-      status: 'paid',
-      plan: 'Monthly Standard'
-    },
-    {
-      id: 'RCP-2026-66522',
-      memberName: 'Priya Patel',
-      amount: 2000,
-      mode: 'UPI',
-      date: '2026-03-12',
-      status: 'partial',
-      plan: 'Quarterly Pro'
-    }
-  ]);
+  const [payments, setPayments] = useState([]);
 
-  const handleRecordPayment = (e) => {
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get('/payments');
+      const data = res.data?.data || res.data || res;
+      setPayments(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch payments:', err);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPlans = async () => {
+    try {
+      const res = await apiClient.get('/plans');
+      const data = res.data?.data || res.data || res;
+      if (Array.isArray(data) && data.length > 0) {
+        setPlans(data);
+        setPaymentForm((prev) => ({ ...prev, plan: data[0].name }));
+      }
+    } catch (_e) {
+      setPlans([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayments();
+    fetchPlans();
+  }, []);
+
+  const handleRecordPayment = async (e) => {
     e.preventDefault();
     if (!paymentForm.memberName || !paymentForm.amount) {
       showToast('Please enter member name and payment amount', 'warning');
       return;
     }
 
-    const newPayment = {
-      id: `RCP-2026-${Math.floor(10000 + Math.random() * 90000)}`,
-      memberName: paymentForm.memberName,
-      amount: Number(paymentForm.amount),
-      mode: paymentForm.mode,
-      date: new Date().toISOString().split('T')[0],
-      status: paymentForm.status,
-      plan: paymentForm.plan
-    };
+    try {
+      const res = await apiClient.post('/payments', {
+        memberName: paymentForm.memberName.trim(),
+        amount: Number(paymentForm.amount),
+        mode: paymentForm.mode,
+        plan: paymentForm.plan,
+        status: paymentForm.status
+      });
 
-    setPayments([newPayment, ...payments]);
-    setIsRecordModalOpen(false);
-    setPaymentForm({
-      memberName: '',
-      amount: '',
-      mode: 'UPI',
-      plan: 'Quarterly Pro',
-      status: 'paid'
-    });
-    showToast(`Payment of ₹${newPayment.amount} recorded for ${newPayment.memberName}`, 'success');
+      const saved = res.data?.data || res.data || res;
+      setPayments((prev) => [saved, ...prev]);
+      setIsRecordModalOpen(false);
+      setPaymentForm({
+        memberName: '',
+        amount: '',
+        mode: 'UPI',
+        plan: plans[0]?.name || 'General Membership',
+        status: 'paid'
+      });
+      showToast(`Payment of ₹${saved.amount || paymentForm.amount} recorded for ${saved.memberName || paymentForm.memberName}`, 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to record payment', 'error');
+    }
   };
 
   const columns = [
@@ -150,6 +151,21 @@ export const PaymentManagementScreen = () => {
     return matchesSearch && matchesMode;
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const currentMonthStr = todayStr.substring(0, 7);
+
+  const todayCollections = payments
+    .filter((p) => p.date === todayStr && p.status === 'paid')
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const monthCollections = payments
+    .filter((p) => p.date && p.date.startsWith(currentMonthStr) && p.status === 'paid')
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const pendingDues = payments
+    .filter((p) => p.status === 'partial' || p.status === 'pending')
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
   return (
     <div className="animate-fade-in">
       {/* Top Header */}
@@ -176,7 +192,9 @@ export const PaymentManagementScreen = () => {
           boxShadow: 'var(--shadow-sm)'
         }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Today's Collections</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>₹4,500</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>
+            {formatCurrency(todayCollections)}
+          </div>
         </div>
 
         <div style={{
@@ -187,7 +205,9 @@ export const PaymentManagementScreen = () => {
           boxShadow: 'var(--shadow-sm)'
         }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>This Month's Collections</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brand-accent)', marginTop: 4 }}>₹1,85,000</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--brand-accent)', marginTop: 4 }}>
+            {formatCurrency(monthCollections)}
+          </div>
         </div>
 
         <div style={{
@@ -198,7 +218,9 @@ export const PaymentManagementScreen = () => {
           boxShadow: 'var(--shadow-sm)'
         }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Pending Dues Balance</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-warning)', marginTop: 4 }}>₹12,500</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-warning)', marginTop: 4 }}>
+            {formatCurrency(pendingDues)}
+          </div>
         </div>
       </div>
 
@@ -241,7 +263,11 @@ export const PaymentManagementScreen = () => {
         </div>
       </div>
 
-      <Table columns={columns} data={filteredPayments} emptyMessage="No payment records found." />
+      <Table
+        columns={columns}
+        data={filteredPayments}
+        emptyMessage="No payment records available. Click 'Record New Payment' to issue a receipt."
+      />
 
       {/* Record Payment Modal */}
       <Modal
@@ -262,7 +288,7 @@ export const PaymentManagementScreen = () => {
         <form onSubmit={handleRecordPayment}>
           <Input
             label="Member Full Name"
-            placeholder="e.g. Rahul Sharma"
+            placeholder="e.g. Full Name"
             value={paymentForm.memberName}
             onChange={(e) => setPaymentForm({ ...paymentForm, memberName: e.target.value })}
             required
@@ -290,15 +316,27 @@ export const PaymentManagementScreen = () => {
           </div>
           <div className="input-group">
             <label className="input-label">Membership Plan</label>
-            <select
-              className="input-control"
-              value={paymentForm.plan}
-              onChange={(e) => setPaymentForm({ ...paymentForm, plan: e.target.value })}
-            >
-              <option value="Monthly Standard">Monthly Standard</option>
-              <option value="Quarterly Pro">Quarterly Pro</option>
-              <option value="Annual Gold Elite">Annual Gold Elite</option>
-            </select>
+            {plans.length > 0 ? (
+              <select
+                className="input-control"
+                value={paymentForm.plan}
+                onChange={(e) => setPaymentForm({ ...paymentForm, plan: e.target.value })}
+              >
+                {plans.map((p) => (
+                  <option key={p.id} value={p.name}>
+                    {p.name} (₹{p.price})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                className="input-control"
+                placeholder="e.g. Quarterly Pro or Standard Plan"
+                value={paymentForm.plan}
+                onChange={(e) => setPaymentForm({ ...paymentForm, plan: e.target.value })}
+              />
+            )}
           </div>
           <div className="input-group">
             <label className="input-label">Payment Status</label>

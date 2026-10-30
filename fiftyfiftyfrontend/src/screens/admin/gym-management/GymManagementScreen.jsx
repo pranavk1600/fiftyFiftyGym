@@ -832,52 +832,101 @@ export const GymManagementScreen = () => {
 
                           {/* Dedicated Gym URL Column */}
                           <td style={{ padding: '16px 20px', verticalAlign: 'middle' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <a
-                                href={`/gym/${gymSlug}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="Open Dedicated Gym Portal"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                  fontFamily: 'monospace',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 600,
-                                  color: 'var(--brand-primary)',
-                                  textDecoration: 'none',
-                                  background: 'var(--brand-primary-soft)',
-                                  padding: '4px 10px',
-                                  borderRadius: 6,
-                                  border: '1px solid var(--brand-primary-soft-border)'
-                                }}
-                              >
-                                <span>/gym/{gymSlug}</span>
-                                <ExternalLink size={12} />
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const fullUrl = `${window.location.origin}/gym/${gymSlug}`;
-                                  navigator.clipboard.writeText(fullUrl);
-                                  showToast('Dedicated gym URL copied to clipboard!', 'success');
-                                }}
-                                title="Copy Dedicated Gym URL"
-                                style={{
-                                  background: 'var(--bg-surface-elevated)',
-                                  border: '1px solid var(--border-subtle)',
-                                  borderRadius: 6,
-                                  cursor: 'pointer',
-                                  padding: '5px 7px',
-                                  color: 'var(--text-secondary)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
-                                }}
-                              >
-                                <Copy size={13} />
-                              </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <a
+                                  href={`/gym/${gymSlug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Open Dedicated Gym Portal"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    color: 'var(--brand-primary)',
+                                    textDecoration: 'none',
+                                    background: 'var(--brand-primary-soft)',
+                                    padding: '3px 8px',
+                                    borderRadius: 6,
+                                    border: '1px solid var(--brand-primary-soft-border)'
+                                  }}
+                                >
+                                  <span>/gym/{gymSlug}</span>
+                                  <ExternalLink size={11} />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const fullUrl = `${window.location.origin}/gym/${gymSlug}`;
+                                    navigator.clipboard.writeText(fullUrl);
+                                    showToast('Dedicated gym portal URL copied to clipboard!', 'success');
+                                  }}
+                                  title="Copy Dedicated Gym Portal URL"
+                                  style={{
+                                    background: 'var(--bg-surface-elevated)',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: 6,
+                                    cursor: 'pointer',
+                                    padding: '4px 6px',
+                                    color: 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <a
+                                  href={`/gym/${gymSlug}/login`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  title="Open Gym Owner Login Portal"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    color: '#10B981',
+                                    textDecoration: 'none',
+                                    background: 'rgba(16, 185, 129, 0.1)',
+                                    padding: '2px 8px',
+                                    borderRadius: 6,
+                                    border: '1px solid rgba(16, 185, 129, 0.25)'
+                                  }}
+                                >
+                                  <span>/login</span>
+                                  <ExternalLink size={10} />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const fullUrl = `${window.location.origin}/gym/${gymSlug}/login`;
+                                    navigator.clipboard.writeText(fullUrl);
+                                    showToast('Gym Owner Login URL copied to clipboard!', 'success');
+                                  }}
+                                  title="Copy Gym Owner Login URL"
+                                  style={{
+                                    background: 'var(--bg-surface-elevated)',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: 6,
+                                    cursor: 'pointer',
+                                    padding: '3px 6px',
+                                    color: 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  <Copy size={11} />
+                                </button>
+                              </div>
                             </div>
                           </td>
 
@@ -1429,8 +1478,11 @@ export const GymManagementScreen = () => {
                     onChange={(e) => handleCreateChange('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                     placeholder="e.g. westend-arena"
                   />
-                  <div style={{ fontSize: '0.75rem', color: 'var(--brand-primary)', marginTop: -6, marginBottom: 8, fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--brand-primary)', marginTop: -6, marginBottom: 4, fontFamily: 'monospace' }}>
                     Portal Preview: {window.location.origin}/gym/{createForm.slug || 'your-gym-slug'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#10B981', marginTop: 0, marginBottom: 8, fontFamily: 'monospace' }}>
+                    Login URL: {window.location.origin}/gym/{createForm.slug || 'your-gym-slug'}/login
                   </div>
                 </div>
 

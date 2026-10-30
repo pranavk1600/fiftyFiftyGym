@@ -9,8 +9,8 @@ import { Dumbbell, ArrowRight, Info } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
 export const GymAdminLoginScreen = () => {
-  const [email, setEmail] = useState('owner@fiftyfifty.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login, isAuthenticated, role } = useAuth();
@@ -50,26 +50,8 @@ export const GymAdminLoginScreen = () => {
       showToast(`Welcome back, ${user.fullName || 'Gym Owner'}!`, 'success');
       navigate('/owner/dashboard', { replace: true });
     } catch (err) {
-      console.warn('Gym Admin API login error:', err.message);
-
-      // Handle offline fallback only if server is unreachable in development
-      if (err.message && (err.message.includes('Network Error') || err.message.includes('fetch'))) {
-        const mockUser = {
-          id: 'usr_owner_' + Date.now(),
-          email: email.trim(),
-          role: 'GYM_OWNER',
-          fullName: 'Om Kolekar',
-          gymId: 'gym_alpha_1',
-          gymName: 'FiftyFifty Downtown Fitness'
-        };
-
-        login(mockUser, 'dev_token_owner_' + Date.now());
-        showToast(`Offline mode: Welcome, ${mockUser.fullName}!`, 'info');
-        navigate('/owner/dashboard', { replace: true });
-      } else {
-        const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
-        showToast(errorMsg, 'danger');
-      }
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
+      showToast(errorMsg, 'danger');
     } finally {
       setIsSubmitting(false);
     }

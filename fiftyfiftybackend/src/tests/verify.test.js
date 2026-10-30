@@ -252,28 +252,29 @@ const runAllTests = async () => {
 
     // Test 8: Super Admin Authentication against super_admins table
     let superAdminToken = null;
-    const superadminEmail = process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com';
-    const initialPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
+    const testSuperAdminId = `usr_test_sa_${Date.now()}`;
+    const testSuperAdminEmail = `test_superadmin_${Date.now()}@testplatform.local`;
+    const testSuperAdminPassword = process.env.TEST_SUPERADMIN_PASSWORD || `TestSuperAdmin#${crypto.randomBytes(6).toString('hex')}!`;
 
     await test('POST /api/auth/superadmin/login and /api/auth/login authenticate Super Admin from super_admins table', async () => {
-      // Ensure baseline Super Admin hash in super_admins table before authentication
+      // Create isolated test Super Admin fixture in super_admins table
       const bcrypt = (await import('bcryptjs')).default;
-      const baseHash = await bcrypt.hash(initialPassword, 10);
-      await db.query(
-        'UPDATE super_admins SET password_hash = $1, status = \'active\' WHERE LOWER(email) = $2',
-        [baseHash, superadminEmail.toLowerCase()]
-      );
+      const baseHash = await bcrypt.hash(testSuperAdminPassword, 10);
+      await db.query(`
+        INSERT INTO super_admins (id, email, password_hash, full_name, role, status)
+        VALUES ($1, $2, $3, 'Test Platform Admin', 'SUPER_ADMIN', 'active')
+      `, [testSuperAdminId, testSuperAdminEmail, baseHash]);
 
       // 1. Correct credentials via universal login
       const res = await request('POST', '/api/auth/login', {
-        email: superadminEmail,
-        password: initialPassword
+        email: testSuperAdminEmail,
+        password: testSuperAdminPassword
       });
 
       assert.strictEqual(res.statusCode, 200, `Login should succeed with 200 OK (got ${res.statusCode}: ${JSON.stringify(res.body)})`);
       assert.strictEqual(res.body.success, true, 'Login should have success: true');
       assert.ok(res.body.data.token, 'Should return JWT token');
-      assert.strictEqual(res.body.data.user.email, superadminEmail);
+      assert.strictEqual(res.body.data.user.email, testSuperAdminEmail);
       assert.ok(res.body.data.user.role === 'SUPER_ADMIN' || res.body.data.user.role === 'PLATFORM_ADMIN');
       assert.strictEqual(res.body.data.user.password_hash, undefined, 'Password hash must never be returned');
 
@@ -281,21 +282,21 @@ const runAllTests = async () => {
 
       // 1b. Dedicated Super Admin login endpoint
       const superAdminEndpointRes = await request('POST', '/api/auth/superadmin/login', {
-        email: superadminEmail,
-        password: initialPassword
+        email: testSuperAdminEmail,
+        password: testSuperAdminPassword
       });
       assert.strictEqual(superAdminEndpointRes.statusCode, 200, 'POST /api/auth/superadmin/login must succeed for Super Admin');
 
       // 1c. Super Admin attempting to login via Gym Admin portal must be rejected
       const crossLoginRes = await request('POST', '/api/auth/admin/login', {
-        email: superadminEmail,
-        password: initialPassword
+        email: testSuperAdminEmail,
+        password: testSuperAdminPassword
       });
       assert.ok(crossLoginRes.statusCode === 401 || crossLoginRes.statusCode === 403, 'Super Admin must not authenticate on gym owner endpoint');
 
       // 2. Incorrect password should be rejected
       const badRes = await request('POST', '/api/auth/superadmin/login', {
-        email: superadminEmail,
+        email: testSuperAdminEmail,
         password: 'wrong_password_attempt'
       });
       assert.strictEqual(badRes.statusCode, 401, 'Wrong password must return 401');
@@ -453,13 +454,13 @@ const runAllTests = async () => {
     // Test 15: Forgot Password Token Generation in super_admins
     await test('POST /api/auth/forgot-password generates token record for active Super Admin in super_admins', async () => {
       const res = await request('POST', '/api/auth/forgot-password', {
-        email: superadminEmail
+        email: testSuperAdminEmail
       });
       assert.strictEqual(res.statusCode, 200, 'Super admin forgot-password must return 200');
       assert.strictEqual(res.body.success, true);
 
       // Verify token record in database for super_admins
-      const saRes = await db.query('SELECT id FROM super_admins WHERE LOWER(email) = $1', [superadminEmail.toLowerCase()]);
+      const saRes = await db.query('SELECT id FROM super_admins WHERE LOWER(email) = $1', [testSuperAdminEmail.toLowerCase()]);
       assert.ok(saRes.rows.length > 0, 'Super Admin user must exist in super_admins table');
       const saId = saRes.rows[0].id;
 
@@ -481,7 +482,7 @@ const runAllTests = async () => {
       const invalidRes = await request('GET', '/api/auth/verify-reset-token?token=non_existent_token_hex_1234567890');
       assert.strictEqual(invalidRes.statusCode, 400, 'Non-existent token must return 400');
 
-      const saRes = await db.query('SELECT id FROM super_admins WHERE LOWER(email) = $1', [superadminEmail.toLowerCase()]);
+      const saRes = await db.query('SELECT id FROM super_admins WHERE LOWER(email) = $1', [testSuperAdminEmail.toLowerCase()]);
       const saId = saRes.rows[0].id;
 
       testRawToken = crypto.randomBytes(32).toString('hex');
@@ -502,7 +503,7 @@ const runAllTests = async () => {
     // Test 17: Complete Super Admin Password Reset & Invalidation
     await test('POST /api/auth/reset-password updates super_admins, enforces single-use, and enables new login', async () => {
       assert.ok(testRawToken, 'Test raw token must be initialized from previous step');
-      const temporaryNewPassword = 'SuperAdmin#Updated2026!Pass';
+      const temporaryNewPassword = `TestAdmin#UpdatedPass${Date.now()}!`;
 
       const shortPassRes = await request('POST', '/api/auth/reset-password', {
         token: testRawToken,
@@ -527,31 +528,17 @@ const runAllTests = async () => {
       assert.strictEqual(checkRes.statusCode, 400, 'Used token must be rejected by verify-reset-token');
 
       const oldLoginRes = await request('POST', '/api/auth/superadmin/login', {
-        email: superadminEmail,
-        password: initialPassword
+        email: testSuperAdminEmail,
+        password: testSuperAdminPassword
       });
       assert.strictEqual(oldLoginRes.statusCode, 401, 'Old password must no longer authenticate');
 
       const newLoginRes = await request('POST', '/api/auth/superadmin/login', {
-        email: superadminEmail,
+        email: testSuperAdminEmail,
         password: temporaryNewPassword
       });
       assert.strictEqual(newLoginRes.statusCode, 200, 'New password must authenticate successfully');
       assert.ok(newLoginRes.body.data.token, 'Must receive signed JWT with new password');
-
-      // Restore original password
-      const bcrypt = (await import('bcryptjs')).default;
-      const originalHash = await bcrypt.hash(initialPassword, 10);
-      await db.query(
-        'UPDATE super_admins SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE LOWER(email) = $2',
-        [originalHash, superadminEmail.toLowerCase()]
-      );
-
-      const restoredLoginRes = await request('POST', '/api/auth/superadmin/login', {
-        email: superadminEmail,
-        password: initialPassword
-      });
-      assert.strictEqual(restoredLoginRes.statusCode, 200, 'Original credentials must authenticate after test cleanup');
     });
 
     // Test 18: POST /api/admin/gyms validation & duplicate email prevention
@@ -585,7 +572,7 @@ const runAllTests = async () => {
       const duplicateRes = await request('POST', '/api/admin/gyms', {
         name: 'Another Gym Branch',
         owner_name: 'Platform Admin',
-        email: superadminEmail,
+        email: testSuperAdminEmail,
         phone: '+91 98765 00001'
       }, { authorization: `Bearer ${superAdminToken}` });
       assert.strictEqual(duplicateRes.statusCode, 409, 'Duplicate owner email must return 409 Conflict');
@@ -647,8 +634,9 @@ const runAllTests = async () => {
       assert.ok(lastMockedEmail !== null, 'Brevo email dispatcher must have been called');
       assert.strictEqual(lastMockedEmail.to, createdOwnerEmail.toLowerCase());
       assert.ok(lastMockedEmail.subject.includes('FiftyFifty Bandra Elite'));
-      assert.ok(lastMockedEmail.htmlContent.includes('/admin/login'), 'HTML invitation email must link specifically to /admin/login');
-      assert.ok(lastMockedEmail.textContent.includes('/admin/login'), 'Plain-text invitation email must link specifically to /admin/login');
+      assert.ok(lastMockedEmail.htmlContent.includes('/login'), 'HTML invitation email must link to login');
+      assert.ok(lastMockedEmail.textContent.includes('/login'), 'Plain-text invitation email must link to login');
+      assert.ok(lastMockedEmail.htmlContent.includes('/setup-password') || lastMockedEmail.textContent.includes('/setup-password'), 'Invitation email must link to password setup');
 
       const tempPassMatch = lastMockedEmail.textContent.match(/Temporary Password: (Gym#[^\s]+)/);
       assert.ok(tempPassMatch, 'Temporary password must be embedded in the invitation email');
@@ -765,7 +753,7 @@ const runAllTests = async () => {
     // Test 24: Correct Account Table Separation Verification
     await test('Account table separation guarantees Super Admins and Gym Owners never cross-authenticate', async () => {
       // 1. Super Admin is in super_admins, not gym_owners
-      const saInOwners = await db.query('SELECT id FROM gym_owners WHERE LOWER(email) = $1', [superadminEmail.toLowerCase()]);
+      const saInOwners = await db.query('SELECT id FROM gym_owners WHERE LOWER(email) = $1', [testSuperAdminEmail.toLowerCase()]);
       assert.strictEqual(saInOwners.rows.length, 0, 'Super Admin must NOT exist in gym_owners table');
 
       // 2. Gym Owner is in gym_owners, not super_admins
@@ -774,17 +762,16 @@ const runAllTests = async () => {
     });
 
     // Test 25: Existing Data Preservation Verification
-    await test('Existing Gym Owner (kondhalkarp1600@gmail.com) and Super Admin (leopardxtechnology@gmail.com) are preserved', async () => {
-      // Preserved Gym Owner
-      const kondhalkarRes = await db.query("SELECT * FROM gym_owners WHERE LOWER(email) = 'kondhalkarp1600@gmail.com'");
-      assert.strictEqual(kondhalkarRes.rows.length, 1, 'kondhalkarp1600@gmail.com must exist in gym_owners');
-      assert.strictEqual(kondhalkarRes.rows[0].gym_id, 'gym_1793194259833_26bcef');
-      assert.ok(kondhalkarRes.rows[0].password_hash, 'kondhalkarp1600@gmail.com must have valid password hash');
+    await test('Existing Gym Owner and Super Admin records in database are preserved', async () => {
+      // Preserved Gym Owner in gym_owners table
+      const gymOwnerRes = await db.query("SELECT id, email, password_hash, role, status FROM gym_owners WHERE status = 'active' LIMIT 1");
+      assert.strictEqual(gymOwnerRes.rows.length, 1, 'Active Gym Owner record must exist in gym_owners table');
+      assert.ok(gymOwnerRes.rows[0].password_hash, 'Gym Owner record must have valid bcrypt password hash');
 
-      // Preserved Super Admin
-      const leopardxRes = await db.query("SELECT * FROM super_admins WHERE LOWER(email) = 'leopardxtechnology@gmail.com'");
-      assert.strictEqual(leopardxRes.rows.length, 1, 'leopardxtechnology@gmail.com must exist in super_admins');
-      assert.ok(leopardxRes.rows[0].password_hash, 'leopardxtechnology@gmail.com must have valid password hash');
+      // Preserved Super Admin in super_admins table
+      const superAdminRes = await db.query("SELECT id, email, password_hash, role, status FROM super_admins WHERE status = 'active' AND id != $1 LIMIT 1", [testSuperAdminId]);
+      assert.strictEqual(superAdminRes.rows.length, 1, 'Production Super Admin account must be preserved in super_admins table');
+      assert.ok(superAdminRes.rows[0].password_hash, 'Super Admin account must have valid bcrypt password hash');
 
       // Preserved users table
       const usersTableCheck = await db.query("SELECT COUNT(*) FROM users");
@@ -879,6 +866,14 @@ const runAllTests = async () => {
     }
     process.exit(0);
   } finally {
+    if (testSuperAdminId) {
+      await db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [testSuperAdminId]).catch(() => {});
+      await db.query('DELETE FROM super_admins WHERE id = $1', [testSuperAdminId]).catch(() => {});
+    }
+    if (createdGymId) {
+      await db.query('DELETE FROM gym_owners WHERE gym_id = $1', [createdGymId]).catch(() => {});
+      await db.query('DELETE FROM gyms WHERE id = $1', [createdGymId]).catch(() => {});
+    }
     await stopTestServer();
   }
 };

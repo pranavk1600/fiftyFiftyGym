@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { TrendingUp, BarChart2, Activity } from 'lucide-react';
+import { BarChart2, Activity } from 'lucide-react';
 import './weeklyAttendanceChart.css';
 
+const defaultEmptyWeek = [
+  { day: 'Mon', count: 0, fullDay: 'Monday' },
+  { day: 'Tue', count: 0, fullDay: 'Tuesday' },
+  { day: 'Wed', count: 0, fullDay: 'Wednesday' },
+  { day: 'Thu', count: 0, fullDay: 'Thursday' },
+  { day: 'Fri', count: 0, fullDay: 'Friday' },
+  { day: 'Sat', count: 0, fullDay: 'Saturday' },
+  { day: 'Sun', count: 0, fullDay: 'Sunday' }
+];
+
 export const WeeklyAttendanceChart = ({
-  data = [
-    { day: 'Mon', count: 48, fullDay: 'Monday' },
-    { day: 'Tue', count: 52, fullDay: 'Tuesday' },
-    { day: 'Wed', count: 45, fullDay: 'Wednesday' },
-    { day: 'Thu', count: 58, fullDay: 'Thursday' },
-    { day: 'Fri', count: 54, fullDay: 'Friday' },
-    { day: 'Sat', count: 60, fullDay: 'Saturday' },
-    { day: 'Sun', count: 32, fullDay: 'Sunday' }
-  ],
-  highlightDay = 'Sat'
+  data = defaultEmptyWeek,
+  highlightDay
 }) => {
+  const chartData = Array.isArray(data) && data.length > 0 ? data : defaultEmptyWeek;
   const [chartType, setChartType] = useState('bars'); // 'bars' | 'trend'
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
@@ -27,16 +30,16 @@ export const WeeklyAttendanceChart = ({
 
   const plotWidth = svgWidth - padLeft - padRight;
   const plotHeight = svgHeight - padTop - padBottom; // 150px
-  const maxVal = 80;
-  const yTicks = [0, 20, 40, 60, 80];
+  const maxVal = Math.max(20, ...chartData.map((d) => d.count || 0));
+  const yTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal];
 
-  const colStep = plotWidth / data.length;
+  const colStep = plotWidth / chartData.length;
   const barWidth = 34;
 
   // Calculate points for line chart
-  const points = data.map((item, idx) => {
+  const points = chartData.map((item, idx) => {
     const x = padLeft + (idx + 0.5) * colStep;
-    const y = padTop + plotHeight - (item.count / maxVal) * plotHeight;
+    const y = padTop + plotHeight - ((item.count || 0) / maxVal) * plotHeight;
     return { x, y, ...item };
   });
 
@@ -61,12 +64,12 @@ export const WeeklyAttendanceChart = ({
   };
 
   const linePath = generateSmoothPath(points);
-  const areaPath = `${linePath} L ${points[points.length - 1].x} ${padTop + plotHeight} L ${points[0].x} ${padTop + plotHeight} Z`;
+  const areaPath = points.length > 0 ? `${linePath} L ${points[points.length - 1].x} ${padTop + plotHeight} L ${points[0].x} ${padTop + plotHeight} Z` : '';
 
   // Summary figures
-  const totalCheckIns = data.reduce((acc, curr) => acc + curr.count, 0);
-  const dailyAverage = Math.round(totalCheckIns / data.length);
-  const peakDay = [...data].sort((a, b) => b.count - a.count)[0];
+  const totalCheckIns = chartData.reduce((acc, curr) => acc + (curr.count || 0), 0);
+  const dailyAverage = Math.round(totalCheckIns / (chartData.length || 1));
+  const peakDay = [...chartData].sort((a, b) => (b.count || 0) - (a.count || 0))[0];
 
   return (
     <div className="attendance-chart-widget">
@@ -76,7 +79,7 @@ export const WeeklyAttendanceChart = ({
           <div className="attendance-chart-title-row">
             <h2 className="dashboard-panel-title">Weekly Attendance Activity</h2>
             <span className="attendance-trend-pill">
-              <TrendingUp size={13} /> +14% vs Last Week
+              <Activity size={13} /> 7-Day Overview
             </span>
           </div>
           <p className="attendance-chart-subtitle">
@@ -99,7 +102,7 @@ export const WeeklyAttendanceChart = ({
             type="button"
             className={`chart-mode-btn ${chartType === 'trend' ? 'active' : ''}`}
             onClick={() => setChartType('trend')}
-            title="Display Trend Area Line"
+            title="Display Line Trend"
           >
             <Activity size={14} />
             <span>Trend</span>
@@ -107,165 +110,137 @@ export const WeeklyAttendanceChart = ({
         </div>
       </div>
 
-      {/* Real SVG Analytics Chart */}
-      <div className="attendance-svg-wrapper">
+      {/* Interactive Responsive SVG Canvas */}
+      <div className="attendance-svg-wrap">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="attendance-svg"
-          preserveAspectRatio="xMidYMid meet"
+          className="attendance-chart-svg"
+          preserveAspectRatio="none"
         >
           <defs>
-            {/* Primary Orange Gradient for active/highlighted bar */}
-            <linearGradient id="chartOrangeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#FF6B00" />
-              <stop offset="100%" stopColor="#EA580C" />
+            {/* Gradient for bar fills */}
+            <linearGradient id="gymBarGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF6B00" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#EA580C" stopOpacity="0.75" />
             </linearGradient>
 
-            {/* Standard Theme Bar Gradient */}
-            <linearGradient id="chartNeutralGradLight" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#CBD5E1" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#94A3B8" stopOpacity="0.8" />
+            {/* Gradient for highlight peak day */}
+            <linearGradient id="gymBarHighlight" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22C55E" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#16A34A" stopOpacity="0.8" />
             </linearGradient>
 
-            {/* Dark Theme Neutral Bar Gradient */}
-            <linearGradient id="chartNeutralGradDark" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#334155" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#1E293B" stopOpacity="0.85" />
-            </linearGradient>
-
-            {/* Area Fill Gradient for Trend Line */}
-            <linearGradient id="chartAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#FF6B00" stopOpacity="0.25" />
+            {/* Area gradient for line chart mode */}
+            <linearGradient id="gymAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF6B00" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#FF6B00" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
-          {/* Horizontal Grid Lines & Y-Axis Markers */}
-          {yTicks.map((val) => {
-            const y = padTop + plotHeight - (val / maxVal) * plotHeight;
+          {/* Horizontal Grid lines and Y-axis scale */}
+          {yTicks.map((tickVal, idx) => {
+            const yPos = padTop + plotHeight - (tickVal / maxVal) * plotHeight;
             return (
-              <g key={val} className="chart-grid-group">
+              <g key={idx} className="chart-grid-line-group">
                 <line
-                  x1={padLeft - 6}
-                  y1={y}
+                  x1={padLeft}
+                  y1={yPos}
                   x2={svgWidth - padRight}
-                  y2={y}
+                  y2={yPos}
                   className="chart-grid-line"
                 />
                 <text
-                  x={padLeft - 10}
-                  y={y + 3.5}
-                  className="chart-axis-y-text"
+                  x={padLeft - 8}
+                  y={yPos + 4}
+                  className="chart-axis-label y-axis"
+                  textAnchor="end"
                 >
-                  {val}
+                  {tickVal}
                 </text>
               </g>
             );
           })}
 
-          {/* Render Trend Area Line View */}
-          {chartType === 'trend' && (
-            <g className="chart-trend-group">
-              <path d={areaPath} fill="url(#chartAreaGrad)" />
-              <path
-                d={linePath}
-                fill="none"
-                stroke="#FF6B00"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {points.map((pt, idx) => {
-                const isHovered = hoveredIndex === idx;
-                const isHigh = pt.day === highlightDay;
-                return (
-                  <circle
-                    key={pt.day}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={isHovered ? 6 : isHigh ? 5 : 4}
-                    fill={isHigh || isHovered ? '#FF6B00' : 'var(--bg-surface)'}
-                    stroke="#FF6B00"
-                    strokeWidth={isHovered ? 3 : 2}
-                    className="chart-point-circle"
-                  />
-                );
-              })}
-            </g>
+          {/* Area fill under trend curve */}
+          {chartType === 'trend' && areaPath && (
+            <path d={areaPath} fill="url(#gymAreaGrad)" />
           )}
 
-          {/* Render Bars and Columns */}
+          {/* Trend line curve */}
+          {chartType === 'trend' && linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#FF6B00"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* Trend line point markers */}
+          {chartType === 'trend' &&
+            points.map((pt, idx) => (
+              <circle
+                key={idx}
+                cx={pt.x}
+                cy={pt.y}
+                r={hoveredIndex === idx ? 6 : 4}
+                fill={pt.day === highlightDay ? '#22C55E' : '#FF6B00'}
+                stroke="var(--bg-surface)"
+                strokeWidth="2"
+                className="chart-point-marker"
+              />
+            ))}
+
+          {/* Bars & Labels */}
           {points.map((item, idx) => {
-            const isHighlighted = item.day === highlightDay;
-            const isHovered = hoveredIndex === idx;
-            const barHeight = (item.count / maxVal) * plotHeight;
+            const barH = ((item.count || 0) / maxVal) * plotHeight;
             const barX = item.x - barWidth / 2;
-            const barY = padTop + plotHeight - barHeight;
+            const barY = padTop + plotHeight - barH;
+            const isHighlight = item.day === highlightDay && item.count > 0;
+            const isHovered = hoveredIndex === idx;
 
             return (
               <g
-                key={item.day}
-                className="chart-col-interactive"
+                key={idx}
+                className="chart-column-group"
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onMouseLeave={() => setHoveredIndex(null)}
               >
-                {/* Invisible hover trigger area covering whole column height */}
+                {/* Background hover bar highlight */}
                 <rect
-                  x={padLeft + idx * colStep}
+                  x={item.x - colStep / 2 + 2}
                   y={padTop}
-                  width={colStep}
-                  height={plotHeight + 30}
-                  fill="transparent"
-                  className="chart-col-hover-area"
+                  width={colStep - 4}
+                  height={plotHeight}
+                  fill="currentColor"
+                  className={`chart-hover-backdrop ${isHovered ? 'visible' : ''}`}
                 />
 
-                {/* Background track pillar in Bar Mode */}
+                {/* Primary Data Bar */}
                 {chartType === 'bars' && (
                   <rect
                     x={barX}
-                    y={padTop}
+                    y={barH > 0 ? barY : padTop + plotHeight - 2}
                     width={barWidth}
-                    height={plotHeight}
+                    height={barH > 0 ? barH : 2}
                     rx="6"
-                    className="chart-bar-track"
+                    ry="6"
+                    fill={isHighlight ? 'url(#gymBarHighlight)' : 'url(#gymBarGrad)'}
+                    className={`chart-bar-rect ${isHovered ? 'hovered' : ''}`}
                   />
                 )}
 
-                {/* Animated / Colored Bar Fill in Bar Mode */}
-                {chartType === 'bars' && (
-                  <rect
-                    x={barX}
-                    y={barY}
-                    width={barWidth}
-                    height={barHeight}
-                    rx="6"
-                    fill={
-                      isHighlighted || isHovered
-                        ? 'url(#chartOrangeGrad)'
-                        : 'var(--chart-bar-fill, url(#chartNeutralGradLight))'
-                    }
-                    className={`chart-bar-rect ${isHighlighted ? 'bar-highlighted' : ''} ${isHovered ? 'bar-hovered' : ''}`}
-                  />
-                )}
-
-                {/* X-Axis Weekday Label */}
+                {/* Day of Week Label */}
                 <text
                   x={item.x}
                   y={svgHeight - 16}
-                  className={`chart-axis-x-text ${isHighlighted ? 'active-day-label' : ''}`}
+                  className={`chart-axis-label x-axis ${isHighlight ? 'highlight' : ''}`}
+                  textAnchor="middle"
                 >
                   {item.day}
                 </text>
-
-                {/* Highlight Indicator Pill for Active Day */}
-                {isHighlighted && (
-                  <circle
-                    cx={item.x}
-                    cy={svgHeight - 6}
-                    r="2.5"
-                    fill="#FF6B00"
-                  />
-                )}
 
                 {/* Tooltip Overlay displayed on hover */}
                 {isHovered && (
@@ -284,7 +259,7 @@ export const WeeklyAttendanceChart = ({
                       className="chart-tooltip-text"
                       textAnchor="middle"
                     >
-                      {item.fullDay}: {item.count}
+                      {item.fullDay}: {item.count || 0}
                     </text>
                   </g>
                 )}
@@ -311,7 +286,9 @@ export const WeeklyAttendanceChart = ({
         <div className="chart-footer-stat">
           <span className="chart-footer-label">Peak Attendance</span>
           <span className="chart-footer-value" style={{ color: 'var(--brand-primary)' }}>
-            <strong>{peakDay.fullDay}</strong> ({peakDay.count} visits)
+            <strong>
+              {peakDay && peakDay.count > 0 ? `${peakDay.fullDay} (${peakDay.count} visits)` : 'No check-ins yet'}
+            </strong>
           </span>
         </div>
       </div>

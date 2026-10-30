@@ -1,60 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, AlertTriangle, DollarSign, Calendar, CheckCheck, Trash2 } from 'lucide-react';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { Button } from '../../../shared/components/Button/Button';
 import { useToast } from '../../../context/ToastContext';
+import { apiClient } from '../../../shared/services/apiClient';
 
 export const NotificationsScreen = () => {
   const { showToast } = useToast();
   const [filterType, setFilterType] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState([]);
 
-  const [alerts, setAlerts] = useState([
-    {
-      id: 1,
-      type: 'EXPIRY',
-      title: '3 Memberships Expiring in 48 Hours',
-      description: 'Rahul Sharma, Sneha Gupta, and Arjun Das have memberships expiring soon. Renewal reminders ready to send.',
-      time: '2 hours ago',
-      level: 'warning',
-      isUnread: true
-    },
-    {
-      id: 2,
-      type: 'DUE',
-      title: 'Pending Balance Alert: ₹2,500',
-      description: 'Priya Patel has an outstanding partial payment balance for Quarterly Pro plan due this week.',
-      time: '5 hours ago',
-      level: 'danger',
-      isUnread: true
-    },
-    {
-      id: 3,
-      type: 'EXPIRED',
-      title: 'Membership Expired: Vikram Singh',
-      description: 'Monthly Standard plan expired on 2026-03-24. Membership status updated to inactive.',
-      time: 'Yesterday',
-      level: 'info',
-      isUnread: false
-    },
-    {
-      id: 4,
-      type: 'SYSTEM',
-      title: 'Daily Auto-Backup Completed',
-      description: 'Gym attendance and membership database synchronized to secure storage.',
-      time: '2 days ago',
-      level: 'success',
-      isUnread: false
+  const fetchAlerts = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get('/notifications');
+      const data = res.data?.data || res.data || res;
+      setAlerts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+      setAlerts([]);
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  const markAllAsRead = () => {
-    setAlerts(alerts.map((a) => ({ ...a, isUnread: false })));
-    showToast('All notifications marked as read', 'success');
   };
 
-  const dismissAlert = (id) => {
-    setAlerts(alerts.filter((a) => a.id !== id));
-    showToast('Notification dismissed', 'info');
+  useEffect(() => {
+    fetchAlerts();
+  }, []);
+
+  const markAllAsRead = async () => {
+    try {
+      await apiClient.put('/notifications/read-all');
+      setAlerts((prev) => prev.map((a) => ({ ...a, isUnread: false })));
+      showToast('All notifications marked as read', 'success');
+    } catch (_e) {
+      setAlerts((prev) => prev.map((a) => ({ ...a, isUnread: false })));
+    }
+  };
+
+  const dismissAlert = async (id) => {
+    try {
+      await apiClient.delete(`/notifications/${id}`);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+      showToast('Notification dismissed', 'info');
+    } catch (_e) {
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    }
   };
 
   const filteredAlerts = alerts.filter((a) => {
@@ -129,8 +121,8 @@ export const NotificationsScreen = () => {
             color: 'var(--text-secondary)'
           }}>
             <Bell size={36} color="var(--text-muted)" style={{ marginBottom: 12 }} />
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 4 }}>All Clear</h3>
-            <p style={{ fontSize: '0.875rem' }}>No alerts found in this category.</p>
+            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 4 }}>No Notifications</h3>
+            <p style={{ fontSize: '0.875rem' }}>No alerts or notifications. Everything is up to date.</p>
           </div>
         ) : (
           filteredAlerts.map((alert) => (

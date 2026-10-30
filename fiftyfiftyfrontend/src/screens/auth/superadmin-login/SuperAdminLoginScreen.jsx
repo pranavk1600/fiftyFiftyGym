@@ -10,13 +10,13 @@ import { Shield, CheckCircle2, ArrowRight } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
 export const SuperAdminLoginScreen = () => {
-  const [email, setEmail] = useState('leopardxtechnology@gmail.com');
-  const [password, setPassword] = useState('SuperAdmin#2026!FiftyFifty');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forgot password modal state
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('leopardxtechnology@gmail.com');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [resetSentSuccess, setResetSentSuccess] = useState(false);
 
@@ -57,26 +57,8 @@ export const SuperAdminLoginScreen = () => {
       showToast(`Welcome back, ${user.fullName || 'Super Admin'}!`, 'success');
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
-      console.warn('Super Admin API login error:', err.message);
-
-      // Handle offline fallback only if server is unreachable in development
-      if (err.message && (err.message.includes('Network Error') || err.message.includes('fetch'))) {
-        const mockUser = {
-          id: 'usr_superadmin_' + Date.now(),
-          email: email.trim(),
-          role: 'SUPER_ADMIN',
-          fullName: 'Platform Super Admin',
-          gymId: null,
-          gymName: 'Platform Governance'
-        };
-
-        login(mockUser, 'dev_token_superadmin_' + Date.now());
-        showToast(`Offline mode: Welcome, ${mockUser.fullName}!`, 'info');
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        const errorMsg = err.response?.data?.message || err.message || 'Invalid credentials or access denied';
-        showToast(errorMsg, 'danger');
-      }
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid credentials or access denied';
+      showToast(errorMsg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +138,7 @@ export const SuperAdminLoginScreen = () => {
             type="button"
             className="forgot-password-link"
             onClick={() => {
-              setForgotEmail(email || 'leopardxtechnology@gmail.com');
+              setForgotEmail(email || '');
               setIsForgotModalOpen(true);
             }}
           >
@@ -232,7 +214,7 @@ export const SuperAdminLoginScreen = () => {
               type="email"
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
-              placeholder="leopardxtechnology@gmail.com"
+              placeholder="name@company.com"
               required
             />
 

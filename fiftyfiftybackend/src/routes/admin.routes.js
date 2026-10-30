@@ -28,7 +28,7 @@ router.get('/dashboard', async (req, res, next) => {
     const overview = {
       system: 'FiftyFifty Gym Management Software',
       role: req.user?.role || 'SUPER_ADMIN',
-      email: req.user?.email || 'leopardxtechnology@gmail.com',
+      email: req.user?.email || 'admin@fiftyfifty.com',
       status: 'operational',
       database: {
         connected: Boolean(dbHealth?.connected),
@@ -111,11 +111,13 @@ router.put('/gym', async (req, res, next) => {
     }
 
     // Get gym ID or return 404 if no gyms exist
-    const checkGym = await db.query('SELECT id FROM gyms LIMIT 1;');
+    const checkGym = await db.query('SELECT id, logo_url FROM gyms LIMIT 1;');
     if (checkGym.rows.length === 0) {
       return ApiResponse.error(res, 'No gym available to update. Please create a gym first.', 404);
     }
     const gymId = checkGym.rows[0].id;
+    const currentLogo = checkGym.rows[0].logo_url;
+    const finalLogoUrl = logo_url !== undefined ? (logo_url ? logo_url.trim() : null) : currentLogo;
 
     const updateSql = `
       UPDATE gyms
@@ -143,7 +145,7 @@ router.put('/gym', async (req, res, next) => {
       owner_name ? owner_name.trim() : null,
       email.trim().toLowerCase(),
       phone.trim(),
-      logo_url ? logo_url.trim() : null,
+      finalLogoUrl,
       address ? address.trim() : null,
       city ? city.trim() : null,
       state ? state.trim() : null,
@@ -421,12 +423,23 @@ router.post('/gyms', async (req, res, next) => {
       gymId
     ]);
 
+    // Generate secure single-use expiring invitation token for password setup (48h)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    await client.query(
+      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [ownerUserId, tokenHash, expiresAt]
+    );
+
     await client.query('COMMIT');
 
     // 5. Brevo Owner Invitation Email (Sent after transaction commits)
     const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
     const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
-    const loginUrl = `${frontendUrl}/admin/login`;
+    const loginUrl = `${frontendUrl}/gym/${uniqueSlug}/login`;
+    const activationUrl = `${frontendUrl}/gym/${uniqueSlug}/setup-password?token=${rawToken}`;
 
     let emailDelivered = false;
     let emailErrorMessage = null;
@@ -438,6 +451,8 @@ router.post('/gyms', async (req, res, next) => {
         ownerName: ownerNameClean,
         loginUrl,
         ownerEmail: normalizedEmail,
+        activationUrl,
+        expiryHours: 48,
         temporaryPassword
       });
 
@@ -478,7 +493,9 @@ router.post('/gyms', async (req, res, next) => {
         gymId
       },
       invitationStatus,
-      emailDelivered
+      emailDelivered,
+      loginUrl,
+      activationUrl
     };
 
     const responseMessage = emailDelivered
@@ -513,7 +530,7 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
 
     // 1. Fetch gym details
     const gymResult = await db.query(
-      'SELECT id, name, owner_name, email, phone FROM gyms WHERE id = $1 LIMIT 1',
+      'SELECT id, name, owner_name, email, phone, slug FROM gyms WHERE id = $1 LIMIT 1',
       [id]
     );
     if (gymResult.rows.length === 0) {
@@ -541,10 +558,25 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
       WHERE id = $2
     `, [newPasswordHash, owner.id]);
 
-    // 4. Send Brevo invitation email using configured FRONTEND_URL
+    // 4. Generate fresh 48-hour single-use invitation token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+    await db.query(
+      'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
+      [owner.id]
+    );
+    await db.query(
+      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [owner.id, tokenHash, expiresAt]
+    );
+
     const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
     const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
-    const loginUrl = `${frontendUrl}/admin/login`;
+    const gymSlug = gym.slug || gym.id;
+    const loginUrl = `${frontendUrl}/gym/${gymSlug}/login`;
+    const activationUrl = `${frontendUrl}/gym/${gymSlug}/setup-password?token=${rawToken}`;
 
     let emailDelivered = false;
     let emailErrorMessage = null;
@@ -556,6 +588,8 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
         ownerName: owner.full_name || gym.owner_name || 'Gym Owner',
         loginUrl,
         ownerEmail: owner.email,
+        activationUrl,
+        expiryHours: 48,
         temporaryPassword: newTemporaryPassword
       });
 
@@ -590,7 +624,9 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
         gymId: id,
         ownerEmail: owner.email,
         invitationStatus,
-        emailDelivered
+        emailDelivered,
+        loginUrl,
+        activationUrl
       },
       message
     );
@@ -637,6 +673,10 @@ router.put('/gyms/:id', async (req, res, next) => {
       finalSlug = cleanSlug;
     }
 
+    const existingGym = await db.query('SELECT logo_url FROM gyms WHERE id = $1 LIMIT 1', [id]);
+    const currentGymLogo = existingGym.rows[0]?.logo_url || null;
+    const finalGymLogo = logo_url !== undefined ? (logo_url ? logo_url.trim() : null) : currentGymLogo;
+
     const updateSql = `
       UPDATE gyms
       SET 
@@ -664,7 +704,7 @@ router.put('/gyms/:id', async (req, res, next) => {
       owner_name ? owner_name.trim() : null,
       email ? email.trim().toLowerCase() : null,
       phone ? phone.trim() : null,
-      logo_url ? logo_url.trim() : null,
+      finalGymLogo,
       address ? address.trim() : null,
       city ? city.trim() : null,
       state ? state.trim() : null,

@@ -1,25 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, LogOut } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { useToast } from '../../../context/ToastContext';
+import { apiClient } from '../../../shared/services/apiClient';
 
 export const AttendanceScreen = () => {
   const [memberQuery, setMemberQuery] = useState('');
   const [tableSearch, setTableSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('TODAY');
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
 
-  const [attendanceLogs, setAttendanceLogs] = useState([
-    { id: 1, memberName: 'Rahul Sharma', phone: '+91 98765 43210', checkInTime: '07:15 AM', checkOutTime: null, plan: 'Quarterly Pro', status: 'IN_GYM' },
-    { id: 2, memberName: 'Ananya Roy', phone: '+91 98111 22334', checkInTime: '07:45 AM', checkOutTime: '08:50 AM', plan: 'Annual Gold Elite', status: 'COMPLETED' },
-    { id: 3, memberName: 'Vikram Singh', phone: '+91 98333 44556', checkInTime: '08:20 AM', checkOutTime: null, plan: 'Monthly Standard', status: 'IN_GYM' },
-    { id: 4, memberName: 'Priya Patel', phone: '+91 98444 55667', checkInTime: '09:05 AM', checkOutTime: '10:15 AM', plan: 'Annual Gold Elite', status: 'COMPLETED' },
-    { id: 5, memberName: 'Karan Mehra', phone: '+91 98555 66778', checkInTime: '09:30 AM', checkOutTime: null, plan: 'Monthly Standard', status: 'IN_GYM' }
-  ]);
+  const fetchAttendance = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.get('/attendance');
+      const data = res.data?.data || res.data;
+      if (Array.isArray(data)) {
+        setAttendanceLogs(data);
+      }
+    } catch (err) {
+      console.warn('[Attendance Load Notice]:', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const handleQuickCheckIn = (e) => {
+  useEffect(() => {
+    fetchAttendance();
+  }, []);
+
+  const handleQuickCheckIn = async (e) => {
     e.preventDefault();
     if (!memberQuery.trim()) return;
 
@@ -32,29 +46,32 @@ export const AttendanceScreen = () => {
       return;
     }
 
-    const newLog = {
-      id: Date.now(),
-      memberName: memberQuery,
-      phone: '+91 98000 12345',
-      checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      checkOutTime: null,
-      plan: 'Active Member',
-      status: 'IN_GYM'
-    };
-
-    setAttendanceLogs([newLog, ...attendanceLogs]);
-    showToast(`Check-in recorded for ${memberQuery}`, 'success');
-    setMemberQuery('');
+    try {
+      const res = await apiClient.post('/attendance/check-in', {
+        memberName: memberQuery.trim()
+      });
+      const created = res.data?.data || res.data;
+      setAttendanceLogs([created, ...attendanceLogs]);
+      showToast(`Check-in recorded for ${memberQuery}`, 'success');
+      setMemberQuery('');
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Failed to record check-in', 'danger');
+    }
   };
 
-  const handleCheckOut = (logId, name) => {
-    const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setAttendanceLogs(
-      attendanceLogs.map((log) =>
-        log.id === logId ? { ...log, checkOutTime: timeNow, status: 'COMPLETED' } : log
-      )
-    );
-    showToast(`Checked out ${name} at ${timeNow}`, 'info');
+  const handleCheckOut = async (logId, name) => {
+    try {
+      const res = await apiClient.post('/attendance/check-out', { id: logId });
+      const updated = res.data?.data || res.data;
+      setAttendanceLogs(
+        attendanceLogs.map((log) =>
+          log.id === logId ? { ...log, ...updated, status: 'COMPLETED' } : log
+        )
+      );
+      showToast(`Checked out ${name}`, 'info');
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Failed to record check-out', 'danger');
+    }
   };
 
   const inGymCount = attendanceLogs.filter((l) => l.status === 'IN_GYM').length;
@@ -67,11 +84,11 @@ export const AttendanceScreen = () => {
       render: (log) => (
         <div>
           <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{log.memberName}</span>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{log.phone}</div>
+          {log.phone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{log.phone}</div>}
         </div>
       )
     },
-    { header: 'Current Plan', key: 'plan' },
+    { header: 'Current Plan', key: 'plan', render: (log) => log.plan || 'Active Member' },
     {
       header: 'Check-in Time',
       key: 'checkInTime',
@@ -121,8 +138,8 @@ export const AttendanceScreen = () => {
 
   const filteredLogs = attendanceLogs.filter(
     (l) =>
-      l.memberName.toLowerCase().includes(tableSearch.toLowerCase()) ||
-      l.phone.includes(tableSearch)
+      (l.memberName && l.memberName.toLowerCase().includes(tableSearch.toLowerCase())) ||
+      (l.phone && l.phone.includes(tableSearch))
   );
 
   return (
@@ -202,7 +219,7 @@ export const AttendanceScreen = () => {
           <input
             type="text"
             className="input-control"
-            placeholder="Type member name to record check-in (e.g. Priya Patel)..."
+            placeholder="Type member name to record check-in..."
             value={memberQuery}
             onChange={(e) => setMemberQuery(e.target.value)}
           />
@@ -247,7 +264,15 @@ export const AttendanceScreen = () => {
         </div>
       </div>
 
-      <Table columns={columns} data={filteredLogs} emptyMessage="No attendance logs recorded for this filter." />
+      <Table
+        columns={columns}
+        data={filteredLogs}
+        emptyMessage={
+          attendanceLogs.length === 0
+            ? "No attendance records for today. Check in members using the form above."
+            : "No attendance logs matching your search."
+        }
+      />
     </div>
   );
 };

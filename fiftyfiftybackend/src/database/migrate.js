@@ -69,20 +69,19 @@ export const runMigrations = async () => {
       ON CONFLICT (id) DO NOTHING;
     `);
 
-    // 3. Migrate Super Admin account (leopardxtechnology@gmail.com) into super_admins table
-    const superadminEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
-    const initialPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
+    // 3. Migrate Super Admin account into separate super_admins table
+    const superadminEmail = (process.env.SUPERADMIN_EMAIL || '').toLowerCase().trim();
 
-    // Check if superadmin is in legacy users table to preserve password hash
-    const userSuperAdmin = await db.query(
+    // Check if superadmin is in legacy users table to preserve existing password hash
+    const userSuperAdmin = superadminEmail ? await db.query(
       'SELECT id, email, password_hash, full_name, role, status, last_login_at, created_at, updated_at FROM users WHERE LOWER(email) = $1 LIMIT 1',
       [superadminEmail]
-    );
+    ) : { rows: [] };
 
-    const existingSuperAdminInTable = await db.query(
+    const existingSuperAdminInTable = superadminEmail ? await db.query(
       'SELECT id, email, password_hash FROM super_admins WHERE LOWER(email) = $1 LIMIT 1',
       [superadminEmail]
-    );
+    ) : { rows: [] };
 
     if (existingSuperAdminInTable.rows.length === 0) {
       if (userSuperAdmin.rows.length > 0) {
@@ -103,7 +102,16 @@ export const runMigrations = async () => {
         ]);
         console.log(`[Migration] Migrated existing Super Admin account from users to super_admins: ${superadminEmail}`);
       } else {
-        const hash = await bcrypt.hash(initialPassword, 10);
+        const initialPassword = process.env.SUPERADMIN_INITIAL_PASSWORD;
+        if (!initialPassword || !initialPassword.trim()) {
+          console.error('[Migration Error]: SUPERADMIN_INITIAL_PASSWORD environment variable is missing.');
+          throw new Error('SUPERADMIN_INITIAL_PASSWORD is required in environment variables to bootstrap Super Admin account.');
+        }
+        if (!superadminEmail) {
+          console.error('[Migration Error]: SUPERADMIN_EMAIL environment variable is missing.');
+          throw new Error('SUPERADMIN_EMAIL is required in environment variables to bootstrap Super Admin account.');
+        }
+        const hash = await bcrypt.hash(initialPassword.trim(), 10);
         await db.query(`
           INSERT INTO super_admins (id, email, password_hash, full_name, role, status)
           VALUES ($1, $2, $3, $4, 'SUPER_ADMIN', 'active')
@@ -112,14 +120,14 @@ export const runMigrations = async () => {
         console.log(`[Migration] Super Admin account bootstrapped in super_admins: ${superadminEmail}`);
       }
     } else {
-      console.log(`[Migration] Super Admin verified in super_admins: ${superadminEmail}`);
+      console.log(`[Migration] Super Admin account verified in super_admins table (existing password preserved)`);
     }
 
-    // 4. Migrate Gym Owner accounts (kondhalkarp1600@gmail.com and any other GYM_OWNERs) into gym_owners table
+    // 4. Migrate Gym Owner accounts into gym_owners table
     const legacyOwners = await db.query(`
       SELECT id, email, password_hash, full_name, role, gym_id, status, must_change_password, invitation_status, invitation_sent_at, last_login_at, created_at, updated_at
       FROM users
-      WHERE LOWER(email) = 'kondhalkarp1600@gmail.com' OR role = 'GYM_OWNER'
+      WHERE role = 'GYM_OWNER'
     `);
 
     for (const owner of legacyOwners.rows) {
@@ -130,16 +138,7 @@ export const runMigrations = async () => {
           status, must_change_password, invitation_status, invitation_sent_at,
           last_login_at, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, NULL, 'GYM_OWNER', $5, $6, $7, $8, $9, $10, $11, $12)
-        ON CONFLICT (email) DO UPDATE SET
-          password_hash = EXCLUDED.password_hash,
-          full_name = EXCLUDED.full_name,
-          gym_id = EXCLUDED.gym_id,
-          status = EXCLUDED.status,
-          must_change_password = EXCLUDED.must_change_password,
-          invitation_status = EXCLUDED.invitation_status,
-          invitation_sent_at = EXCLUDED.invitation_sent_at,
-          last_login_at = EXCLUDED.last_login_at,
-          updated_at = CURRENT_TIMESTAMP;
+        ON CONFLICT (email) DO NOTHING;
       `, [
         owner.id,
         normalizedOwnerEmail,

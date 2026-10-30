@@ -1,45 +1,53 @@
-import React from 'react';
-import { Users, CalendarCheck, IndianRupee, AlertTriangle, ArrowRight, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, CalendarCheck, IndianRupee, AlertTriangle, ArrowRight, Clock, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StatCard } from '../../../shared/components/StatCard/StatCard';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { WeeklyAttendanceChart } from './components/WeeklyAttendanceChart';
+import { apiClient } from '../../../shared/services/apiClient';
 
 export const OwnerDashboardScreen = () => {
-  // Operational dashboard KPI metrics
-  const stats = {
-    totalMembers: 148,
-    activeMembers: 132,
-    expiredMembers: 16,
-    todayAttendance: 42,
-    monthlyCollections: 185000,
-    expiringSoonCount: 5
+  const [stats, setStats] = useState({
+    totalMembers: 0,
+    activeMembers: 0,
+    expiredMembers: 0,
+    todayAttendance: 0,
+    monthlyCollections: 0,
+    expiringSoonCount: 0
+  });
+
+  const [weeklyAttendanceData, setWeeklyAttendanceData] = useState([]);
+  const [recentCheckIns, setRecentCheckIns] = useState([]);
+  const [expiringMemberships, setExpiringMemberships] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      let res;
+      try {
+        res = await apiClient.get('/dashboard');
+      } catch (_e) {
+        res = await apiClient.get('/owner/dashboard');
+      }
+      const data = res.data?.data || res.data;
+      if (data) {
+        if (data.stats) setStats(data.stats);
+        if (Array.isArray(data.weeklyAttendanceData)) setWeeklyAttendanceData(data.weeklyAttendanceData);
+        if (Array.isArray(data.recentCheckIns)) setRecentCheckIns(data.recentCheckIns);
+        if (Array.isArray(data.expiringMemberships)) setExpiringMemberships(data.expiringMemberships);
+      }
+    } catch (err) {
+      console.warn('[Dashboard Fetch Notice]:', err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 7-Day Attendance Activity records
-  const weeklyAttendanceData = [
-    { day: 'Mon', count: 48, fullDay: 'Monday' },
-    { day: 'Tue', count: 52, fullDay: 'Tuesday' },
-    { day: 'Wed', count: 45, fullDay: 'Wednesday' },
-    { day: 'Thu', count: 58, fullDay: 'Thursday' },
-    { day: 'Fri', count: 54, fullDay: 'Friday' },
-    { day: 'Sat', count: 60, fullDay: 'Saturday' },
-    { day: 'Sun', count: 32, fullDay: 'Sunday' }
-  ];
-
-  const recentCheckIns = [
-    { id: 1, name: 'Rahul Sharma', time: '18:45', plan: 'Quarterly Pro', status: 'active' },
-    { id: 2, name: 'Ananya Roy', time: '18:32', plan: 'Annual Gold Elite', status: 'active' },
-    { id: 3, name: 'Vikram Singh', time: '17:50', plan: 'Monthly Standard', status: 'active' },
-    { id: 4, name: 'Priya Patel', time: '17:15', plan: 'Annual Gold Elite', status: 'active' }
-  ];
-
-  const expiringMemberships = [
-    { id: 101, name: 'Karan Mehra', daysLeft: 2, plan: 'Monthly Standard', phone: '+91 98765 43210', isUrgent: true },
-    { id: 102, name: 'Sneha Gupta', daysLeft: 4, plan: 'Quarterly Pro', phone: '+91 98123 45678', isUrgent: false },
-    { id: 103, name: 'Arjun Das', daysLeft: 5, plan: 'Monthly Standard', phone: '+91 98989 12345', isUrgent: false }
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="animate-fade-in">
@@ -91,9 +99,9 @@ export const OwnerDashboardScreen = () => {
 
       {/* 2-Column Professional Analytics Grid: Chart + Supporting Widgets */}
       <div className="owner-dashboard-sections">
-        {/* Left Primary Column: Weekly Attendance Activity Real Chart */}
+        {/* Left Primary Column: Weekly Attendance Activity Chart */}
         <div className="dashboard-panel">
-          <WeeklyAttendanceChart data={weeklyAttendanceData} highlightDay="Sat" />
+          <WeeklyAttendanceChart data={weeklyAttendanceData} />
         </div>
 
         {/* Right Secondary Column: Stacked Recent Check-ins & Upcoming Expirations */}
@@ -108,20 +116,26 @@ export const OwnerDashboardScreen = () => {
             </div>
 
             <div className="recent-checkins-list">
-              {recentCheckIns.map((item) => (
-                <div key={item.id} className="recent-checkin-item">
-                  <div className="recent-checkin-info">
-                    <span className="recent-checkin-name">{item.name}</span>
-                    <span className="recent-checkin-plan">{item.plan}</span>
-                  </div>
-                  <div className="recent-checkin-meta">
-                    <span className="recent-checkin-time">
-                      <Clock size={12} color="var(--text-muted)" /> {item.time}
-                    </span>
-                    <Badge status={item.status} />
-                  </div>
+              {recentCheckIns.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  No check-ins recorded today.
                 </div>
-              ))}
+              ) : (
+                recentCheckIns.map((item) => (
+                  <div key={item.id} className="recent-checkin-item">
+                    <div className="recent-checkin-info">
+                      <span className="recent-checkin-name">{item.name}</span>
+                      <span className="recent-checkin-plan">{item.plan}</span>
+                    </div>
+                    <div className="recent-checkin-meta">
+                      <span className="recent-checkin-time">
+                        <Clock size={12} color="var(--text-muted)" /> {item.time}
+                      </span>
+                      <Badge status={item.status} />
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -135,22 +149,28 @@ export const OwnerDashboardScreen = () => {
             </div>
 
             <div className="expirations-list">
-              {expiringMemberships.map((item) => (
-                <div
-                  key={item.id}
-                  className={`expiration-item ${item.isUrgent ? 'urgent' : ''}`}
-                >
-                  <div className="expiration-info">
-                    <span className="expiration-name">{item.name}</span>
-                    <span className="expiration-details">
-                      {item.plan} • {item.phone}
-                    </span>
-                  </div>
-                  <Badge status={item.isUrgent ? 'danger' : 'warning'}>
-                    {item.daysLeft} days left
-                  </Badge>
+              {expiringMemberships.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  No memberships expiring within the next 7 days.
                 </div>
-              ))}
+              ) : (
+                expiringMemberships.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`expiration-item ${item.isUrgent ? 'urgent' : ''}`}
+                  >
+                    <div className="expiration-info">
+                      <span className="expiration-name">{item.name}</span>
+                      <span className="expiration-details">
+                        {item.plan} • {item.phone}
+                      </span>
+                    </div>
+                    <Badge status={item.isUrgent ? 'danger' : 'warning'}>
+                      {item.daysLeft} days left
+                    </Badge>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

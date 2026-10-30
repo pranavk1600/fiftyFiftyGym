@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,9 +20,34 @@ export const OwnerLayout = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Preserve authenticated owner's gym slug for browser refresh and logout flows
+  useEffect(() => {
+    const slug = user?.gymSlug || user?.gym_slug || user?.gym?.slug;
+    if (slug) {
+      try {
+        localStorage.setItem('fiftyfifty_last_gym_slug', slug);
+      } catch (_e) {}
+    }
+  }, [user]);
+
   const handleLogout = () => {
+    // Retrieve authenticated gym slug before clearing session
+    const gymSlug =
+      user?.gymSlug ||
+      user?.gym_slug ||
+      user?.gym?.slug ||
+      localStorage.getItem('fiftyfifty_last_gym_slug') ||
+      (user?.gymName ? user.gymName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null);
+
+    // Clear authentication token and user session securely
     logout();
-    navigate('/admin/login');
+
+    // Redirect to gym-specific login URL using authenticated owner's gym slug
+    if (gymSlug) {
+      navigate(`/gym/${gymSlug}/login`, { replace: true });
+    } else {
+      navigate('/admin/login', { replace: true });
+    }
   };
 
   const closeMobileMenu = () => {
