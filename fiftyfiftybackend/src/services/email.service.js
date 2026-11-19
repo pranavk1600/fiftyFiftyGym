@@ -349,7 +349,7 @@ export const sendGymOwnerPasswordResetEmail = async ({
 /**
  * Generates branded FiftyFifty Gym HTML email for Gym Owner invitation.
  * Uses secure, single-use, expiring invitation link for password setup.
- * Never sends plaintext passwords through email.
+ * Never sends plaintext or temporary passwords through email.
  */
 export const renderGymOwnerInvitationHtml = ({
   gymName,
@@ -357,11 +357,10 @@ export const renderGymOwnerInvitationHtml = ({
   loginUrl,
   ownerEmail,
   activationUrl,
-  expiryHours = 48,
-  temporaryPassword
+  expiryHours = 48
 }) => {
   const ctaUrl = activationUrl || loginUrl;
-  const ctaText = activationUrl ? 'Activate Account & Set Password' : 'Sign In to Gym Portal';
+  const ctaText = activationUrl ? 'Set Password & Activate Portal' : 'Sign In to Gym Portal';
 
   return `<!DOCTYPE html>
 <html>
@@ -416,14 +415,6 @@ export const renderGymOwnerInvitationHtml = ({
                         <td style="color: #94A3B8; font-weight: 500;">Gym Login URL:</td>
                         <td><a href="${loginUrl}" style="color: #FF6B00; font-weight: 600; text-decoration: none;">${loginUrl}</a></td>
                       </tr>
-                      ${temporaryPassword ? `
-                      <tr>
-                        <td style="color: #94A3B8; font-weight: 500;">Temporary Password:</td>
-                        <td>
-                          <code style="background-color: #FED7AA; color: #9A3412; padding: 4px 10px; border-radius: 6px; font-size: 14px; font-weight: 700; letter-spacing: 0.05em;">${temporaryPassword}</code>
-                        </td>
-                      </tr>
-                      ` : ''}
                     </table>
                   </td>
                 </tr>
@@ -443,7 +434,7 @@ export const renderGymOwnerInvitationHtml = ({
               ${activationUrl ? `
               <div style="background-color: rgba(255, 107, 0, 0.1); border-left: 4px solid #FF6B00; padding: 12px 16px; border-radius: 6px; margin: 0 0 24px;">
                 <p style="font-size: 13px; color: #FED7AA; margin: 0; font-weight: 600;">
-                  🔒 Security Notice: This single-use setup link will expire in ${expiryHours} hours. Once set, you can sign in directly using your Gym Login URL.
+                  🔒 Security Notice: This single-use setup link will expire in ${expiryHours} hours. For security, please set your password immediately.
                 </p>
               </div>
               <p style="font-size: 13px; color: #64748B; margin: 0 0 12px; word-break: break-all;">
@@ -453,7 +444,7 @@ export const renderGymOwnerInvitationHtml = ({
               ` : `
               <div style="background-color: rgba(255, 107, 0, 0.1); border-left: 4px solid #FF6B00; padding: 12px 16px; border-radius: 6px; margin: 0 0 24px;">
                 <p style="font-size: 13px; color: #FED7AA; margin: 0; font-weight: 600;">
-                  ⚠️ Security Notice: Please change your temporary password immediately after logging into your dashboard.
+                  🔒 Sign in using your registered credentials at your Gym Login URL.
                 </p>
               </div>
               `}
@@ -488,24 +479,22 @@ export const renderGymOwnerInvitationText = ({
   loginUrl,
   ownerEmail,
   activationUrl,
-  expiryHours = 48,
-  temporaryPassword
+  expiryHours = 48
 }) => {
   return `FIFTYFIFTY GYM — WELCOME GYM OWNER
 
 Hello ${ownerName},
 
-Your gym "${gymName}" has been successfully registered on the FiftyFifty Gym Management Platform.
+Congratulations! Your gym "${gymName}" has been successfully registered on the FiftyFifty Gym Management Platform.
 
 YOUR PORTAL ACCESS DETAILS:
 - Gym Name: ${gymName}
 - Gym Login URL: ${loginUrl}
 - Owner Email: ${ownerEmail}
-${activationUrl ? `- Setup Password Link (Expires in ${expiryHours}h): ${activationUrl}` : ''}
-${temporaryPassword ? `- Temporary Password: ${temporaryPassword}` : ''}
+${activationUrl ? `- Secure Set Password Link (Expires in ${expiryHours}h): ${activationUrl}` : ''}
 
 SECURITY NOTICE:
-${activationUrl ? 'Please use the secure activation link above to set your permanent password.' : 'Please log in and update your temporary password immediately.'}
+Please use the secure activation link above to set your personal password. This single-use link expires in ${expiryHours} hours.
 
 If you have any questions, please contact your platform administrator.
 
@@ -522,8 +511,7 @@ export const sendGymOwnerInvitationEmail = async ({
   loginUrl,
   ownerEmail,
   activationUrl,
-  expiryHours = 48,
-  temporaryPassword
+  expiryHours = 48
 }) => {
   const subject = `Welcome to FiftyFifty Gym — Owner Portal Access for ${gymName}`;
   const htmlContent = renderGymOwnerInvitationHtml({
@@ -532,8 +520,7 @@ export const sendGymOwnerInvitationEmail = async ({
     loginUrl,
     ownerEmail,
     activationUrl,
-    expiryHours,
-    temporaryPassword
+    expiryHours
   });
   const textContent = renderGymOwnerInvitationText({
     gymName,
@@ -541,8 +528,7 @@ export const sendGymOwnerInvitationEmail = async ({
     loginUrl,
     ownerEmail,
     activationUrl,
-    expiryHours,
-    temporaryPassword
+    expiryHours
   });
 
   return sendEmail({

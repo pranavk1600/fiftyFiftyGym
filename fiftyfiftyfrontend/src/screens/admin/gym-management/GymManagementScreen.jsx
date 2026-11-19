@@ -548,7 +548,9 @@ export const GymManagementScreen = () => {
 
   // Helper for Invitation Status Badge
   const renderInvitationBadge = (status) => {
-    switch (status) {
+    const normalized = (status || '').toLowerCase().trim();
+    switch (normalized) {
+      case 'accepted':
       case 'active':
         return (
           <span style={{
@@ -560,13 +562,32 @@ export const GymManagementScreen = () => {
             fontSize: '0.785rem',
             fontWeight: 600,
             background: 'var(--color-success-light, #DCFCE7)',
-            color: 'var(--color-success, #16A34A)'
+            color: 'var(--color-success, #16A34A)',
+            border: '1px solid rgba(22, 163, 74, 0.2)'
           }}>
             <CheckCircle2 size={13} />
-            <span>Active</span>
+            <span>Accepted</span>
           </span>
         );
-      case 'password_setup_pending':
+      case 'delivered':
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 10px',
+            borderRadius: 20,
+            fontSize: '0.785rem',
+            fontWeight: 600,
+            background: '#E0F2FE',
+            color: '#0284C7',
+            border: '1px solid rgba(2, 132, 199, 0.2)'
+          }}>
+            <CheckCircle2 size={13} />
+            <span>Delivered</span>
+          </span>
+        );
+      case 'sent':
       case 'invitation_sent':
         return (
           <span style={{
@@ -577,14 +598,33 @@ export const GymManagementScreen = () => {
             borderRadius: 20,
             fontSize: '0.785rem',
             fontWeight: 600,
-            background: 'var(--brand-primary-light, #FFF7ED)',
-            color: 'var(--brand-primary, #EA580C)',
-            border: '1px solid rgba(255, 107, 0, 0.2)'
+            background: '#EFF6FF',
+            color: '#2563EB',
+            border: '1px solid rgba(37, 99, 235, 0.2)'
           }}>
-            <Clock size={13} />
-            <span>Password Setup Pending</span>
+            <Send size={13} />
+            <span>Sent</span>
           </span>
         );
+      case 'expired':
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '4px 10px',
+            borderRadius: 20,
+            fontSize: '0.785rem',
+            fontWeight: 600,
+            background: '#FEF3C7',
+            color: '#D97706',
+            border: '1px solid rgba(217, 119, 6, 0.2)'
+          }}>
+            <Clock size={13} />
+            <span>Expired</span>
+          </span>
+        );
+      case 'failed':
       case 'invitation_failed':
         return (
           <span style={{
@@ -596,12 +636,14 @@ export const GymManagementScreen = () => {
             fontSize: '0.785rem',
             fontWeight: 600,
             background: 'var(--color-danger-light, #FEE2E2)',
-            color: 'var(--color-danger, #DC2626)'
+            color: 'var(--color-danger, #DC2626)',
+            border: '1px solid rgba(220, 38, 38, 0.2)'
           }}>
             <AlertCircle size={13} />
-            <span>Invitation Failed</span>
+            <span>Failed</span>
           </span>
         );
+      case 'pending':
       default:
         return (
           <span style={{
@@ -612,8 +654,9 @@ export const GymManagementScreen = () => {
             borderRadius: 20,
             fontSize: '0.785rem',
             fontWeight: 600,
-            background: 'var(--bg-surface-elevated)',
-            color: 'var(--text-secondary)'
+            background: 'var(--brand-primary-light, #FFF7ED)',
+            color: 'var(--brand-primary, #EA580C)',
+            border: '1px solid rgba(234, 88, 12, 0.2)'
           }}>
             <Clock size={13} />
             <span>Pending</span>
@@ -730,7 +773,7 @@ export const GymManagementScreen = () => {
                 No Gyms Created Yet
               </h3>
               <p style={{ color: 'var(--text-secondary)', maxWidth: 460, margin: '0 auto 20px', fontSize: '0.9rem' }}>
-                Start by creating your first gym. An owner account will be created automatically and an invitation email with login credentials will be dispatched via Brevo.
+                Start by creating your first gym. An owner account will be created automatically and a secure invitation email with a password setup link will be dispatched via Brevo.
               </p>
               <Button onClick={() => setIsCreateModalOpen(true)}>
                 <PlusCircle size={16} style={{ marginRight: 6 }} />
@@ -977,7 +1020,7 @@ export const GymManagementScreen = () => {
                                 size="sm"
                                 disabled={isResending}
                                 onClick={() => handleResendInvitation(gym.id, ownerEmail)}
-                                title="Regenerates temporary credentials and resends the Brevo invitation email"
+                                title="Generates a fresh single-use activation link and resends the Brevo invitation email"
                                 style={{
                                   fontSize: '0.825rem',
                                   padding: '6px 12px',
@@ -1438,7 +1481,7 @@ export const GymManagementScreen = () => {
       >
         <form onSubmit={handleCreateGymSubmit} style={{ padding: '4px 0' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-            Register a new gym branch on FiftyFifty Gym. An owner account will be created automatically and an invitation email containing login credentials will be dispatched via <strong>Brevo</strong>.
+            Register a new gym branch on FiftyFifty Gym. An owner account will be created automatically and a secure invitation email with a password setup link will be dispatched via <strong>Brevo</strong>.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
