@@ -1,43 +1,34 @@
 import { Router } from 'express';
 import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { optionalAuthenticate } from '../middlewares/auth.middleware.js';
+import { enforceGymIsolation } from '../middlewares/rbac.middleware.js';
 
 const router = Router();
 
-let fallbackAlerts = [
-  {
-    id: 1,
-    type: 'EXPIRY',
-    title: '3 Memberships Expiring in 48 Hours',
-    description: 'Rahul Sharma, Sneha Gupta, and Arjun Das have memberships expiring soon.',
-    time: '2 hours ago',
-    level: 'warning',
-    isUnread: true
-  },
-  {
-    id: 2,
-    type: 'DUE',
-    title: 'Pending Balance Alert: ₹2,500',
-    description: 'Priya Patel has an outstanding partial payment balance for Quarterly Pro plan.',
-    time: '5 hours ago',
-    level: 'danger',
-    isUnread: true
-  },
-  {
-    id: 3,
-    type: 'EXPIRED',
-    title: 'Membership Expired: Vikram Singh',
-    description: 'Monthly Standard plan expired on 2026-03-24. Membership status updated to inactive.',
-    time: 'Yesterday',
-    level: 'info',
-    isUnread: false
+router.use(optionalAuthenticate, enforceGymIsolation);
+
+const resolveGymId = async (req) => {
+  let gymId = req.gymId || req.user?.gymId || req.headers['x-gym-id'];
+  if (!gymId) {
+    try {
+      const primaryGym = await db.query('SELECT id FROM gyms ORDER BY created_at ASC LIMIT 1');
+      if (primaryGym.rows.length > 0) {
+        gymId = primaryGym.rows[0].id;
+      }
+    } catch (_e) {}
   }
-];
+  return gymId;
+};
 
 // GET /api/notifications
 router.get('/', async (req, res, next) => {
   try {
-    const gymId = req.headers['x-gym-id'] || 'gym_alpha_1';
+    const gymId = await resolveGymId(req);
+
+    if (!gymId) {
+      return ApiResponse.success(res, [], 'No notifications found');
+    }
 
     try {
       const result = await db.query(`
@@ -48,14 +39,11 @@ router.get('/', async (req, res, next) => {
         ORDER BY created_at DESC
       `, [gymId]);
 
-      if (result.rows.length > 0) {
-        return ApiResponse.success(res, result.rows, 'Notifications retrieved from database');
-      }
-    } catch (_dbErr) {
-      // DB unconfigured; return fallback
+      return ApiResponse.success(res, result.rows, 'Notifications retrieved from database');
+    } catch (err) {
+      console.error('[Notifications Query Error]:', err.message);
+      return ApiResponse.success(res, [], 'No notifications found');
     }
-
-    return ApiResponse.success(res, fallbackAlerts, 'Notifications retrieved');
   } catch (error) {
     next(error);
   }
@@ -64,15 +52,12 @@ router.get('/', async (req, res, next) => {
 // PUT /api/notifications/read-all
 router.put('/read-all', async (req, res, next) => {
   try {
-    const gymId = req.headers['x-gym-id'] || 'gym_alpha_1';
+    const gymId = await resolveGymId(req);
 
-    try {
-      await db.query('UPDATE notifications SET is_unread = false WHERE gym_id = $1', [gymId]);
-    } catch (_dbErr) {
-      // DB unconfigured; update fallback
+    if (gymId) {
+      await db.query('UPDATE notifications SET is_unread = false WHERE gym_id = $1', [gymId]).catch(() => {});
     }
 
-    fallbackAlerts = fallbackAlerts.map((a) => ({ ...a, isUnread: false }));
     return ApiResponse.success(res, { success: true }, 'All notifications marked as read');
   } catch (error) {
     next(error);
@@ -83,14 +68,14 @@ router.put('/read-all', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+    const gymId = await resolveGymId(req);
 
-    try {
-      await db.query('DELETE FROM notifications WHERE id = $1', [id]);
-    } catch (_dbErr) {
-      // DB unconfigured; update fallback
+    if (gymId) {
+      await db.query('DELETE FROM notifications WHERE id = $1 AND gym_id = $2', [id, gymId]).catch(() => {});
+    } else {
+      await db.query('DELETE FROM notifications WHERE id = $1', [id]).catch(() => {});
     }
 
-    fallbackAlerts = fallbackAlerts.filter((a) => a.id !== Number(id));
     return ApiResponse.success(res, { id }, 'Notification dismissed');
   } catch (error) {
     next(error);

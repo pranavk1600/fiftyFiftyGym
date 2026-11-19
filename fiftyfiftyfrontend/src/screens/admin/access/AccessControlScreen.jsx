@@ -11,21 +11,18 @@ export const AccessControlScreen = () => {
     {
       role: 'PLATFORM_ADMIN',
       title: 'Platform Super Admin',
-      usersCount: 3,
       description: 'Full global system administration, gym tenant onboarding, security controls',
       permissions: ['Global Multi-Gym View', 'Tenant Onboarding & Suspension', 'Database Management', 'Security Audit Logs']
     },
     {
       role: 'GYM_OWNER',
       title: 'Gym Owner & Director',
-      usersCount: 28,
       description: 'Complete branch operational control, financial records, plan management',
       permissions: ['Member Management', 'Financial Receipts & Collections', 'Plan Pricing & Setup', 'Staff Access Delegation']
     },
     {
       role: 'MEMBER',
       title: 'Gym Member',
-      usersCount: 4120,
       description: 'Self-service portal for attendance check-ins, fee receipts, workout logs',
       permissions: ['View Active Membership', 'Personal Check-in Logs', 'Download Receipts', 'Update Profile']
     }
@@ -78,7 +75,7 @@ export const AccessControlScreen = () => {
                 <Shield size={22} />
               </div>
               <Badge status={r.role === 'PLATFORM_ADMIN' ? 'info' : 'active'}>
-                {r.usersCount} Active Users
+                Policy Active
               </Badge>
             </div>
 

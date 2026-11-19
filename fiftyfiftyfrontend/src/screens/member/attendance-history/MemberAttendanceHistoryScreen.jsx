@@ -1,16 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table } from '../../../shared/components/Table/Table';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { formatDate } from '../../../shared/utils/formatters';
 
 export const MemberAttendanceHistoryScreen = () => {
-  const checkIns = [
-    { id: 1, date: '2026-03-24', time: '07:15 AM', session: 'Morning Strength Workout' },
-    { id: 2, date: '2026-03-22', time: '07:30 AM', session: 'Cardio & Core Fitness' },
-    { id: 3, date: '2026-03-20', time: '06:55 AM', session: 'Leg Day & Squats' },
-    { id: 4, date: '2026-03-18', time: '07:10 AM', session: 'Chest & Triceps Push' },
-    { id: 5, date: '2026-03-16', time: '07:05 AM', session: 'Back & Biceps Pull' }
-  ];
+  const [checkIns] = useState([]);
 
   const columns = [
     {
@@ -44,7 +38,11 @@ export const MemberAttendanceHistoryScreen = () => {
         </p>
       </div>
 
-      <Table columns={columns} data={checkIns} />
+      <Table
+        columns={columns}
+        data={checkIns}
+        emptyMessage="No attendance check-ins recorded yet. Check in at the gym reception desk to start tracking your visits."
+      />
     </div>
   );
 };

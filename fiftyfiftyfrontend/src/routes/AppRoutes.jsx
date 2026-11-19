@@ -13,9 +13,13 @@ import MemberLayout from '../layouts/MemberLayout/MemberLayout';
 import LandingScreen from '../screens/public/LandingScreen';
 import GymPortalScreen from '../screens/public/GymPortalScreen';
 import LoginScreen from '../screens/auth/login/LoginScreen';
-import SuperAdminLoginScreen from '../screens/auth/superadmin-login/SuperAdminLoginScreen';
-import GymAdminLoginScreen from '../screens/auth/gym-admin-login/GymAdminLoginScreen';
+import DynamicGymLoginScreen from '../screens/auth/gym-login/DynamicGymLoginScreen';
+import GymSetupPasswordScreen from '../screens/auth/gym-setup-password/GymSetupPasswordScreen';
+import GymResetPasswordScreen from '../screens/auth/gym-reset-password/GymResetPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/reset-password/ResetPasswordScreen';
+import DynamicMemberLoginScreen from '../screens/auth/member-login/DynamicMemberLoginScreen';
+import MemberSetupPasswordScreen from '../screens/auth/member-setup-password/MemberSetupPasswordScreen';
+import MemberResetPasswordScreen from '../screens/auth/member-reset-password/MemberResetPasswordScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
 import GymManagementScreen from '../screens/admin/gym-management/GymManagementScreen';
 import OwnerDashboardScreen from '../screens/owner/dashboard/OwnerDashboardScreen';
@@ -35,16 +39,33 @@ export const AppRoutes = () => {
       {/* 1. Public SaaS Landing Page */}
       <Route path="/" element={<LandingScreen />} />
 
-      {/* 2. Multi-Tenant Dedicated Gym Portal */}
+      {/* 2. Dynamic Gym-Specific Branded Login & Password Setup */}
+      <Route path="/gym/:slug/login" element={<DynamicGymLoginScreen />} />
+      <Route path="/gym/:slug/setup-password" element={<GymSetupPasswordScreen />} />
+      <Route path="/gym/:slug/reset-password" element={<GymResetPasswordScreen />} />
+
+      {/* 2b. Dynamic Member-Specific Portal Login & Password Setup */}
+      <Route path="/gym/:gymSlug/:memberSlug/login" element={<DynamicMemberLoginScreen />} />
+      <Route path="/gym/:gymSlug/:memberSlug/setup-password" element={<MemberSetupPasswordScreen />} />
+      <Route path="/gym/:gymSlug/:memberSlug/reset-password" element={<MemberResetPasswordScreen />} />
+
+      {/* 3. Multi-Tenant Dedicated Gym Portal */}
       <Route path="/gym/:slug" element={<GymPortalScreen />} />
 
-      {/* 3. Public Auth Routes */}
+      {/* 4. Public Platform Auth Routes */}
       <Route element={<AuthLayout />}>
-        {/* Unified Login Endpoints for Every Role */}
+        {/* Dedicated Super Admin Login URL */}
         <Route path="/superadmin/login" element={<LoginScreen defaultRole="SUPER_ADMIN" />} />
         <Route path="/superadmin" element={<Navigate to="/superadmin/login" replace />} />
+
+        {/* Dedicated Gym Admin / Owner Login URL */}
         <Route path="/admin/login" element={<LoginScreen defaultRole="GYM_OWNER" />} />
-        <Route path="/login" element={<LoginScreen defaultRole="SUPER_ADMIN" />} />
+
+        {/* Dedicated Gym Member Login URL */}
+        <Route path="/member/login" element={<LoginScreen defaultRole="MEMBER" />} />
+
+        {/* Generic /login redirect to Gym Admin login */}
+        <Route path="/login" element={<Navigate to="/admin/login" replace />} />
 
         {/* Super Admin Password Reset */}
         <Route path="/reset-password" element={<ResetPasswordScreen />} />

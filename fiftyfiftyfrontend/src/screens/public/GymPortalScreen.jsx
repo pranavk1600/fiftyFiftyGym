@@ -40,8 +40,8 @@ export const GymPortalScreen = () => {
   // Dedicated member/owner login modal
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginRole, setLoginRole] = useState('MEMBER'); // 'MEMBER' or 'GYM_OWNER'
-  const [loginEmail, setLoginEmail] = useState('member@fiftyfifty.com');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   // Inquiry modal
@@ -99,25 +99,8 @@ export const GymPortalScreen = () => {
         navigate('/member/dashboard');
       }
     } catch (err) {
-      // Offline fallback
-      if (err.message && (err.message.includes('Network Error') || err.message.includes('fetch'))) {
-        const mockUser = {
-          id: 'usr_' + Date.now(),
-          email: loginEmail.trim(),
-          role: loginRole,
-          fullName: loginRole === 'GYM_OWNER' ? (gymData?.owner_name || 'Gym Owner') : 'Aarav Patel',
-          gymId: gymData?.id || 'gym_alpha_1',
-          gymName: gymData?.name || 'FiftyFifty Gym',
-          gymSlug: gymData?.slug || slug
-        };
-        login(mockUser, 'dev_token_' + Date.now());
-        showToast(`Offline mode: Welcome, ${mockUser.fullName}!`, 'info');
-        setIsLoginModalOpen(false);
-        if (loginRole === 'GYM_OWNER') navigate('/owner/dashboard');
-        else navigate('/member/dashboard');
-      } else {
-        showToast(err.message || 'Invalid email or password', 'danger');
-      }
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
+      showToast(errorMsg, 'danger');
     } finally {
       setIsSubmittingLogin(false);
     }
@@ -215,14 +198,33 @@ export const GymPortalScreen = () => {
                 Go to Dashboard
               </Button>
             ) : (
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Link
+                  to={`/gym/${slug}/login`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-surface-elevated)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.825rem',
+                    fontWeight: 600,
+                    textDecoration: 'none'
+                  }}
+                >
+                  <Shield size={13} color="var(--brand-primary)" />
+                  <span>Owner Login</span>
+                </Link>
                 <Button
                   variant="outline"
                   size="small"
                   onClick={() => setIsLoginModalOpen(true)}
                 >
                   <User size={14} />
-                  <span>Sign In</span>
+                  <span>Member Login</span>
                 </Button>
                 <Button
                   variant="primary"
@@ -289,7 +291,7 @@ export const GymPortalScreen = () => {
             <Button
               variant="outline"
               size="large"
-              onClick={() => { setLoginRole('MEMBER'); setLoginEmail('member@fiftyfifty.com'); setIsLoginModalOpen(true); }}
+              onClick={() => { setLoginRole('MEMBER'); setLoginEmail(''); setIsLoginModalOpen(true); }}
             >
               <User size={18} />
               <span>Member Sign In</span>
@@ -297,7 +299,7 @@ export const GymPortalScreen = () => {
             <Button
               variant="ghost"
               size="small"
-              onClick={() => { setLoginRole('GYM_OWNER'); setLoginEmail(gym.email || 'owner@fiftyfifty.com'); setIsLoginModalOpen(true); }}
+              onClick={() => { setLoginRole('GYM_OWNER'); setLoginEmail(''); setIsLoginModalOpen(true); }}
             >
               <Shield size={14} />
               <span>Gym Admin Portal</span>
@@ -335,44 +337,59 @@ export const GymPortalScreen = () => {
         </div>
 
         <div className="gym-plans-grid">
-          {plans.map((p) => {
-            const isPop = p.is_popular || false;
-            const features = Array.isArray(p.features) ? p.features : ['Full Gym Access', 'Locker Facility', 'App Check-in'];
+          {plans.length === 0 ? (
+            <div style={{
+              gridColumn: '1 / -1',
+              padding: '36px 24px',
+              textAlign: 'center',
+              background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-secondary)'
+            }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 6 }}>No Membership Plans Published Yet</h3>
+              <p style={{ fontSize: '0.9rem' }}>Please contact the gym team directly to inquire about customized membership packages and pricing.</p>
+            </div>
+          ) : (
+            plans.map((p) => {
+              const isPop = p.is_popular || false;
+              const features = Array.isArray(p.features) ? p.features : ['Full Gym Access', 'Locker Facility', 'App Check-in'];
 
-            return (
-              <div key={p.id} className={`gym-plan-card ${isPop ? 'popular' : ''}`}>
-                {isPop && <div className="gym-plan-badge">Most Popular</div>}
-                <h3 className="gym-plan-title">{p.name}</h3>
+              return (
+                <div key={p.id} className={`gym-plan-card ${isPop ? 'popular' : ''}`}>
+                  {isPop && <div className="gym-plan-badge">Most Popular</div>}
+                  <h3 className="gym-plan-title">{p.name}</h3>
 
-                <div className="gym-plan-price-row">
-                  <span className="gym-plan-price">₹{Number(p.price).toLocaleString()}</span>
-                  <span className="gym-plan-duration">/ {p.duration_label || `${p.duration_days} Days`}</span>
+                  <div className="gym-plan-price-row">
+                    <span className="gym-plan-price">₹{Number(p.price).toLocaleString()}</span>
+                    <span className="gym-plan-duration">/ {p.duration_label || `${p.duration_days} Days`}</span>
+                  </div>
+
+                  <ul className="gym-plan-features">
+                    {features.map((feat, idx) => (
+                      <li key={idx} className="gym-plan-feature">
+                        <CheckCircle2 size={16} color="var(--brand-primary)" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="gym-plan-action">
+                    <Button
+                      variant={isPop ? 'primary' : 'outline'}
+                      fullWidth
+                      onClick={() => {
+                        setSelectedPlanId(p.name);
+                        setIsInquiryModalOpen(true);
+                      }}
+                    >
+                      Select {p.name}
+                    </Button>
+                  </div>
                 </div>
-
-                <ul className="gym-plan-features">
-                  {features.map((feat, idx) => (
-                    <li key={idx} className="gym-plan-feature">
-                      <CheckCircle2 size={16} color="var(--brand-primary)" style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="gym-plan-action">
-                  <Button
-                    variant={isPop ? 'primary' : 'outline'}
-                    fullWidth
-                    onClick={() => {
-                      setSelectedPlanId(p.name);
-                      setIsInquiryModalOpen(true);
-                    }}
-                  >
-                    Select {p.name}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </main>
 
@@ -401,14 +418,14 @@ export const GymPortalScreen = () => {
               label="Full Name *"
               value={inquiryName}
               onChange={(e) => setInquiryName(e.target.value)}
-              placeholder="e.g. Rahul Sharma"
+              placeholder="e.g. Full Name"
               required
             />
             <Input
               label="Mobile Number *"
               value={inquiryPhone}
               onChange={(e) => setInquiryPhone(e.target.value)}
-              placeholder="+91 98765 43210"
+              placeholder="+91 98765 00000"
               required
             />
             <Input
@@ -416,7 +433,7 @@ export const GymPortalScreen = () => {
               type="email"
               value={inquiryEmail}
               onChange={(e) => setInquiryEmail(e.target.value)}
-              placeholder="rahul@example.com"
+              placeholder="e.g. name@example.com"
             />
             {selectedPlanId && (
               <div style={{ padding: '8px 12px', background: 'var(--brand-primary-soft)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--brand-primary)', fontWeight: 600, marginBottom: 14 }}>

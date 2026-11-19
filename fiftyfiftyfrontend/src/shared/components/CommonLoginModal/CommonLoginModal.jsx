@@ -22,15 +22,8 @@ import { apiClient } from '../../services/apiClient';
 
 export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' }) => {
   const [selectedRole, setSelectedRole] = useState(initialRole);
-  const [email, setEmail] = useState(() => {
-    if (initialRole === 'GYM_OWNER') return 'owner@fiftyfifty.com';
-    if (initialRole === 'MEMBER') return 'member@fiftyfifty.com';
-    return 'leopardxtechnology@gmail.com';
-  });
-  const [password, setPassword] = useState(() => {
-    if (initialRole === 'SUPER_ADMIN') return 'SuperAdmin#2026!FiftyFifty';
-    return 'password123';
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittingRole, setSubmittingRole] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -42,16 +35,6 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
 
   const handleRoleSelect = (role) => {
     setSelectedRole(role);
-    if (role === 'SUPER_ADMIN') {
-      setEmail('leopardxtechnology@gmail.com');
-      setPassword('SuperAdmin#2026!FiftyFifty');
-    } else if (role === 'GYM_OWNER') {
-      setEmail('owner@fiftyfifty.com');
-      setPassword('password123');
-    } else {
-      setEmail('member@fiftyfifty.com');
-      setPassword('password123');
-    }
   };
 
   const executeLogin = async (targetEmail, targetPassword, targetRole) => {
@@ -79,22 +62,8 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
         navigate('/member/dashboard');
       }
     } catch (err) {
-      // Offline fallback
-      const mockUser = {
-        id: 'usr_' + Date.now(),
-        email: targetEmail.trim(),
-        role: targetRole,
-        fullName: targetRole === 'SUPER_ADMIN' ? 'Platform Super Admin' : targetRole === 'GYM_OWNER' ? 'Om Kolekar' : 'Aarav Patel',
-        gymId: 'gym_alpha_1',
-        gymName: 'Leopardx Downtown Fitness'
-      };
-      login(mockUser, 'dev_token_' + Date.now());
-      showToast(`Signed in as ${mockUser.fullName}!`, 'success');
-      onClose();
-
-      if (targetRole === 'SUPER_ADMIN') navigate('/admin/dashboard');
-      else if (targetRole === 'GYM_OWNER') navigate('/owner/dashboard');
-      else navigate('/member/dashboard');
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
+      showToast(errorMsg, 'danger');
     } finally {
       setIsSubmitting(false);
       setSubmittingRole(null);
@@ -107,21 +76,8 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
   };
 
   const handleDirectLogin = (role) => {
-    let directEmail = 'leopardxtechnology@gmail.com';
-    let directPass = 'SuperAdmin#2026!FiftyFifty';
-
-    if (role === 'GYM_OWNER') {
-      directEmail = 'owner@fiftyfifty.com';
-      directPass = 'password123';
-    } else if (role === 'MEMBER') {
-      directEmail = 'member@fiftyfifty.com';
-      directPass = 'password123';
-    }
-
     setSelectedRole(role);
-    setEmail(directEmail);
-    setPassword(directPass);
-    executeLogin(directEmail, directPass, role);
+    setShowCustomForm(true);
   };
 
   if (!isOpen) return null;
@@ -209,7 +165,7 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                leopardxtechnology@gmail.com • System & Gym Overseer
+                System & Gym Overseer
               </div>
             </div>
           </div>
@@ -270,7 +226,7 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                owner@fiftyfifty.com • Daily Operations & Plans
+                Daily Operations & Plans
               </div>
             </div>
           </div>
@@ -331,7 +287,7 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'SUPER_ADMIN' 
                 </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                member@fiftyfifty.com • Attendance & Subscriptions
+                Attendance & Subscriptions
               </div>
             </div>
           </div>

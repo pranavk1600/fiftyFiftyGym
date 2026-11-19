@@ -33,16 +33,12 @@ import { useToast } from '../../context/ToastContext';
 import { apiClient } from '../../shared/services/apiClient';
 import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
 import { Button } from '../../shared/components/Button/Button';
-import { CommonLoginModal } from '../../shared/components/CommonLoginModal/CommonLoginModal';
 import '../../styles/screens/public/landingScreen.css';
 
 export const LandingScreen = () => {
   const { user, isAuthenticated, role, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-
-  // Unified common login modal state
-  const [isCommonLoginOpen, setIsCommonLoginOpen] = useState(false);
 
   // Interactive documentation state
   const [activeDocsTab, setActiveDocsTab] = useState('quickstart');
@@ -165,7 +161,7 @@ export const LandingScreen = () => {
               <button
                 type="button"
                 id="landing-navbar-signin-btn"
-                onClick={() => setIsCommonLoginOpen(true)}
+                onClick={() => navigate('/admin/login')}
                 className="btn-hero-primary"
                 style={{
                   padding: '8px 22px',
@@ -221,7 +217,8 @@ export const LandingScreen = () => {
             </a>
             <button
               type="button"
-              onClick={() => setIsCommonLoginOpen(true)}
+              id="landing-hero-launch-signin-btn"
+              onClick={() => navigate('/admin/login')}
               className="btn-hero-secondary"
             >
               <Zap size={18} color="var(--brand-primary)" />
@@ -613,13 +610,13 @@ export const LandingScreen = () => {
                 <div className="docs-code-block">
                   <button
                     type="button"
-                    onClick={() => handleCopyCode('owner_code', `// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "yourPassword123",\n  "portal": "GYM_ADMIN"\n}`)}
+                    onClick={() => handleCopyCode('owner_code', `// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "your_secure_password",\n  "portal": "GYM_ADMIN"\n}`)}
                     className="docs-copy-btn"
                   >
                     {copiedSnippet === 'owner_code' ? <Check size={12} /> : <Copy size={12} />}
                     <span>{copiedSnippet === 'owner_code' ? 'Copied' : 'Copy'}</span>
                   </button>
-                  <code>{`// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "yourPassword123",\n  "portal": "GYM_ADMIN"\n}`}</code>
+                  <code>{`// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "your_secure_password",\n  "portal": "GYM_ADMIN"\n}`}</code>
                 </div>
               </div>
             )}
@@ -776,7 +773,7 @@ export const LandingScreen = () => {
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> QR-Based Attendance Tracking</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Membership Expiry Alerts</li>
             </ul>
-            <button type="button" onClick={() => setIsQuickLoginOpen(true)} className="btn-visit-gym">
+            <button type="button" onClick={() => navigate('/admin/login')} className="btn-visit-gym">
               Get Started
             </button>
           </div>
@@ -798,7 +795,7 @@ export const LandingScreen = () => {
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Brevo Automated Email Credentials</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Advanced Financial Analytics</li>
             </ul>
-            <button type="button" onClick={() => setIsQuickLoginOpen(true)} className="btn-visit-gym">
+            <button type="button" onClick={() => navigate('/admin/login')} className="btn-visit-gym">
               Start Free 14-Day Trial
             </button>
           </div>
@@ -818,7 +815,7 @@ export const LandingScreen = () => {
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Dedicated Cloud Database Instance</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> 24/7 Priority SLA Support</li>
             </ul>
-            <button type="button" onClick={() => setIsQuickLoginOpen(true)} className="btn-visit-gym">
+            <button type="button" onClick={() => navigate('/admin/login')} className="btn-visit-gym">
               Contact Sales
             </button>
           </div>
@@ -847,7 +844,7 @@ export const LandingScreen = () => {
             <a href="#gyms" className="footer-link">Gym Showcase</a>
             <button
               type="button"
-              onClick={() => setIsCommonLoginOpen(true)}
+              onClick={() => navigate('/admin/login')}
               className="footer-link"
               style={{
                 background: 'none',
@@ -858,19 +855,11 @@ export const LandingScreen = () => {
                 fontWeight: 700
               }}
             >
-              Sign In (All Roles)
+              Sign In
             </button>
           </div>
         </div>
       </footer>
-
-      {/* ====================================================================
-          COMMON SIGN-IN MODAL (SUPER ADMIN / GYM OWNER / MEMBER)
-          ==================================================================== */}
-      <CommonLoginModal
-        isOpen={isCommonLoginOpen}
-        onClose={() => setIsCommonLoginOpen(false)}
-      />
     </div>
   );
 };

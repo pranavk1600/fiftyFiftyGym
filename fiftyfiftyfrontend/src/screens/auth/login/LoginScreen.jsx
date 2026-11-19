@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -10,21 +10,24 @@ import { CheckCircle2, Shield, Dumbbell, User, Zap } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
 export const LoginScreen = ({ defaultRole }) => {
-  const [selectedRole, setSelectedRole] = useState(defaultRole || 'SUPER_ADMIN');
-  const [email, setEmail] = useState(() => {
-    if (defaultRole === 'GYM_OWNER') return 'owner@fiftyfifty.com';
-    if (defaultRole === 'MEMBER') return 'member@fiftyfifty.com';
-    return 'leopardxtechnology@gmail.com';
-  });
-  const [password, setPassword] = useState(() => {
-    if (defaultRole === 'SUPER_ADMIN' || !defaultRole) return 'SuperAdmin#2026!FiftyFifty';
-    return 'password123';
-  });
+  const getInitialRole = () => {
+    if (defaultRole) return defaultRole;
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.includes('/superadmin')) return 'SUPER_ADMIN';
+      if (path.includes('/member')) return 'MEMBER';
+    }
+    return 'GYM_OWNER';
+  };
+
+  const [selectedRole, setSelectedRole] = useState(getInitialRole);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forgot password modal state
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('leopardxtechnology@gmail.com');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [resetSentSuccess, setResetSentSuccess] = useState(false);
 
@@ -32,122 +35,76 @@ export const LoginScreen = ({ defaultRole }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const role = defaultRole || getInitialRole();
+    setSelectedRole(role);
+  }, [defaultRole]);
+
   const handleRoleSelect = (role) => {
     setSelectedRole(role);
     if (role === 'SUPER_ADMIN') {
-      setEmail('leopardxtechnology@gmail.com');
-      setPassword('SuperAdmin#2026!FiftyFifty');
-      setForgotEmail('leopardxtechnology@gmail.com');
-    } else if (role === 'GYM_OWNER') {
-      setEmail('owner@fiftyfifty.com');
-      setPassword('password123');
+      if (window.location.pathname !== '/superadmin/login') {
+        navigate('/superadmin/login');
+      }
+    } else if (role === 'MEMBER') {
+      if (window.location.pathname !== '/member/login') {
+        navigate('/member/login');
+      }
     } else {
-      setEmail('member@fiftyfifty.com');
-      setPassword('password123');
+      if (window.location.pathname !== '/admin/login') {
+        navigate('/admin/login');
+      }
     }
   };
 
-  const handleDirect1ClickLogin = async (targetRole) => {
-    let targetEmail = 'leopardxtechnology@gmail.com';
-    let targetPassword = 'SuperAdmin#2026!FiftyFifty';
-
-    if (targetRole === 'GYM_OWNER') {
-      targetEmail = 'owner@fiftyfifty.com';
-      targetPassword = 'password123';
-    } else if (targetRole === 'MEMBER') {
-      targetEmail = 'member@fiftyfifty.com';
-      targetPassword = 'password123';
-    }
-
-    setSelectedRole(targetRole);
-    setEmail(targetEmail);
-    setPassword(targetPassword);
-    setIsSubmitting(true);
-
-    try {
-      const response = await apiClient.post('/auth/login', {
-        email: targetEmail,
-        password: targetPassword,
-        portal: targetRole === 'GYM_OWNER' ? 'GYM_ADMIN' : targetRole
-      });
-      const { user, token } = response.data || response;
-      login(user, token);
-      showToast(`Welcome back, ${user.fullName || 'User'}!`, 'success');
-
-      const userRole = (user.role || targetRole).toUpperCase();
-      if (userRole === 'SUPER_ADMIN' || userRole === 'PLATFORM_ADMIN') {
-        navigate('/admin/dashboard');
-      } else if (userRole === 'GYM_OWNER') {
-        navigate('/owner/dashboard');
-      } else {
-        navigate('/member/dashboard');
-      }
-    } catch (err) {
-      // Offline fallback
-      const mockUser = {
-        id: 'usr_' + Date.now(),
-        email: targetEmail,
-        role: targetRole,
-        fullName: targetRole === 'SUPER_ADMIN' ? 'Platform Super Admin' : targetRole === 'GYM_OWNER' ? 'Om Kolekar' : 'Aarav Patel',
-        gymId: 'gym_alpha_1',
-        gymName: 'FiftyFifty Downtown Fitness'
-      };
-      login(mockUser, 'dev_token_' + Date.now());
-      showToast(`Signed in as ${mockUser.fullName}!`, 'success');
-
-      if (targetRole === 'SUPER_ADMIN') navigate('/admin/dashboard');
-      else if (targetRole === 'GYM_OWNER') navigate('/owner/dashboard');
-      else navigate('/member/dashboard');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRoleCardClick = (targetRole) => {
+    handleRoleSelect(targetRole);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!email || !email.trim()) {
+      showToast('Please enter your email address', 'warning');
+      return;
+    }
+    if (!password) {
+      showToast('Please enter your password', 'warning');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const targetPortal = selectedRole === 'GYM_OWNER' ? 'GYM_ADMIN' : selectedRole;
+      const response = await apiClient.post('/auth/login', {
+        email: email.trim(),
+        password,
+        portal: targetPortal
+      });
       const { user, token } = response.data || response;
 
       login(user, token);
+      if (user?.gymSlug || user?.gym_slug) {
+        try {
+          localStorage.setItem('fiftyfifty_last_gym_slug', user.gymSlug || user.gym_slug);
+        } catch (_e) {}
+      }
       showToast(`Welcome back, ${user.fullName || 'User'}!`, 'success');
 
+      // Strict role-based destination derived from authenticated database record
       const userRole = (user.role || '').toUpperCase();
       if (userRole === 'SUPER_ADMIN' || userRole === 'PLATFORM_ADMIN') {
         navigate('/admin/dashboard');
       } else if (userRole === 'GYM_OWNER') {
         navigate('/owner/dashboard');
-      } else {
+      } else if (userRole === 'MEMBER') {
         navigate('/member/dashboard');
+      } else {
+        navigate('/');
       }
     } catch (err) {
-      console.warn('API login failed, checking fallback:', err.message);
-
-      if (err.message.includes('Network Error') || err.message.includes('fetch')) {
-        const fallbackRole = email.toLowerCase().includes('admin') || email === 'leopardxtechnology@gmail.com'
-          ? 'SUPER_ADMIN'
-          : selectedRole;
-
-        const mockUser = {
-          id: 'usr_' + Date.now(),
-          email,
-          role: fallbackRole,
-          fullName: fallbackRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Om Kolekar',
-          gymId: 'gym_alpha_1',
-          gymName: 'FiftyFifty Downtown Fitness'
-        };
-
-        login(mockUser, 'dev_token_' + Date.now());
-        showToast(`Offline mode: Welcome, ${mockUser.fullName}!`, 'info');
-
-        if (fallbackRole === 'SUPER_ADMIN') navigate('/admin/dashboard');
-        else if (fallbackRole === 'GYM_OWNER') navigate('/owner/dashboard');
-        else navigate('/member/dashboard');
-      } else {
-        showToast(err.message || 'Invalid email or password', 'danger');
-      }
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
+      showToast(errorMsg, 'danger');
     } finally {
       setIsSubmitting(false);
     }
@@ -162,11 +119,15 @@ export const LoginScreen = ({ defaultRole }) => {
 
     setIsSendingReset(true);
     try {
-      await apiClient.post('/auth/forgot-password', { email: forgotEmail.trim() });
+      if (selectedRole === 'GYM_OWNER') {
+        await apiClient.post('/auth/gym/forgot-password', { email: forgotEmail.trim() });
+      } else {
+        await apiClient.post('/auth/forgot-password', { email: forgotEmail.trim() });
+      }
       setResetSentSuccess(true);
     } catch (err) {
       console.error('Forgot password request failed:', err);
-      // Still show generic success state to protect user privacy
+      // Generic success to protect user privacy
       setResetSentSuccess(true);
     } finally {
       setIsSendingReset(false);
@@ -178,24 +139,54 @@ export const LoginScreen = ({ defaultRole }) => {
     setResetSentSuccess(false);
   };
 
+  const ROLE_CARDS = [
+    {
+      id: 'SUPER_ADMIN',
+      label: 'Super Admin',
+      sub: '/admin',
+      color: '#16A34A',
+      border: '#16A34A',
+      bgActive: 'rgba(22, 163, 74, 0.08)',
+      icon: Shield
+    },
+    {
+      id: 'GYM_OWNER',
+      label: 'Gym Owner',
+      sub: '/owner',
+      color: 'var(--brand-primary, #FF6B00)',
+      border: 'var(--brand-primary, #FF6B00)',
+      bgActive: 'rgba(255, 107, 0, 0.08)',
+      icon: Dumbbell
+    },
+    {
+      id: 'MEMBER',
+      label: 'Member',
+      sub: '/member',
+      color: '#0284C7',
+      border: '#0284C7',
+      bgActive: 'rgba(2, 132, 199, 0.08)',
+      icon: User
+    }
+  ];
+
   return (
     <>
       <form onSubmit={handleLogin}>
-        {/* 1-Click Fast Login Grid */}
+        {/* 1. Instant 1-Click Login Section (3 Role Cards) */}
         <div style={{
-          background: 'var(--bg-surface-elevated, #F1F5F9)',
+          background: 'var(--bg-surface-elevated, #F8FAFC)',
           border: '1px solid var(--border-subtle, #E2E8F0)',
-          borderRadius: 12,
+          borderRadius: 'var(--radius-lg, 12px)',
           padding: '12px 14px',
-          marginBottom: 16
+          marginBottom: 20
         }}>
           <div style={{
-            fontSize: '0.75rem',
+            fontSize: '0.725rem',
             fontWeight: 700,
             color: 'var(--text-secondary, #64748B)',
             textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            marginBottom: 8,
+            letterSpacing: '0.05em',
+            marginBottom: 10,
             display: 'flex',
             alignItems: 'center',
             gap: 6
@@ -205,156 +196,80 @@ export const LoginScreen = ({ defaultRole }) => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => handleDirect1ClickLogin('SUPER_ADMIN')}
-              disabled={isSubmitting}
-              style={{
-                padding: '9px 6px',
-                borderRadius: 8,
-                border: selectedRole === 'SUPER_ADMIN' ? '2px solid #16A34A' : '1px solid var(--border-subtle, #E2E8F0)',
-                background: 'var(--bg-surface, #FFFFFF)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                boxShadow: 'var(--shadow-sm)'
-              }}
-            >
-              <Shield size={17} color="#16A34A" />
-              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Super Admin</span>
-              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/admin</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDirect1ClickLogin('GYM_OWNER')}
-              disabled={isSubmitting}
-              style={{
-                padding: '9px 6px',
-                borderRadius: 8,
-                border: selectedRole === 'GYM_OWNER' ? '2px solid var(--brand-primary, #FF6B00)' : '1px solid var(--border-subtle, #E2E8F0)',
-                background: 'var(--bg-surface, #FFFFFF)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                boxShadow: 'var(--shadow-sm)'
-              }}
-            >
-              <Dumbbell size={17} color="var(--brand-primary, #FF6B00)" />
-              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Gym Owner</span>
-              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/owner</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleDirect1ClickLogin('MEMBER')}
-              disabled={isSubmitting}
-              style={{
-                padding: '9px 6px',
-                borderRadius: 8,
-                border: selectedRole === 'MEMBER' ? '2px solid #0284C7' : '1px solid var(--border-subtle, #E2E8F0)',
-                background: 'var(--bg-surface, #FFFFFF)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                boxShadow: 'var(--shadow-sm)'
-              }}
-            >
-              <User size={17} color="#0284C7" />
-              <span style={{ fontSize: '0.785rem', fontWeight: 700 }}>Member</span>
-              <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>/member</span>
-            </button>
+            {ROLE_CARDS.map((card) => {
+              const isSelected = selectedRole === card.id;
+              const RoleIcon = card.icon;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  id={`btn-1click-${card.id.toLowerCase().replace('_', '')}`}
+                  data-role={card.id}
+                  onClick={() => handleRoleCardClick(card.id)}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '10px 6px',
+                    borderRadius: 8,
+                    border: isSelected ? `2px solid ${card.border}` : '1px solid var(--border-subtle, #E2E8F0)',
+                    background: isSelected ? card.bgActive : 'var(--bg-surface, #FFFFFF)',
+                    color: 'var(--text-primary)',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                    boxShadow: isSelected ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
+                    transition: 'all 0.18s ease'
+                  }}
+                  title={`Select ${card.label}`}
+                >
+                  <RoleIcon size={18} color={card.color} />
+                  <span style={{
+                    fontSize: '0.785rem',
+                    fontWeight: isSelected ? 700 : 600,
+                    color: isSelected ? card.color : 'var(--text-primary)'
+                  }}>
+                    {card.label}
+                  </span>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary, #64748B)' }}>
+                    {card.sub}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Improved Role Selector with Clear Separation & Spacing */}
-        <div
-          className="login-role-tabs"
-          role="tablist"
-          aria-label="Select User Role"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '8px',
-            background: 'var(--bg-surface-elevated, #F1F5F9)',
-            border: '1px solid var(--border-subtle, #E2E8F0)',
-            borderRadius: '10px',
-            padding: '6px',
-            marginBottom: '22px'
-          }}
-        >
-          {[
-            { id: 'SUPER_ADMIN', label: 'Super Admin' },
-            { id: 'GYM_OWNER', label: 'Gym Owner' },
-            { id: 'MEMBER', label: 'Member' }
-          ].map((tab) => {
-            const isActive = selectedRole === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`login-tab-btn ${isActive ? 'active' : ''}`}
-                onClick={() => handleRoleSelect(tab.id)}
-                style={{
-                  padding: '9px 12px',
-                  fontSize: '0.85rem',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? 'var(--brand-primary, #FF6B00)' : 'var(--text-secondary, #64748B)',
-                  background: isActive ? 'var(--bg-surface, #FFFFFF)' : 'transparent',
-                  border: isActive ? '1px solid var(--border-subtle, #E2E8F0)' : '1px solid transparent',
-                  borderRadius: '6px',
-                  boxShadow: isActive ? '0 1px 3px rgba(0, 0, 0, 0.08)' : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.18s ease'
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
+        {/* 2. Email Address Input */}
         <Input
           label="Email Address"
           name="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@company.com"
           required
         />
 
+        {/* 3. Password Input with Show/Hide Icon */}
         <Input
           label="Password"
           name="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
           required
+          showPasswordToggle
         />
 
-        {/* Visible Forgot Password Link for Super Admin */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 16 }}>
+        {/* 4. Forgot Password Link */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 18 }}>
           <button
             type="button"
             className="forgot-password-link"
             onClick={() => {
-              setForgotEmail(email || 'leopardxtechnology@gmail.com');
+              setForgotEmail(email || '');
               setIsForgotModalOpen(true);
             }}
           >
@@ -362,30 +277,17 @@ export const LoginScreen = ({ defaultRole }) => {
           </button>
         </div>
 
-        <div style={{
-          background: 'var(--bg-surface-elevated)',
-          padding: '10px 14px',
-          borderRadius: 'var(--radius-md)',
-          marginBottom: 16,
-          fontSize: '0.85rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          border: '1px solid var(--border-subtle)'
-        }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Target Portal:</span>
-          <span style={{
-            fontWeight: 700,
-            color: selectedRole === 'SUPER_ADMIN' ? 'var(--brand-secondary)' : selectedRole === 'GYM_OWNER' ? 'var(--brand-primary)' : 'var(--brand-accent)'
-          }}>
-            {selectedRole === 'SUPER_ADMIN' ? '🛡️ Super Admin Portal' : selectedRole === 'GYM_OWNER' ? '🏋️ Gym Owner Portal' : '👤 Member Portal'}
-          </span>
-        </div>
-
-        <Button type="submit" className="w-full" style={{ marginTop: 4 }} disabled={isSubmitting}>
+        {/* 5. Sign In to Portal Button */}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isSubmitting}
+          style={{ width: '100%', marginTop: 4, padding: '12px' }}
+        >
           {isSubmitting ? 'Authenticating...' : 'Sign In to Portal'}
         </Button>
 
+        {/* 6. Security Footer Text */}
         <div className="login-form-footer">
           <span>Protected by LeopardxGyms Enterprise RBAC</span>
         </div>
@@ -395,12 +297,12 @@ export const LoginScreen = ({ defaultRole }) => {
       <Modal
         isOpen={isForgotModalOpen}
         onClose={closeForgotModal}
-        title="Reset Super Admin Password"
+        title="Reset Password"
       >
         {!resetSentSuccess ? (
           <form onSubmit={handleForgotPasswordSubmit} style={{ padding: '4px 0' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20, lineHeight: 1.5 }}>
-              Enter your registered Super Admin email address. We will send a secure single-use link to reset your password via <strong>Brevo</strong>.
+              Enter your registered email address. We will send a secure single-use link to reset your password via <strong>Brevo</strong>.
             </p>
 
             <Input
@@ -409,7 +311,7 @@ export const LoginScreen = ({ defaultRole }) => {
               type="email"
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
-              placeholder="leopardxtechnology@gmail.com"
+              placeholder="name@company.com"
               required
             />
 

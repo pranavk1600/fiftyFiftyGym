@@ -122,9 +122,18 @@ CREATE TABLE IF NOT EXISTS members (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE members ADD COLUMN IF NOT EXISTS slug VARCHAR(100);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS invitation_status VARCHAR(50) DEFAULT 'pending';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS invitation_sent_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE;
+
 CREATE INDEX IF NOT EXISTS idx_members_gym_id ON members(gym_id);
 CREATE INDEX IF NOT EXISTS idx_members_phone ON members(phone);
 CREATE INDEX IF NOT EXISTS idx_members_status ON members(status);
+CREATE INDEX IF NOT EXISTS idx_members_slug ON members(LOWER(slug));
+CREATE INDEX IF NOT EXISTS idx_members_email ON members(LOWER(email));
 
 -- 7. MEMBER SUBSCRIPTIONS HISTORY TABLE
 CREATE TABLE IF NOT EXISTS member_subscriptions (
@@ -205,3 +214,30 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_reset_token_hash ON password_reset_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_reset_user_id ON password_reset_tokens(user_id);
+
+-- 12. MEMBERSHIP RECEIPTS TABLE (PDF Membership Receipt System & Audit)
+CREATE TABLE IF NOT EXISTS membership_receipts (
+  id VARCHAR(50) PRIMARY KEY DEFAULT ('rcp_' || substr(md5(random()::text), 1, 16)),
+  receipt_number VARCHAR(50) UNIQUE NOT NULL,
+  gym_id VARCHAR(50) NOT NULL REFERENCES gyms(id) ON DELETE CASCADE,
+  member_id VARCHAR(50) NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  membership_subscription_id INTEGER REFERENCES member_subscriptions(id) ON DELETE SET NULL,
+  payment_id VARCHAR(50) REFERENCES payments(id) ON DELETE SET NULL,
+  plan_name VARCHAR(255) NOT NULL,
+  amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+  payment_status VARCHAR(50) NOT NULL DEFAULT 'PAYMENT_PENDING',
+  receipt_type VARCHAR(50) NOT NULL DEFAULT 'REGISTRATION_ACKNOWLEDGEMENT',
+  storage_path TEXT NOT NULL,
+  download_url TEXT,
+  issued_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  payment_reference VARCHAR(100),
+  payment_mode VARCHAR(50),
+  pdf_generated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_receipts_gym_id ON membership_receipts(gym_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_member_id ON membership_receipts(member_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_receipt_number ON membership_receipts(receipt_number);
+CREATE INDEX IF NOT EXISTS idx_receipts_payment_status ON membership_receipts(payment_status);

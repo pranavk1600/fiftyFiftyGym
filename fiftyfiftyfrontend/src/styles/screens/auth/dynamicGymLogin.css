@@ -1,0 +1,549 @@
+/* ==============================================================================
+   FIFTYFIFTY GYM / LEOPARDXGYMS — DYNAMIC BRANDED GYM LOGIN & SETUP STYLES
+   ============================================================================== */
+
+.dynamic-gym-page {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #080B12;
+  color: #F8FAFC;
+  overflow-x: hidden;
+  padding: 32px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Ambient gym background overlay */
+.dynamic-gym-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Full viewport gym background image with cover, center, and subtle blur (max 1px) */
+.dynamic-gym-bg-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  filter: blur(1px);
+  transform: scale(1.01);
+  transition: opacity 0.6s ease;
+  z-index: 0;
+}
+
+/* Subtle dark overlay (~35-45%) so gym image is clearly recognizable while card text is readable */
+.dynamic-gym-backdrop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 11, 18, 0.40);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dynamic-gym-radial-glow {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -20%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.16) 0%, rgba(255, 107, 0, 0.03) 50%, transparent 75%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dynamic-gym-grid-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.5;
+  z-index: 3;
+}
+
+/* Container */
+.dynamic-gym-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 460px;
+}
+
+/* Welcome Loading Screen */
+.dynamic-gym-welcome-screen {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 48px 36px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 107, 0, 0.15);
+  animation: fadeInGym 0.4s ease-out;
+}
+
+.dynamic-gym-loading-ring-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dynamic-gym-pulsing-orb {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.4) 0%, transparent 70%);
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.dynamic-gym-loading-spinner {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 107, 0, 0.15);
+  border-top-color: #FF6B00;
+  border-right-color: #FF6B00;
+  animation: spinRing 1s linear infinite;
+}
+
+.dynamic-gym-loading-logo-center {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #111827;
+  border: 1px solid rgba(255, 107, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FF6B00;
+  overflow: hidden;
+}
+
+.dynamic-gym-loading-logo-center img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dynamic-gym-welcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 107, 0, 0.12);
+  border: 1px solid rgba(255, 107, 0, 0.3);
+  color: #FF6B00;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+.dynamic-gym-welcome-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 10px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.dynamic-gym-welcome-subtitle {
+  font-size: 0.95rem;
+  color: #94A3B8;
+  margin: 0 0 24px;
+  font-style: italic;
+}
+
+.dynamic-gym-loading-progress-bar {
+  width: 140px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.dynamic-gym-loading-progress-fill {
+  position: absolute;
+  height: 100%;
+  width: 50%;
+  background: #FF6B00;
+  border-radius: 9999px;
+  animation: progressSlide 1.2s infinite ease-in-out;
+}
+
+/* Card */
+.dynamic-gym-card {
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 36px 32px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 107, 0, 0.08);
+  animation: cardEnter 0.4s ease-out;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dynamic-gym-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.dynamic-gym-logo-wrapper {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  background: #1E293B;
+  border: 1.5px solid rgba(255, 107, 0, 0.35);
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.dynamic-gym-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dynamic-gym-logo-fallback {
+  color: #FF6B00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dynamic-gym-brand-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #FF6B00;
+  margin-bottom: 6px;
+}
+
+.dynamic-gym-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 6px;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.dynamic-gym-subtitle {
+  font-size: 0.85rem;
+  color: #94A3B8;
+  margin: 0;
+}
+
+/* Alert Box */
+.dynamic-gym-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin-bottom: 20px;
+}
+
+.dynamic-gym-alert.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #FCA5A5;
+}
+
+.dynamic-gym-alert.success {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86EFAC;
+}
+
+.dynamic-gym-alert.info {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #93C5FD;
+}
+
+/* Form Styles */
+.dynamic-gym-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dynamic-gym-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dynamic-gym-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dynamic-gym-label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+.dynamic-gym-forgot-btn {
+  background: none;
+  border: none;
+  color: #FF6B00;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.dynamic-gym-forgot-btn:hover {
+  color: #FF8533;
+  text-decoration: underline;
+}
+
+.dynamic-gym-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dynamic-gym-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.dynamic-gym-input {
+  width: 100%;
+  padding: 12px 14px 12px 42px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #F8FAFC;
+  font-size: 0.925rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.dynamic-gym-input:focus {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: #FF6B00;
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.2);
+}
+
+.dynamic-gym-input.has-eye {
+  padding-right: 44px;
+}
+
+.dynamic-gym-eye-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #64748B;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+
+.dynamic-gym-eye-btn:hover {
+  color: #CBD5E1;
+}
+
+/* Submit Button */
+.dynamic-gym-submit-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 10px;
+  background: #FF6B00;
+  color: #FFFFFF;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(255, 107, 0, 0.35);
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.dynamic-gym-submit-btn:hover:not(:disabled) {
+  background: #EA580C;
+  box-shadow: 0 6px 20px rgba(255, 107, 0, 0.45);
+  transform: translateY(-1px);
+}
+
+.dynamic-gym-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.dynamic-gym-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Footer / Meta Links */
+.dynamic-gym-footer {
+  margin-top: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dynamic-gym-portal-link {
+  color: #94A3B8;
+  font-size: 0.85rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: color 0.15s ease;
+}
+
+.dynamic-gym-portal-link:hover {
+  color: #FF6B00;
+}
+
+.dynamic-gym-security-badge {
+  font-size: 0.75rem;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* Not Found View */
+.dynamic-gym-not-found {
+  text-align: center;
+  padding: 40px 28px;
+}
+
+.dynamic-gym-not-found-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.dynamic-gym-not-found-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0 0 10px;
+}
+
+.dynamic-gym-not-found-desc {
+  font-size: 0.9rem;
+  color: #94A3B8;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+/* Animations */
+@keyframes fadeInGym {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spinRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes progressSlide {
+  0% { left: -50%; }
+  100% { left: 100%; }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .dynamic-gym-card,
+  .dynamic-gym-welcome-screen {
+    padding: 28px 20px;
+    border-radius: 16px;
+  }
+
+  .dynamic-gym-title,
+  .dynamic-gym-welcome-title {
+    font-size: 1.35rem;
+  }
+}

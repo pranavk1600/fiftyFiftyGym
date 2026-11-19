@@ -1,47 +1,34 @@
 import { Router } from 'express';
 import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { optionalAuthenticate } from '../middlewares/auth.middleware.js';
+import { enforceGymIsolation } from '../middlewares/rbac.middleware.js';
 
 const router = Router();
 
-let fallbackPlans = [
-  {
-    id: 1,
-    name: 'Monthly Standard',
-    duration: '30 Days',
-    durationDays: 30,
-    price: 1800,
-    activeSubscribers: 48,
-    status: 'active',
-    features: ['Full gym equipment access', 'Locker facilities', 'General trainer assistance']
-  },
-  {
-    id: 2,
-    name: 'Quarterly Pro',
-    duration: '90 Days',
-    durationDays: 90,
-    price: 4500,
-    activeSubscribers: 62,
-    status: 'active',
-    isPopular: true,
-    features: ['Full gym equipment access', '1 Diet Consultation', 'Free Steam Bath (2/mo)', 'Body composition analysis']
-  },
-  {
-    id: 3,
-    name: 'Annual Gold Elite',
-    duration: '365 Days',
-    durationDays: 365,
-    price: 14000,
-    activeSubscribers: 22,
-    status: 'active',
-    features: ['Unlimited all-hours access', 'Monthly diet reviews', 'Free gym kit & shaker', 'Guest pass x 4']
+router.use(optionalAuthenticate, enforceGymIsolation);
+
+const resolveGymId = async (req) => {
+  let gymId = req.gymId || req.user?.gymId || req.headers['x-gym-id'];
+  if (!gymId) {
+    try {
+      const primaryGym = await db.query('SELECT id FROM gyms ORDER BY created_at ASC LIMIT 1');
+      if (primaryGym.rows.length > 0) {
+        gymId = primaryGym.rows[0].id;
+      }
+    } catch (_e) {}
   }
-];
+  return gymId;
+};
 
 // GET /api/plans
 router.get('/', async (req, res, next) => {
   try {
-    const gymId = req.headers['x-gym-id'] || 'gym_alpha_1';
+    const gymId = await resolveGymId(req);
+
+    if (!gymId) {
+      return ApiResponse.success(res, [], 'No plans found');
+    }
 
     try {
       const result = await db.query(`
@@ -53,14 +40,11 @@ router.get('/', async (req, res, next) => {
         ORDER BY p.price ASC
       `, [gymId]);
 
-      if (result.rows.length > 0) {
-        return ApiResponse.success(res, result.rows, 'Plans retrieved from database');
-      }
-    } catch (_dbErr) {
-      // DB unconfigured; return fallback
+      return ApiResponse.success(res, result.rows, 'Plans retrieved from database');
+    } catch (err) {
+      console.error('[Plans Query Error]:', err.message);
+      return ApiResponse.success(res, [], 'No plans found');
     }
-
-    return ApiResponse.success(res, fallbackPlans, 'Plans retrieved');
   } catch (error) {
     next(error);
   }
@@ -69,44 +53,43 @@ router.get('/', async (req, res, next) => {
 // POST /api/plans
 router.post('/', async (req, res, next) => {
   try {
-    const gymId = req.headers['x-gym-id'] || 'gym_alpha_1';
-    const { name, durationDays, price, features, status } = req.body;
+    const gymId = await resolveGymId(req);
+    const { name, durationDays, price, features, status, isPopular } = req.body || {};
 
-    if (!name || !price) {
+    if (!name || !name.trim() || !price) {
       return ApiResponse.error(res, 'Plan name and price are required', 400);
     }
 
-    try {
-      const insertSql = `
-        INSERT INTO membership_plans (gym_id, name, duration_days, duration_label, price, features, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, name, duration_label AS duration, duration_days AS "durationDays", price, features, status;
-      `;
-      const result = await db.query(insertSql, [
-        gymId,
-        name,
-        durationDays || 30,
-        `${durationDays || 30} Days`,
-        price,
-        features || [],
-        status || 'active'
-      ]);
-
-      return ApiResponse.success(res, result.rows[0], 'Plan created in database', 201);
-    } catch (_dbErr) {
-      const created = {
-        id: Date.now(),
-        name,
-        duration: `${durationDays || 30} Days`,
-        durationDays: Number(durationDays || 30),
-        price: Number(price),
-        features: features || [],
-        status: status || 'active',
-        activeSubscribers: 0
-      };
-      fallbackPlans.push(created);
-      return ApiResponse.success(res, created, 'Plan created successfully', 201);
+    if (!gymId) {
+      return ApiResponse.error(res, 'No gym assigned to create plan', 400);
     }
+
+    const durationVal = parseInt(durationDays || '30', 10);
+    const durationLabel = `${durationVal} Days`;
+    const planFeatures = Array.isArray(features) ? features : (features ? [features] : []);
+
+    const insertSql = `
+      INSERT INTO membership_plans (gym_id, name, duration_days, duration_label, price, features, is_popular, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, name, duration_label AS duration, duration_days AS "durationDays", price, features, is_popular AS "isPopular", status;
+    `;
+    const result = await db.query(insertSql, [
+      gymId,
+      name.trim(),
+      durationVal,
+      durationLabel,
+      parseFloat(price),
+      planFeatures,
+      Boolean(isPopular),
+      status || 'active'
+    ]);
+
+    const created = {
+      ...result.rows[0],
+      activeSubscribers: 0
+    };
+
+    return ApiResponse.success(res, created, 'Plan created successfully', 201);
   } catch (error) {
     next(error);
   }
@@ -116,33 +99,56 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price, duration, status } = req.body;
+    const { name, durationDays, price, features, status, isPopular } = req.body || {};
 
-    try {
-      const updateSql = `
-        UPDATE membership_plans
-        SET name = COALESCE($1, name),
-            price = COALESCE($2, price),
-            duration_label = COALESCE($3, duration_label),
-            status = COALESCE($4, status),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $5
-        RETURNING id, name, price, duration_label AS duration, status;
-      `;
-      const result = await db.query(updateSql, [name, price, duration, status, id]);
-      if (result.rows.length > 0) {
-        return ApiResponse.success(res, result.rows[0], 'Plan updated in database');
-      }
-    } catch (_dbErr) {
-      // DB unconfigured; update fallback
+    const durationVal = durationDays ? parseInt(durationDays, 10) : undefined;
+    const durationLabel = durationVal ? `${durationVal} Days` : undefined;
+
+    const updateSql = `
+      UPDATE membership_plans
+      SET name = COALESCE($1, name),
+          duration_days = COALESCE($2, duration_days),
+          duration_label = COALESCE($3, duration_label),
+          price = COALESCE($4, price),
+          features = COALESCE($5, features),
+          is_popular = COALESCE($6, is_popular),
+          status = COALESCE($7, status),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING id, name, duration_label AS duration, duration_days AS "durationDays", price, features, is_popular AS "isPopular", status;
+    `;
+
+    const result = await db.query(updateSql, [
+      name ? name.trim() : null,
+      durationVal || null,
+      durationLabel || null,
+      price ? parseFloat(price) : null,
+      features || null,
+      isPopular !== undefined ? Boolean(isPopular) : null,
+      status || null,
+      id
+    ]);
+
+    if (result.rows.length === 0) {
+      return ApiResponse.error(res, 'Plan not found', 404);
     }
 
-    fallbackPlans = fallbackPlans.map((p) =>
-      p.id === Number(id) ? { ...p, ...req.body } : p
-    );
+    return ApiResponse.success(res, result.rows[0], 'Plan updated successfully');
+  } catch (error) {
+    next(error);
+  }
+});
 
-    const updated = fallbackPlans.find((p) => p.id === Number(id));
-    return ApiResponse.success(res, updated, 'Plan updated successfully');
+// DELETE /api/plans/:id
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query('DELETE FROM membership_plans WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) {
+      return ApiResponse.error(res, 'Plan not found', 404);
+    }
+
+    return ApiResponse.success(res, { id }, 'Plan deleted successfully');
   } catch (error) {
     next(error);
   }

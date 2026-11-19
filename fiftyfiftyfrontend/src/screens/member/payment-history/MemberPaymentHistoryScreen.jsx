@@ -5,15 +5,12 @@ import { Badge } from '../../../shared/components/Badge/Badge';
 import { Modal } from '../../../shared/components/Modal/Modal';
 import { Button } from '../../../shared/components/Button/Button';
 import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
+import { useAuth } from '../../../context/AuthContext';
 
 export const MemberPaymentHistoryScreen = () => {
+  const { user } = useAuth();
   const [selectedReceipt, setSelectedReceipt] = useState(null);
-
-  const payments = [
-    { id: 'RCP-2026-90412', date: '2026-01-15', plan: 'Quarterly Pro Membership', amount: 4500, mode: 'UPI', status: 'paid' },
-    { id: 'RCP-2025-45129', date: '2025-10-15', plan: 'Quarterly Pro Membership', amount: 4500, mode: 'CARD', status: 'paid' },
-    { id: 'RCP-2025-11024', date: '2025-07-15', plan: 'Quarterly Pro Membership', amount: 4500, mode: 'ONLINE', status: 'paid' }
-  ];
+  const [payments] = useState([]);
 
   const columns = [
     { header: 'Receipt No.', key: 'id' },
@@ -67,7 +64,11 @@ export const MemberPaymentHistoryScreen = () => {
         </p>
       </div>
 
-      <Table columns={columns} data={payments} />
+      <Table
+        columns={columns}
+        data={payments}
+        emptyMessage="No payment receipts found. Transactions will appear here once recorded by your gym admin."
+      />
 
       <Modal
         isOpen={Boolean(selectedReceipt)}
@@ -88,7 +89,7 @@ export const MemberPaymentHistoryScreen = () => {
             background: 'var(--bg-surface-elevated)'
           }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>FiftyFifty Downtown Fitness</h3>
+              <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>{user?.gymName || user?.gym?.name || 'FiftyFifty Gym'}</h3>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Official Payment Acknowledgment</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: '0.9rem' }}>

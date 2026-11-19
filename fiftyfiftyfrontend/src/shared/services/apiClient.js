@@ -27,13 +27,20 @@ apiClient.interceptors.response.use(
   (error) => {
     // Automatically purge invalid/expired sessions on 401 Unauthorized
     if (error.response?.status === 401) {
+      const lastGymSlug = localStorage.getItem('fiftyfifty_last_gym_slug');
       localStorage.removeItem('fiftyfifty_token');
       localStorage.removeItem('fiftyfifty_user');
 
       const path = window.location.pathname;
       if (!path.includes('/login')) {
-        if (path.startsWith('/admin')) {
+        if (path.startsWith('/admin') || path.startsWith('/superadmin')) {
           window.location.href = '/superadmin/login';
+        } else if (path.startsWith('/owner')) {
+          if (lastGymSlug) {
+            window.location.href = `/gym/${lastGymSlug}/login`;
+          } else {
+            window.location.href = '/admin/login';
+          }
         } else {
           window.location.href = '/admin/login';
         }
@@ -41,6 +48,9 @@ apiClient.interceptors.response.use(
     }
 
     const message = error.response?.data?.message || error.message || 'Something went wrong';
-    return Promise.reject(new Error(message));
+    const enhancedError = new Error(message);
+    enhancedError.response = error.response;
+    enhancedError.status = error.response?.status;
+    return Promise.reject(enhancedError);
   }
 );

@@ -98,7 +98,7 @@ export const AdminLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <ThemeToggle />
             <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {user?.email || 'leopardxtechnology@gmail.com'}
+              {user?.email || 'admin@fiftyfifty.com'}
             </div>
           </div>
         </header>
