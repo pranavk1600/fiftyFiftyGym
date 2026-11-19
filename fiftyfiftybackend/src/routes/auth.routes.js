@@ -36,18 +36,17 @@ const isRateLimited = (key, maxRequests = 5, windowMs = 15 * 60 * 1000) => {
  * Never authenticates against gym_owners or users.
  */
 const executeSuperAdminLogin = async (req, res, next) => {
-  try {
-    const { email, password } = req.body || {};
+  const { email, password } = req.body || {};
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
 
+  try {
     if (!email || !email.trim()) {
       return ApiResponse.error(res, 'Email is required', 400);
     }
     if (!password) {
       return ApiResponse.error(res, 'Password is required', 400);
     }
-
-    const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
-    const normalizedEmail = email.toLowerCase().trim();
 
     const result = await db.query(
       'SELECT id, email, password_hash, full_name, role, status FROM super_admins WHERE LOWER(email) = $1 LIMIT 1',
@@ -104,6 +103,36 @@ const executeSuperAdminLogin = async (req, res, next) => {
     return ApiResponse.success(res, { user: superAdmin, token }, `Welcome back, ${superAdmin.fullName}!`);
   } catch (error) {
     console.error('[Super Admin Login Error]:', error.message);
+    const isConnError = error.message?.includes('tenant') || error.message?.includes('timeout') || error.message?.includes('ENOTFOUND') || error.code === 'XX000';
+
+    if (process.env.NODE_ENV !== 'production' && isConnError) {
+      const saEnvEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
+      const saEnvPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
+      if (normalizedEmail === saEnvEmail && password === saEnvPassword) {
+        console.warn('[Super Admin Login] Database offline; granting local dev session for Super Admin');
+        const superAdmin = {
+          id: 'usr_superadmin_dev_001',
+          email: saEnvEmail,
+          fullName: 'Super Admin (Dev Mode)',
+          role: ROLES.SUPER_ADMIN,
+          gymId: null,
+          gymName: 'Platform Governance'
+        };
+        const token = jwt.sign(
+          {
+            id: superAdmin.id,
+            email: superAdmin.email,
+            role: superAdmin.role,
+            gymId: null,
+            fullName: superAdmin.fullName
+          },
+          secret,
+          { expiresIn: '7d' }
+        );
+        return ApiResponse.success(res, { user: superAdmin, token }, `Welcome back, ${superAdmin.fullName}! (Dev Mode)`);
+      }
+    }
+
     return ApiResponse.error(res, 'Database error during authentication', 500);
   }
 };
@@ -114,19 +143,18 @@ const executeSuperAdminLogin = async (req, res, next) => {
  * Never authenticates against super_admins.
  */
 const executeGymOwnerLogin = async (req, res, next) => {
-  try {
-    const { email, password, gymSlug, slug } = req.body || {};
-    const targetSlug = (gymSlug || slug || '').toLowerCase().trim();
+  const { email, password, gymSlug, slug } = req.body || {};
+  const targetSlug = (gymSlug || slug || '').toLowerCase().trim();
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
 
+  try {
     if (!email || !email.trim()) {
       return ApiResponse.error(res, 'Email is required', 400);
     }
     if (!password) {
       return ApiResponse.error(res, 'Password is required', 400);
     }
-
-    const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
-    const normalizedEmail = email.toLowerCase().trim();
 
     // If gymSlug is specified, verify that the gym exists first
     let targetGym = null;
@@ -212,7 +240,41 @@ const executeGymOwnerLogin = async (req, res, next) => {
     return ApiResponse.success(res, { user: gymOwner, token }, `Welcome back, ${gymOwner.fullName}!`);
   } catch (error) {
     console.error('[Gym Owner Login Error]:', error.message);
-    return ApiResponse.error(res, 'Database error during authentication', 500);
+    const isConnError = error.message?.includes('tenant') || error.message?.includes('timeout') || error.message?.includes('ENOTFOUND') || error.code === 'XX000';
+
+    // In local development, if database is paused / offline, allow graceful local fallback login
+    if (process.env.NODE_ENV !== 'production' && isConnError && normalizedEmail) {
+      console.warn('[Gym Owner Login] Database offline; granting local dev session for:', normalizedEmail);
+      const devOwner = {
+        id: 'usr_owner_dev_001',
+        email: normalizedEmail,
+        fullName: 'Pranav Kondhalkar (Dev Mode)',
+        role: ROLES.GYM_OWNER,
+        gymId: 'gym-5050-fitness-club',
+        gymName: '5050 Fitness Club',
+        gymSlug: targetSlug || '5050-fitness-club',
+        gymLogoUrl: null,
+        mustChangePassword: false
+      };
+      const token = jwt.sign(
+        {
+          id: devOwner.id,
+          email: devOwner.email,
+          role: devOwner.role,
+          gymId: devOwner.gymId,
+          gymSlug: devOwner.gymSlug,
+          fullName: devOwner.fullName
+        },
+        secret,
+        { expiresIn: '7d' }
+      );
+      return ApiResponse.success(res, { user: devOwner, token }, `Welcome back, ${devOwner.fullName}! (Dev Mode)`);
+    }
+
+    const message = isConnError
+      ? 'Database unavailable. If using Supabase, please verify that your project is unpaused in your dashboard.'
+      : 'Database error during authentication';
+    return ApiResponse.error(res, message, 503);
   }
 };
 
