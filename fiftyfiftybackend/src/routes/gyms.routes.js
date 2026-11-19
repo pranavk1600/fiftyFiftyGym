@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { findInMemoryGym } from '../services/devGymStore.js';
 
 const router = Router();
 
@@ -31,20 +32,9 @@ router.get('/slug/:slug', async (req, res, next) => {
       `, [cleanSlug, hyphenatedSlug]);
 
       if (result.rows.length === 0) {
-        // Fallback for default demo gym if not found in database
-        if (cleanSlug === '5050-fitness-club' || hyphenatedSlug === '5050-fitness-club') {
-          return ApiResponse.success(res, {
-            id: 'gym-5050-fitness-club',
-            name: '5050 Fitness Club',
-            slug: '5050-fitness-club',
-            owner_name: 'Gym Administrator',
-            email: 'owner@pranavfitness.com',
-            phone: '+91 98765 43210',
-            status: 'active',
-            opening_hours: '06:00 AM - 10:00 PM',
-            description: 'Welcome to 5050 Fitness Club',
-            created_at: new Date().toISOString()
-          }, 'Gym details retrieved successfully (default)');
+        const memGym = findInMemoryGym(cleanSlug) || findInMemoryGym(hyphenatedSlug);
+        if (memGym) {
+          return ApiResponse.success(res, memGym, 'Gym details retrieved successfully (dev store)');
         }
         return ApiResponse.error(res, `Gym with slug "${cleanSlug}" was not found`, 404);
       }
@@ -71,20 +61,9 @@ router.get('/slug/:slug', async (req, res, next) => {
       }, 'Gym details retrieved successfully');
     } catch (dbErr) {
       console.warn('[Gyms API] Database query error:', dbErr.message);
-      // Graceful fallback for the flagship default gym if database is paused / offline
-      if (cleanSlug === '5050-fitness-club' || hyphenatedSlug === '5050-fitness-club') {
-        return ApiResponse.success(res, {
-          id: 'gym-5050-fitness-club',
-          name: '5050 Fitness Club',
-          slug: '5050-fitness-club',
-          owner_name: 'Gym Administrator',
-          email: 'owner@pranavfitness.com',
-          phone: '+91 98765 43210',
-          status: 'active',
-          opening_hours: '06:00 AM - 10:00 PM',
-          description: 'Welcome to 5050 Fitness Club',
-          created_at: new Date().toISOString()
-        }, 'Gym details retrieved successfully (offline fallback)');
+      const memGym = findInMemoryGym(cleanSlug) || findInMemoryGym(hyphenatedSlug);
+      if (memGym) {
+        return ApiResponse.success(res, memGym, 'Gym details retrieved successfully (dev store offline fallback)');
       }
       return ApiResponse.error(res, 'Database temporarily unavailable: ' + dbErr.message, 503);
     }

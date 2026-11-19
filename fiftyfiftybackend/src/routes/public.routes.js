@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
+import { findInMemoryGym } from '../services/devGymStore.js';
 
 const router = Router();
 
@@ -40,10 +41,10 @@ router.get('/gyms', async (req, res, next) => {
 });
 
 /**
- * GET /api/public/gyms/:slug
+ * GET /api/public/gyms/:slug and GET /api/public/gym/:slug
  * Returns a single gym profile with its actual membership plans by slug (or id).
  */
-router.get('/gyms/:slug', async (req, res, next) => {
+router.get(['/gyms/:slug', '/gym/:slug'], async (req, res, next) => {
   try {
     const { slug } = req.params;
     const cleanSlug = slug.toLowerCase().trim();
@@ -76,39 +77,17 @@ router.get('/gyms/:slug', async (req, res, next) => {
           gym: { ...gym, slug: gymSlug },
           plans: plansResult.rows
         }, 'Gym profile and plans retrieved');
-      } else if (cleanSlug === '5050-fitness-club' || hyphenatedSlug === '5050-fitness-club') {
-        return ApiResponse.success(res, {
-          gym: {
-            id: 'gym-5050-fitness-club',
-            name: '5050 Fitness Club',
-            slug: '5050-fitness-club',
-            owner_name: 'Gym Administrator',
-            email: 'owner@pranavfitness.com',
-            phone: '+91 98765 43210',
-            status: 'active',
-            opening_hours: '06:00 AM - 10:00 PM',
-            description: 'Welcome to 5050 Fitness Club'
-          },
-          plans: []
-        }, 'Gym profile retrieved');
+      } else {
+        const memGym = findInMemoryGym(cleanSlug) || findInMemoryGym(hyphenatedSlug);
+        if (memGym) {
+          return ApiResponse.success(res, { gym: memGym, plans: [] }, 'Gym profile retrieved (dev store)');
+        }
       }
     } catch (dbErr) {
       console.warn('[Public API] Gym lookup query failed:', dbErr.message);
-      if (cleanSlug === '5050-fitness-club' || hyphenatedSlug === '5050-fitness-club') {
-        return ApiResponse.success(res, {
-          gym: {
-            id: 'gym-5050-fitness-club',
-            name: '5050 Fitness Club',
-            slug: '5050-fitness-club',
-            owner_name: 'Gym Administrator',
-            email: 'owner@pranavfitness.com',
-            phone: '+91 98765 43210',
-            status: 'active',
-            opening_hours: '06:00 AM - 10:00 PM',
-            description: 'Welcome to 5050 Fitness Club'
-          },
-          plans: []
-        }, 'Gym profile retrieved (fallback)');
+      const memGym = findInMemoryGym(cleanSlug) || findInMemoryGym(hyphenatedSlug);
+      if (memGym) {
+        return ApiResponse.success(res, { gym: memGym, plans: [] }, 'Gym profile retrieved (dev store fallback)');
       }
     }
 

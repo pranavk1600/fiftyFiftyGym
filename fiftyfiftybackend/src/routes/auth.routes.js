@@ -7,6 +7,7 @@ import { ApiResponse } from '../utils/apiResponse.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { ROLES } from '../constants/roles.constant.js';
 import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail } from '../services/email.service.js';
+import { validateInMemoryToken, consumeInMemoryToken, findInMemoryGym, findInMemoryOwner } from '../services/devGymStore.js';
 
 const router = Router();
 
@@ -244,16 +245,23 @@ const executeGymOwnerLogin = async (req, res, next) => {
 
     // In local development, if database is paused / offline, allow graceful local fallback login
     if (process.env.NODE_ENV !== 'production' && isConnError && normalizedEmail) {
-      console.warn('[Gym Owner Login] Database offline; granting local dev session for:', normalizedEmail);
+      console.warn('[Gym Owner Login] Database offline; resolving credentials via dev store for:', normalizedEmail);
+      const inMemOwner = findInMemoryOwner(normalizedEmail);
+      const inMemGym = inMemOwner ? findInMemoryGym(inMemOwner.gymId) : findInMemoryGym(targetSlug);
+      const ownerName = inMemOwner?.full_name || inMemOwner?.fullName || 'Gym Owner';
+      const gymId = inMemOwner?.gymId || inMemGym?.id || 'gym-5050-fitness-club';
+      const gymName = inMemGym?.name || '5050 Fitness Club';
+      const gymSlugValue = inMemGym?.slug || targetSlug || '5050-fitness-club';
+
       const devOwner = {
-        id: 'usr_owner_dev_001',
+        id: inMemOwner?.id || 'usr_owner_dev_001',
         email: normalizedEmail,
-        fullName: 'Pranav Kondhalkar (Dev Mode)',
+        fullName: ownerName,
         role: ROLES.GYM_OWNER,
-        gymId: 'gym-5050-fitness-club',
-        gymName: '5050 Fitness Club',
-        gymSlug: targetSlug || '5050-fitness-club',
-        gymLogoUrl: null,
+        gymId,
+        gymName,
+        gymSlug: gymSlugValue,
+        gymLogoUrl: inMemGym?.logo_url || null,
         mustChangePassword: false
       };
       const token = jwt.sign(
@@ -268,7 +276,7 @@ const executeGymOwnerLogin = async (req, res, next) => {
         secret,
         { expiresIn: '7d' }
       );
-      return ApiResponse.success(res, { user: devOwner, token }, `Welcome back, ${devOwner.fullName}! (Dev Mode)`);
+      return ApiResponse.success(res, { user: devOwner, token }, `Welcome back, ${devOwner.fullName}!`);
     }
 
     const message = isConnError
@@ -1097,30 +1105,51 @@ router.get('/verify-reset-token', async (req, res, next) => {
 
     const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
 
-    const result = await db.query(`
-      SELECT 
-        t.id, t.user_id, t.expires_at, t.used_at,
-        sa.id AS sa_id, sa.email AS sa_email,
-        go.id AS go_id, go.email AS go_email, go.gym_id,
-        g.slug AS gym_slug, g.name AS gym_name,
-        m.id AS m_id, m.email AS m_email, m.slug AS m_slug,
-        gm.slug AS m_gym_slug, gm.name AS m_gym_name
-      FROM password_reset_tokens t
-      LEFT JOIN super_admins sa ON sa.id = t.user_id
-      LEFT JOIN gym_owners go ON go.id = t.user_id
-      LEFT JOIN gyms g ON g.id = go.gym_id
-      LEFT JOIN members m ON m.id = t.user_id
-      LEFT JOIN gyms gm ON gm.id = m.gym_id
-      WHERE t.token_hash = $1
-      ORDER BY t.created_at DESC
-      LIMIT 1;
-    `, [tokenHash]);
+    let row = null;
+    try {
+      const result = await db.query(`
+        SELECT 
+          t.id, t.user_id, t.expires_at, t.used_at,
+          sa.id AS sa_id, sa.email AS sa_email,
+          go.id AS go_id, go.email AS go_email, go.gym_id,
+          g.slug AS gym_slug, g.name AS gym_name,
+          m.id AS m_id, m.email AS m_email, m.slug AS m_slug,
+          gm.slug AS m_gym_slug, gm.name AS m_gym_name
+        FROM password_reset_tokens t
+        LEFT JOIN super_admins sa ON sa.id = t.user_id
+        LEFT JOIN gym_owners go ON go.id = t.user_id
+        LEFT JOIN gyms g ON g.id = go.gym_id
+        LEFT JOIN members m ON m.id = t.user_id
+        LEFT JOIN gyms gm ON gm.id = m.gym_id
+        WHERE t.token_hash = $1
+        ORDER BY t.created_at DESC
+        LIMIT 1;
+      `, [tokenHash]);
 
-    if (result.rows.length === 0) {
-      return ApiResponse.error(res, 'Invalid or unrecognized password setup token.', 400);
+      if (result.rows.length > 0) {
+        row = result.rows[0];
+      }
+    } catch (dbErr) {
+      console.warn('[verify-reset-token] DB query error:', dbErr.message);
     }
 
-    const row = result.rows[0];
+    if (!row) {
+      const inMem = validateInMemoryToken(token.trim());
+      if (inMem && inMem.valid) {
+        return ApiResponse.success(res, {
+          valid: true,
+          email: inMem.data.email,
+          userType: 'GYM_OWNER',
+          gymSlug: inMem.data.gymSlug || '',
+          gymName: inMem.data.gymName || ''
+        }, 'Token is valid');
+      } else if (inMem && inMem.reason === 'used') {
+        return ApiResponse.error(res, 'This password setup link has already been used. Please request a new one.', 400);
+      } else if (inMem && inMem.reason === 'expired') {
+        return ApiResponse.error(res, 'This password setup link has expired. Please request a new one.', 400);
+      }
+      return ApiResponse.error(res, 'Invalid or unrecognized password setup token.', 400);
+    }
     if (row.used_at) {
       return ApiResponse.error(res, 'This password setup link has already been used. Please request a new one.', 400);
     }
@@ -1165,30 +1194,54 @@ router.post('/reset-password', async (req, res, next) => {
     const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
 
     // 1. Query token joined with super_admins, gym_owners, and members
-    const tokenResult = await db.query(`
-      SELECT 
-        t.id, t.user_id, t.expires_at, t.used_at,
-        sa.id AS sa_id, sa.email AS sa_email,
-        go.id AS go_id, go.email AS go_email, go.gym_id,
-        g.slug AS gym_slug, g.name AS gym_name,
-        m.id AS m_id, m.email AS m_email, m.slug AS m_slug,
-        gm.slug AS m_gym_slug, gm.name AS m_gym_name
-      FROM password_reset_tokens t
-      LEFT JOIN super_admins sa ON sa.id = t.user_id
-      LEFT JOIN gym_owners go ON go.id = t.user_id
-      LEFT JOIN gyms g ON g.id = go.gym_id
-      LEFT JOIN members m ON m.id = t.user_id
-      LEFT JOIN gyms gm ON gm.id = m.gym_id
-      WHERE t.token_hash = $1
-      ORDER BY t.created_at DESC
-      LIMIT 1;
-    `, [tokenHash]);
+    let tokenRow = null;
+    try {
+      const tokenResult = await db.query(`
+        SELECT 
+          t.id, t.user_id, t.expires_at, t.used_at,
+          sa.id AS sa_id, sa.email AS sa_email,
+          go.id AS go_id, go.email AS go_email, go.gym_id,
+          g.slug AS gym_slug, g.name AS gym_name,
+          m.id AS m_id, m.email AS m_email, m.slug AS m_slug,
+          gm.slug AS m_gym_slug, gm.name AS m_gym_name
+        FROM password_reset_tokens t
+        LEFT JOIN super_admins sa ON sa.id = t.user_id
+        LEFT JOIN gym_owners go ON go.id = t.user_id
+        LEFT JOIN gyms g ON g.id = go.gym_id
+        LEFT JOIN members m ON m.id = t.user_id
+        LEFT JOIN gyms gm ON gm.id = m.gym_id
+        WHERE t.token_hash = $1
+        ORDER BY t.created_at DESC
+        LIMIT 1;
+      `, [tokenHash]);
 
-    if (tokenResult.rows.length === 0) {
-      return ApiResponse.error(res, 'Invalid or expired password setup link. Please request a new one.', 400);
+      if (tokenResult.rows.length > 0) {
+        tokenRow = tokenResult.rows[0];
+      }
+    } catch (dbErr) {
+      console.warn('[reset-password] DB query error:', dbErr.message);
     }
 
-    const tokenRow = tokenResult.rows[0];
+    if (!tokenRow) {
+      const inMemRes = await consumeInMemoryToken(token.trim(), newPassword);
+      if (inMemRes && inMemRes.success) {
+        return ApiResponse.success(
+          res,
+          {
+            success: true,
+            userType: 'GYM_OWNER',
+            gymSlug: inMemRes.gymSlug || '',
+            memberSlug: ''
+          },
+          'Your password has been set successfully. Please sign in with your new password.'
+        );
+      } else if (inMemRes && inMemRes.reason === 'used') {
+        return ApiResponse.error(res, 'This password setup link has already been used. Please request a new one.', 400);
+      } else if (inMemRes && inMemRes.reason === 'expired') {
+        return ApiResponse.error(res, 'This password setup link has expired. Please request a new one.', 400);
+      }
+      return ApiResponse.error(res, 'Invalid or expired password setup link. Please request a new one.', 400);
+    }
 
     // Check single-use
     if (tokenRow.used_at) {
