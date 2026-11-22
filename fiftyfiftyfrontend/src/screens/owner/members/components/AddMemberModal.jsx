@@ -37,30 +37,22 @@ export const AddMemberModal = ({
     totalAmount: 1200,
     paidAmount: 1200,
     balanceAmount: 0,
-    receiptNumber: nextReceiptNo
+    receiptNumber: nextId
   });
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  // Synchronize generated IDs when props change
+  // Synchronize generated IDs (ID and Receipt Number are always identical)
   useEffect(() => {
     if (nextId) {
       setForm((prev) => ({
         ...prev,
-        customMemberId: prev.customMemberId && prev.customMemberId !== '2106' ? prev.customMemberId : nextId
+        customMemberId: nextId,
+        receiptNumber: nextId
       }));
     }
   }, [nextId]);
-
-  useEffect(() => {
-    if (nextReceiptNo) {
-      setForm((prev) => ({
-        ...prev,
-        receiptNumber: prev.receiptNumber && prev.receiptNumber !== '4372' ? prev.receiptNumber : nextReceiptNo
-      }));
-    }
-  }, [nextReceiptNo]);
 
   // Default to first created plan if available
   useEffect(() => {
@@ -92,7 +84,7 @@ export const AddMemberModal = ({
     } else if (fieldName === 'phone') {
       const digits = (value || '').replace(/\D/g, '');
       if (!value || !value.trim()) error = 'Phone number is required';
-      else if (digits.length < 10) error = 'Enter a valid 10-digit contact number';
+      else if (digits.length !== 10) error = 'Enter a valid 10-digit mobile number';
     } else if (fieldName === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!value || !value.trim()) error = 'Email address is required';
@@ -116,10 +108,14 @@ export const AddMemberModal = ({
   };
 
   const handleChange = (fieldName, value) => {
+    let cleanValue = value;
+    if (fieldName === 'phone') {
+      cleanValue = String(value).replace(/\D/g, '').slice(0, 10);
+    }
     setForm((prev) => {
-      const updated = { ...prev, [fieldName]: value };
+      const updated = { ...prev, [fieldName]: cleanValue };
       if (touched[fieldName]) {
-        const error = validateField(fieldName, value, updated);
+        const error = validateField(fieldName, cleanValue, updated);
         setErrors((errs) => ({ ...errs, [fieldName]: error }));
       }
       return updated;
@@ -229,6 +225,7 @@ export const AddMemberModal = ({
 
     onSubmit({
       ...form,
+      receiptNumber: form.customMemberId,
       totalAmount: parseFloat(form.totalAmount) || 0,
       paidAmount: parseFloat(form.paidAmount) || 0,
       balanceAmount: parseFloat(form.balanceAmount) || 0
@@ -274,21 +271,29 @@ export const AddMemberModal = ({
 
           <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 14 }}>
             <div className="input-group">
-              <label className="input-label" htmlFor="new-member-id">
-                ID <span className="label-required">*</span>
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="input-label" htmlFor="new-member-id" style={{ marginBottom: 0 }}>
+                  ID
+                </label>
+                <span className="auto-calc-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Lock size={10} /> Auto
+                </span>
+              </div>
               <input
                 id="new-member-id"
                 type="text"
-                className={`input-control ${errors.customMemberId ? 'input-error is-invalid' : ''}`}
+                className="input-control"
                 value={form.customMemberId}
-                onChange={(e) => handleChange('customMemberId', e.target.value)}
-                onBlur={() => handleBlur('customMemberId')}
-                placeholder="2106"
-                disabled={isSubmitting}
-                style={{ textAlign: 'center', fontWeight: 600 }}
+                readOnly
+                disabled
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
+                  color: 'var(--text-primary)',
+                  cursor: 'not-allowed'
+                }}
               />
-              {errors.customMemberId && <span className="form-error-text">{errors.customMemberId}</span>}
             </div>
 
             <div className="input-group">
@@ -317,11 +322,20 @@ export const AddMemberModal = ({
               <input
                 id="new-member-phone"
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
                 className={`input-control ${errors.phone ? 'input-error is-invalid' : ''}`}
-                placeholder="e.g. 9876543210"
+                placeholder="10-digit mobile number"
                 value={form.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 onBlur={() => handleBlur('phone')}
+                onKeyDown={(e) => {
+                  if (['Backspace', 'Tab', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) return;
+                  if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
                 disabled={isSubmitting}
               />
               {errors.phone && <span className="form-error-text">{errors.phone}</span>}
@@ -534,19 +548,40 @@ export const AddMemberModal = ({
             </div>
 
             <div className="input-group">
-              <label className="input-label" htmlFor="new-member-receipt-no">
-                Receipt Number
-              </label>
-              <input
-                id="new-member-receipt-no"
-                type="text"
-                className="input-control"
-                value={form.receiptNumber}
-                onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })}
-                placeholder="4372"
-                disabled={isSubmitting}
-                style={{ fontWeight: 600 }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="input-label" htmlFor="new-member-receipt-no" style={{ marginBottom: 0 }}>
+                  Receipt Number
+                </label>
+                <span className="auto-calc-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Lock size={10} /> Same as ID
+                </span>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="new-member-receipt-no"
+                  type="text"
+                  className="input-control"
+                  value={form.customMemberId}
+                  readOnly
+                  disabled
+                  style={{
+                    fontWeight: 700,
+                    backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
+                    color: 'var(--text-primary)',
+                    cursor: 'not-allowed'
+                  }}
+                />
+                <Lock
+                  size={14}
+                  style={{
+                    position: 'absolute',
+                    right: 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)'
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

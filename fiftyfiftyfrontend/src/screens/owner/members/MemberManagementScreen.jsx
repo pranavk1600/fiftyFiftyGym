@@ -40,7 +40,7 @@ export const MemberManagementScreen = () => {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [isResendingReceipt, setIsResendingReceipt] = useState(false);
 
-  // Compute next sequential Member ID & Receipt No
+  // Compute next sequential Member ID (ID and Receipt No are identical)
   const nextId = useMemo(() => {
     const nums = members
       .map((m) => parseInt(m.customMemberId, 10))
@@ -48,12 +48,7 @@ export const MemberManagementScreen = () => {
     return nums.length > 0 ? String(Math.max(...nums) + 1) : '2106';
   }, [members]);
 
-  const nextReceiptNo = useMemo(() => {
-    const nums = members
-      .map((m) => parseInt(m.receiptNumber, 10))
-      .filter((n) => !isNaN(n) && n > 0);
-    return nums.length > 0 ? String(Math.max(...nums) + 1) : '4372';
-  }, [members]);
+  const nextReceiptNo = nextId;
 
   // Fetch members and plans
   const fetchMembers = async () => {
