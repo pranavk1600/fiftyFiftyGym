@@ -156,7 +156,7 @@ router.post('/', async (req, res, next) => {
 
     // Prevent duplicate phone number under the same gym context
     const phoneCheckSql = `
-      SELECT id, full_name AS "fullName", custom_member_id AS "customMemberId", phone
+      SELECT id, full_name AS "fullName", phone
       FROM members
       WHERE gym_id = $1
         AND (
@@ -176,7 +176,7 @@ router.post('/', async (req, res, next) => {
         message: 'Number already exists, use a different number',
         existingMember: {
           name: existing.fullName,
-          customMemberId: existing.customMemberId,
+          customMemberId: existing.id,
           phone: existing.phone
         }
       });
@@ -619,7 +619,7 @@ router.put('/:id', async (req, res, next) => {
     if (phone && String(phone).trim() && gymId) {
       const cleanPhone = String(phone).replace(/\D/g, '');
       const phoneCheckSql = `
-        SELECT id, full_name AS "fullName", custom_member_id AS "customMemberId", phone
+        SELECT id, full_name AS "fullName", phone
         FROM members
         WHERE gym_id = $1
           AND id != $2
@@ -640,7 +640,7 @@ router.put('/:id', async (req, res, next) => {
           message: 'Number already exists, use a different number',
           existingMember: {
             name: existing.fullName,
-            customMemberId: existing.customMemberId,
+            customMemberId: existing.id,
             phone: existing.phone
           }
         });

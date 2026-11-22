@@ -2,13 +2,13 @@
 .cam-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background-color: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 100000;
   padding: 16px;
   animation: camFadeIn 0.2s ease-out;
 }
@@ -28,11 +28,12 @@
   width: 100%;
   max-width: 440px;
   border-radius: 18px;
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08);
   padding: 28px 24px 20px;
   animation: camSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+  z-index: 100001;
 }
 
 @keyframes camSlideUp {
@@ -184,9 +185,9 @@
 .cam-footer-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 8px;
   width: 100%;
 }
 
@@ -195,13 +196,13 @@
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 0.92rem;
-  padding: 10px 20px;
+  font-size: 0.9rem;
+  padding: 9px 24px;
   border-radius: 10px;
   cursor: pointer;
   border: none;
   transition: all 0.15s ease;
-  flex: 1;
+  min-width: 130px;
 }
 
 .cam-btn-primary {
@@ -229,6 +230,9 @@
   background: #f1f5f9;
   color: #475569;
   border: 1px solid #cbd5e1;
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  font-size: 0.86rem;
 }
 
 .cam-btn-secondary:hover {

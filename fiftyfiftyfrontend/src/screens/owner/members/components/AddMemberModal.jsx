@@ -245,8 +245,20 @@ export const AddMemberModal = ({
       title="Add New Gym Member"
       maxWidth={680}
       footer={
-        <div style={{ display: 'flex', gap: 12, width: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
-          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+        <div style={{ display: 'flex', gap: 10, width: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onClose}
+            disabled={isSubmitting}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.84rem',
+              fontWeight: 500,
+              height: '36px',
+              borderRadius: '8px'
+            }}
+          >
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
