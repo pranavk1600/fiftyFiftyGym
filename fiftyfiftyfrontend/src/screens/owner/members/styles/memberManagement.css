@@ -380,6 +380,7 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
+  min-width: 100%;
   background: #FFFFFF;
   border: 1px solid var(--border-subtle, #E2E8F0);
   border-radius: 10px;
@@ -388,32 +389,21 @@
   overflow-y: auto;
   z-index: 100;
   padding: 6px;
+  box-sizing: border-box;
   animation: fadeIn 0.15s ease-out;
-}
-
-.custom-dropdown-section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #94A3B8);
-  border-bottom: 1px solid #F1F5F9;
-  margin-bottom: 4px;
 }
 
 .custom-dropdown-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 6px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.12s ease;
   user-select: none;
+  white-space: nowrap;
 }
 
 .custom-dropdown-option:hover {
@@ -421,19 +411,21 @@
 }
 
 .custom-dropdown-option.is-selected {
-  background: rgba(255, 107, 0, 0.1);
+  background: rgba(255, 107, 0, 0.12);
 }
 
 .dropdown-validity-pill {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.7rem;
+  gap: 4px;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: #64748B;
+  color: #475569;
   background: #F1F5F9;
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid #E2E8F0;
+  white-space: nowrap;
 }
 
 .dropdown-check-circle {
