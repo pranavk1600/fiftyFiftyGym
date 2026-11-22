@@ -9,6 +9,7 @@ import { calculateMembershipEndDate } from '../utils/dateUtils.js';
 import { sendMemberInvitationEmail } from '../services/email.service.js';
 import { generateMembershipReceiptPdf } from '../services/pdf.service.js';
 import { uploadReceiptPdf, generateReceiptSignedUrls } from '../services/storage.service.js';
+import { getFrontendUrl } from '../config/frontend.config.js';
 import { ROLES } from '../constants/roles.constant.js';
 
 const router = Router();
@@ -286,8 +287,7 @@ router.post('/', async (req, res, next) => {
     );
 
     // 8. Construct dynamic URLs using FRONTEND_URL
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
+    const frontendUrl = getFrontendUrl();
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
@@ -386,8 +386,7 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
       [member.id, tokenHash, tokenExpiry]
     );
 
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
+    const frontendUrl = getFrontendUrl();
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;

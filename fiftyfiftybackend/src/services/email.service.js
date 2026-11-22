@@ -1,4 +1,5 @@
 import { BrevoClient } from '@getbrevo/brevo';
+import { sanitizeEmailUrl } from '../config/frontend.config.js';
 
 /**
  * Initializes the BrevoClient using BREVO_API_KEY from environment.
@@ -102,6 +103,7 @@ export const sendEmail = async ({
  * Generates branded FiftyFifty Gym HTML email for Super Admin password reset.
  */
 export const renderPasswordResetHtml = ({ resetUrl, recipientName = 'Super Admin', expiryMinutes = 15 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -138,7 +140,7 @@ export const renderPasswordResetHtml = ({ resetUrl, recipientName = 'Super Admin
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 28px;">
                 <tr>
                   <td align="center" style="border-radius: 10px; background-color: #FF6B00;">
-                    <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 10px;">
+                    <a href="${safeResetUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 10px;">
                       Reset Admin Password
                     </a>
                   </td>
@@ -151,7 +153,7 @@ export const renderPasswordResetHtml = ({ resetUrl, recipientName = 'Super Admin
               </div>
               <p style="font-size: 13px; color: #6B7280; margin: 0 0 12px; word-break: break-all;">
                 If the button above does not work, copy and paste this link into your browser:<br>
-                <a href="${resetUrl}" style="color: #FF6B00; text-decoration: underline;">${resetUrl}</a>
+                <a href="${safeResetUrl}" style="color: #FF6B00; text-decoration: underline;">${safeResetUrl}</a>
               </p>
               <hr style="border: 0; border-top: 1px solid #E5E7EB; margin: 28px 0 20px;">
               <p style="font-size: 13px; color: #9CA3AF; margin: 0;">
@@ -179,6 +181,7 @@ export const renderPasswordResetHtml = ({ resetUrl, recipientName = 'Super Admin
  * Generates plain-text fallback for password reset.
  */
 export const renderPasswordResetText = ({ resetUrl, recipientName = 'Super Admin', expiryMinutes = 15 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   return `FIFTYFIFTY GYM — RESET YOUR ADMIN PASSWORD
 
 Hello ${recipientName},
@@ -186,7 +189,7 @@ Hello ${recipientName},
 We received a request to reset your FiftyFifty Gym Super Admin account password.
 
 Please visit the link below to set a new password:
-${resetUrl}
+${safeResetUrl}
 
 Notice: This password reset link will expire in ${expiryMinutes} minutes and can only be used once.
 
@@ -222,6 +225,7 @@ export const renderGymOwnerPasswordResetHtml = ({
   gymName = 'FiftyFifty Gym',
   expiryMinutes = 15
 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -261,7 +265,7 @@ export const renderGymOwnerPasswordResetHtml = ({
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 28px;">
                 <tr>
                   <td align="center" style="border-radius: 10px; background-color: #FF6B00;">
-                    <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 10px;">
+                    <a href="${safeResetUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 10px;">
                       Reset Gym Owner Password
                     </a>
                   </td>
@@ -274,7 +278,7 @@ export const renderGymOwnerPasswordResetHtml = ({
               </div>
               <p style="font-size: 13px; color: #64748B; margin: 0 0 12px; word-break: break-all;">
                 If the button above does not work, copy and paste this link into your browser:<br>
-                <a href="${resetUrl}" style="color: #FF6B00; text-decoration: underline;">${resetUrl}</a>
+                <a href="${safeResetUrl}" style="color: #FF6B00; text-decoration: underline;">${safeResetUrl}</a>
               </p>
               <hr style="border: 0; border-top: 1px solid #1F2937; margin: 28px 0 20px;">
               <p style="font-size: 13px; color: #64748B; margin: 0;">
@@ -307,6 +311,7 @@ export const renderGymOwnerPasswordResetText = ({
   gymName = 'FiftyFifty Gym',
   expiryMinutes = 15
 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   return `FIFTYFIFTY GYM — RESET YOUR GYM OWNER PASSWORD (${gymName})
 
 Hello ${recipientName},
@@ -314,7 +319,7 @@ Hello ${recipientName},
 We received a request to reset the password for your Gym Owner account for ${gymName}.
 
 Please visit the link below to set a new password:
-${resetUrl}
+${safeResetUrl}
 
 Notice: This password reset link will expire in ${expiryMinutes} minutes and can only be used once.
 
@@ -359,8 +364,10 @@ export const renderGymOwnerInvitationHtml = ({
   activationUrl,
   expiryHours = 48
 }) => {
-  const ctaUrl = activationUrl || loginUrl;
-  const ctaText = activationUrl ? 'Set Password & Activate Portal' : 'Sign In to Gym Portal';
+  const safeLoginUrl = sanitizeEmailUrl(loginUrl);
+  const safeActivationUrl = sanitizeEmailUrl(activationUrl);
+  const ctaUrl = safeActivationUrl || safeLoginUrl;
+  const ctaText = safeActivationUrl ? 'Set Password & Activate Portal' : 'Sign In to Gym Portal';
 
   return `<!DOCTYPE html>
 <html>
@@ -413,7 +420,7 @@ export const renderGymOwnerInvitationHtml = ({
                       </tr>
                       <tr>
                         <td style="color: #94A3B8; font-weight: 500;">Gym Login URL:</td>
-                        <td><a href="${loginUrl}" style="color: #FF6B00; font-weight: 600; text-decoration: none;">${loginUrl}</a></td>
+                        <td><a href="${safeLoginUrl}" style="color: #FF6B00; font-weight: 600; text-decoration: none;">${safeLoginUrl}</a></td>
                       </tr>
                     </table>
                   </td>
@@ -431,7 +438,7 @@ export const renderGymOwnerInvitationHtml = ({
                 </tr>
               </table>
 
-              ${activationUrl ? `
+              ${safeActivationUrl ? `
               <div style="background-color: rgba(255, 107, 0, 0.1); border-left: 4px solid #FF6B00; padding: 12px 16px; border-radius: 6px; margin: 0 0 24px;">
                 <p style="font-size: 13px; color: #FED7AA; margin: 0; font-weight: 600;">
                   🔒 Security Notice: This single-use setup link will expire in ${expiryHours} hours. For security, please set your password immediately.
@@ -439,7 +446,7 @@ export const renderGymOwnerInvitationHtml = ({
               </div>
               <p style="font-size: 13px; color: #64748B; margin: 0 0 12px; word-break: break-all;">
                 If the button above does not work, copy and paste this link into your browser:<br>
-                <a href="${activationUrl}" style="color: #FF6B00; text-decoration: underline;">${activationUrl}</a>
+                <a href="${safeActivationUrl}" style="color: #FF6B00; text-decoration: underline;">${safeActivationUrl}</a>
               </p>
               ` : `
               <div style="background-color: rgba(255, 107, 0, 0.1); border-left: 4px solid #FF6B00; padding: 12px 16px; border-radius: 6px; margin: 0 0 24px;">
@@ -481,6 +488,8 @@ export const renderGymOwnerInvitationText = ({
   activationUrl,
   expiryHours = 48
 }) => {
+  const safeLoginUrl = sanitizeEmailUrl(loginUrl);
+  const safeActivationUrl = sanitizeEmailUrl(activationUrl);
   return `FIFTYFIFTY GYM — WELCOME GYM OWNER
 
 Hello ${ownerName},
@@ -489,9 +498,9 @@ Congratulations! Your gym "${gymName}" has been successfully registered on the F
 
 YOUR PORTAL ACCESS DETAILS:
 - Gym Name: ${gymName}
-- Gym Login URL: ${loginUrl}
+- Gym Login URL: ${safeLoginUrl}
 - Owner Email: ${ownerEmail}
-${activationUrl ? `- Secure Set Password Link (Expires in ${expiryHours}h): ${activationUrl}` : ''}
+${safeActivationUrl ? `- Secure Set Password Link (Expires in ${expiryHours}h): ${safeActivationUrl}` : ''}
 
 SECURITY NOTICE:
 Please use the secure activation link above to set your personal password. This single-use link expires in ${expiryHours} hours.
@@ -554,6 +563,8 @@ export const renderMemberInvitationHtml = ({
   activationUrl,
   expiryDays = 7
 }) => {
+  const safeLoginUrl = sanitizeEmailUrl(loginUrl);
+  const safeActivationUrl = sanitizeEmailUrl(activationUrl);
   const brandOrange = '#FF6B00';
   const logoHtml = gymLogoUrl
     ? `<img src="${gymLogoUrl}" alt="${gymName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin-bottom: 12px; display: block;" />`
@@ -619,7 +630,7 @@ export const renderMemberInvitationHtml = ({
           <!-- Call to Action Button -->
           <tr>
             <td style="padding: 0 36px 28px; text-align: center;">
-              <a href="${activationUrl}" target="_blank" style="display: inline-block; background-color: #FF6B00; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);">
+              <a href="${safeActivationUrl}" target="_blank" style="display: inline-block; background-color: #FF6B00; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);">
                 Activate Account &amp; Set Password &rarr;
               </a>
               <div style="font-size: 12px; color: #64748B; margin-top: 10px;">
@@ -636,7 +647,7 @@ export const renderMemberInvitationHtml = ({
                   Dedicated Member Portal URL:
                 </div>
                 <div style="font-size: 12px; font-family: monospace; color: #94A3B8; word-break: break-all;">
-                  <a href="${loginUrl}" style="color: #FF8533; text-decoration: underline;">${loginUrl}</a>
+                  <a href="${safeLoginUrl}" style="color: #FF8533; text-decoration: underline;">${safeLoginUrl}</a>
                 </div>
                 <div style="font-size: 12px; color: #94A3B8; margin-top: 8px; line-height: 1.5;">
                   Once your password is set, bookmark this page for easy one-click sign in on your mobile or desktop browser.
@@ -677,6 +688,8 @@ export const renderMemberInvitationText = ({
   activationUrl,
   expiryDays = 7
 }) => {
+  const safeLoginUrl = sanitizeEmailUrl(loginUrl);
+  const safeActivationUrl = sanitizeEmailUrl(activationUrl);
   return `WELCOME TO ${gymName.toUpperCase()} — YOUR MEMBER PORTAL ACCESS
 
 Hello ${memberName},
@@ -692,10 +705,10 @@ MEMBERSHIP SUMMARY:
 
 ACTIVATE YOUR ACCOUNT & SET YOUR PASSWORD:
 Click the link below to set your password (valid for ${expiryDays} days):
-${activationUrl}
+${safeActivationUrl}
 
 DEDICATED MEMBER LOGIN URL:
-${loginUrl}
+${safeLoginUrl}
 
 SECURITY NOTICE:
 FiftyFifty Gym never sends plain-text passwords via email. Please use the secure activation link above to set your permanent password.
@@ -893,6 +906,7 @@ export const renderMemberPasswordResetHtml = ({
   resetUrl,
   expiryMinutes = 15
 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   const brandOrange = '#FF6B00';
 
   return `<!DOCTYPE html>
@@ -926,7 +940,7 @@ export const renderMemberPasswordResetHtml = ({
           </tr>
           <tr>
             <td style="padding: 10px 36px 28px; text-align: center;">
-              <a href="${resetUrl}" target="_blank" style="display: inline-block; background-color: #FF6B00; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);">
+              <a href="${safeResetUrl}" target="_blank" style="display: inline-block; background-color: #FF6B00; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);">
                 Reset My Password &rarr;
               </a>
               <div style="font-size: 12px; color: #64748B; margin-top: 10px;">
@@ -963,6 +977,7 @@ export const renderMemberPasswordResetText = ({
   resetUrl,
   expiryMinutes = 15
 }) => {
+  const safeResetUrl = sanitizeEmailUrl(resetUrl);
   return `PASSWORD RESET REQUEST — ${gymName.toUpperCase()} MEMBER PORTAL
 
 Hello ${memberName},
@@ -971,7 +986,7 @@ We received a request to reset the password for your ${gymName} member account.
 
 RESET YOUR PASSWORD:
 Click the link below to set a new password:
-${resetUrl}
+${safeResetUrl}
 
 This link will expire in ${expiryMinutes} minutes and can only be used once.
 
