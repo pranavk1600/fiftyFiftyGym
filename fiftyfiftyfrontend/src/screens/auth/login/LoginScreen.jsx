@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -6,21 +6,10 @@ import { Button } from '../../../shared/components/Button/Button';
 import { Input } from '../../../shared/components/Input/Input';
 import { Modal } from '../../../shared/components/Modal/Modal';
 import { apiClient } from '../../../shared/services/apiClient';
-import { CheckCircle2, Shield, Dumbbell, User, Zap } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
 export const LoginScreen = ({ defaultRole }) => {
-  const getInitialRole = () => {
-    if (defaultRole) return defaultRole;
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.includes('/superadmin')) return 'SUPER_ADMIN';
-      if (path.includes('/member')) return 'MEMBER';
-    }
-    return 'GYM_OWNER';
-  };
-
-  const [selectedRole, setSelectedRole] = useState(getInitialRole);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,36 +24,10 @@ export const LoginScreen = ({ defaultRole }) => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const role = defaultRole || getInitialRole();
-    setSelectedRole(role);
-  }, [defaultRole]);
-
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-    if (role === 'SUPER_ADMIN') {
-      if (window.location.pathname !== '/superadmin/login') {
-        navigate('/superadmin/login');
-      }
-    } else if (role === 'MEMBER') {
-      if (window.location.pathname !== '/member/login') {
-        navigate('/member/login');
-      }
-    } else {
-      if (window.location.pathname !== '/admin/login') {
-        navigate('/admin/login');
-      }
-    }
-  };
-
-  const handleRoleCardClick = (targetRole) => {
-    handleRoleSelect(targetRole);
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !email.trim()) {
-      showToast('Please enter your email address', 'warning');
+      showToast('Please enter your email address or mobile number', 'warning');
       return;
     }
     if (!password) {
@@ -75,11 +38,9 @@ export const LoginScreen = ({ defaultRole }) => {
     setIsSubmitting(true);
 
     try {
-      const targetPortal = selectedRole === 'GYM_OWNER' ? 'GYM_ADMIN' : selectedRole;
       const response = await apiClient.post('/auth/login', {
         email: email.trim(),
-        password,
-        portal: targetPortal
+        password
       });
       const { user, token } = response.data || response;
 
@@ -119,10 +80,15 @@ export const LoginScreen = ({ defaultRole }) => {
 
     setIsSendingReset(true);
     try {
-      if (selectedRole === 'GYM_OWNER') {
-        await apiClient.post('/auth/gym/forgot-password', { email: forgotEmail.trim() });
-      } else {
+      const isSuperAdmin = defaultRole === 'SUPER_ADMIN' || (typeof window !== 'undefined' && window.location.pathname.includes('/superadmin'));
+      const isMember = defaultRole === 'MEMBER' || (typeof window !== 'undefined' && window.location.pathname.includes('/member'));
+
+      if (isSuperAdmin) {
         await apiClient.post('/auth/forgot-password', { email: forgotEmail.trim() });
+      } else if (isMember) {
+        await apiClient.post('/auth/member/forgot-password', { email: forgotEmail.trim() });
+      } else {
+        await apiClient.post('/auth/gym/forgot-password', { email: forgotEmail.trim() });
       }
       setResetSentSuccess(true);
     } catch (err) {
@@ -139,119 +105,21 @@ export const LoginScreen = ({ defaultRole }) => {
     setResetSentSuccess(false);
   };
 
-  const ROLE_CARDS = [
-    {
-      id: 'SUPER_ADMIN',
-      label: 'Super Admin',
-      sub: '/admin',
-      color: '#16A34A',
-      border: '#16A34A',
-      bgActive: 'rgba(22, 163, 74, 0.08)',
-      icon: Shield
-    },
-    {
-      id: 'GYM_OWNER',
-      label: 'Gym Owner',
-      sub: '/owner',
-      color: 'var(--brand-primary, #FF6B00)',
-      border: 'var(--brand-primary, #FF6B00)',
-      bgActive: 'rgba(255, 107, 0, 0.08)',
-      icon: Dumbbell
-    },
-    {
-      id: 'MEMBER',
-      label: 'Member',
-      sub: '/member',
-      color: '#0284C7',
-      border: '#0284C7',
-      bgActive: 'rgba(2, 132, 199, 0.08)',
-      icon: User
-    }
-  ];
-
   return (
     <>
       <form onSubmit={handleLogin}>
-        {/* 1. Instant 1-Click Login Section (3 Role Cards) */}
-        <div style={{
-          background: 'var(--bg-surface-elevated, #F8FAFC)',
-          border: '1px solid var(--border-subtle, #E2E8F0)',
-          borderRadius: 'var(--radius-lg, 12px)',
-          padding: '12px 14px',
-          marginBottom: 20
-        }}>
-          <div style={{
-            fontSize: '0.725rem',
-            fontWeight: 700,
-            color: 'var(--text-secondary, #64748B)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}>
-            <Zap size={14} color="var(--brand-primary, #FF6B00)" />
-            <span>Instant 1-Click Login:</span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {ROLE_CARDS.map((card) => {
-              const isSelected = selectedRole === card.id;
-              const RoleIcon = card.icon;
-              return (
-                <button
-                  key={card.id}
-                  type="button"
-                  id={`btn-1click-${card.id.toLowerCase().replace('_', '')}`}
-                  data-role={card.id}
-                  onClick={() => handleRoleCardClick(card.id)}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '10px 6px',
-                    borderRadius: 8,
-                    border: isSelected ? `2px solid ${card.border}` : '1px solid var(--border-subtle, #E2E8F0)',
-                    background: isSelected ? card.bgActive : 'var(--bg-surface, #FFFFFF)',
-                    color: 'var(--text-primary)',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 4,
-                    boxShadow: isSelected ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05))',
-                    transition: 'all 0.18s ease'
-                  }}
-                  title={`Select ${card.label}`}
-                >
-                  <RoleIcon size={18} color={card.color} />
-                  <span style={{
-                    fontSize: '0.785rem',
-                    fontWeight: isSelected ? 700 : 600,
-                    color: isSelected ? card.color : 'var(--text-primary)'
-                  }}>
-                    {card.label}
-                  </span>
-                  <span style={{ fontSize: '0.675rem', color: 'var(--text-secondary, #64748B)' }}>
-                    {card.sub}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 2. Email Address Input */}
+        {/* Email Address or Mobile Number Input */}
         <Input
-          label="Email Address"
+          label="Email Address or Mobile Number"
           name="email"
-          type="email"
+          type="text"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@company.com"
+          placeholder="name@company.com or 9876543210"
           required
         />
 
-        {/* 3. Password Input with Show/Hide Icon */}
+        {/* Password Input with Show/Hide Icon */}
         <Input
           label="Password"
           name="password"
@@ -263,7 +131,7 @@ export const LoginScreen = ({ defaultRole }) => {
           showPasswordToggle
         />
 
-        {/* 4. Forgot Password Link */}
+        {/* Forgot Password Link */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 18 }}>
           <button
             type="button"
@@ -277,7 +145,7 @@ export const LoginScreen = ({ defaultRole }) => {
           </button>
         </div>
 
-        {/* 5. Sign In to Portal Button */}
+        {/* Sign In to Portal Button */}
         <Button
           type="submit"
           className="w-full"
@@ -287,7 +155,7 @@ export const LoginScreen = ({ defaultRole }) => {
           {isSubmitting ? 'Authenticating...' : 'Sign In to Portal'}
         </Button>
 
-        {/* 6. Security Footer Text */}
+        {/* Security Footer Text */}
         <div className="login-form-footer">
           <span>Protected by LeopardxGyms Enterprise RBAC</span>
         </div>
