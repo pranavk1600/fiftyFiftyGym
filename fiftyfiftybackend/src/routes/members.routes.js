@@ -170,13 +170,14 @@ router.post('/', async (req, res, next) => {
     const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, cleanPhone, String(phone).trim()]);
     if (dupPhoneCheck.rows.length > 0) {
       const existing = dupPhoneCheck.rows[0];
+      const numericDisplayId = String(existing.id).replace(/\D/g, '') || existing.id;
       return res.status(409).json({
         success: false,
         errorType: 'DUPLICATE_PHONE',
         message: 'Number already exists, use a different number',
         existingMember: {
           name: existing.fullName,
-          customMemberId: existing.id,
+          customMemberId: numericDisplayId,
           phone: existing.phone
         }
       });
@@ -245,8 +246,16 @@ router.post('/', async (req, res, next) => {
     const calcPaidAmount = paidAmount !== undefined && paidAmount !== '' ? parseFloat(paidAmount) : calcTotalAmount;
     const calcBalanceAmount = balanceAmount !== undefined && balanceAmount !== '' ? parseFloat(balanceAmount) : Math.max(0, calcTotalAmount - calcPaidAmount);
 
-    const calcCustomId = customMemberId ? String(customMemberId).trim() : await getNextCustomMemberId(gymId);
-    const receiptNumber = manualReceiptNumber ? String(manualReceiptNumber).trim() : await getNextReceiptNumber(gymId);
+    // Strictly numeric sequential Member ID and Receipt Number (incremented from previous ID)
+    const numericId = (customMemberId && /^\d+$/.test(String(customMemberId).trim()))
+      ? String(customMemberId).trim()
+      : await getNextCustomMemberId(gymId);
+
+    const memberId = numericId;
+    const calcCustomId = numericId;
+    const receiptNumber = (manualReceiptNumber && /^\d+$/.test(String(manualReceiptNumber).trim()))
+      ? String(manualReceiptNumber).trim()
+      : numericId;
 
     // 4. Generate URL-safe unique member slug
     const baseSlug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'member';
@@ -265,8 +274,7 @@ router.post('/', async (req, res, next) => {
       memberSlug = `${baseSlug}-${counter}`;
     }
 
-    // 5. Generate secure member record ID and initial random password hash
-    const memberId = `MEM${Date.now().toString().slice(-4)}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    // 5. Generate initial random password hash
     const initialPlaceholderPass = crypto.randomBytes(32).toString('hex');
     const placeholderHash = await bcrypt.hash(initialPlaceholderPass, 10);
 
@@ -634,13 +642,14 @@ router.put('/:id', async (req, res, next) => {
       const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, id, cleanPhone, String(phone).trim()]);
       if (dupPhoneCheck.rows.length > 0) {
         const existing = dupPhoneCheck.rows[0];
+        const numericDisplayId = String(existing.id).replace(/\D/g, '') || existing.id;
         return res.status(409).json({
           success: false,
           errorType: 'DUPLICATE_PHONE',
           message: 'Number already exists, use a different number',
           existingMember: {
             name: existing.fullName,
-            customMemberId: existing.id,
+            customMemberId: numericDisplayId,
             phone: existing.phone
           }
         });

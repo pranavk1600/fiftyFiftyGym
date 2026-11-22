@@ -30,54 +30,50 @@ export const calculateEndDate = (startDate, durationMonths = 1) => {
 };
 
 /**
- * Auto-generates the next sequential Member ID for a given gym (e.g. 2106, 2107...).
- * Falls back to 2101 if no prior numeric IDs exist.
+ * Auto-generates the next sequential numeric Member ID for a given gym (e.g. 59842, 59843...).
+ * Strictly numeric, incremented by 1 from the highest existing ID in that gym.
+ * Falls back to 1001 if no prior numeric IDs exist.
  * @param {string} gymId
  * @returns {Promise<string>}
  */
 export const getNextCustomMemberId = async (gymId) => {
   try {
     const res = await db.query(
-      `SELECT custom_member_id FROM members 
-       WHERE gym_id = $1 AND custom_member_id ~ '^[0-9]+$' 
-       ORDER BY CAST(custom_member_id AS INTEGER) DESC LIMIT 1`,
+      `SELECT id FROM members WHERE gym_id = $1`,
       [gymId]
     );
 
-    if (res.rows.length > 0 && res.rows[0].custom_member_id) {
-      const highest = parseInt(res.rows[0].custom_member_id, 10);
-      return String(highest + 1);
+    if (res.rows.length > 0) {
+      const numbers = res.rows
+        .map((r) => {
+          if (!r.id) return null;
+          if (/^\d+$/.test(String(r.id).trim())) {
+            return parseInt(String(r.id).trim(), 10);
+          }
+          const m = String(r.id).match(/\d+/);
+          return m ? parseInt(m[0], 10) : null;
+        })
+        .filter((n) => n !== null && !isNaN(n) && n > 0);
+
+      if (numbers.length > 0) {
+        const highest = Math.max(...numbers);
+        return String(highest + 1);
+      }
     }
   } catch (_e) {
-    // Database may be offline or unmigrated
+    // Database fallback
   }
 
-  return '2106';
+  return '1001';
 };
 
 /**
- * Auto-generates the next sequential receipt number (e.g. 4372, 4373...).
+ * Auto-generates the next sequential receipt number (identical to member ID).
  * @param {string} gymId
  * @returns {Promise<string>}
  */
 export const getNextReceiptNumber = async (gymId) => {
-  try {
-    const res = await db.query(
-      `SELECT receipt_number FROM members 
-       WHERE gym_id = $1 AND receipt_number ~ '^[0-9]+$' 
-       ORDER BY CAST(receipt_number AS INTEGER) DESC LIMIT 1`,
-      [gymId]
-    );
-
-    if (res.rows.length > 0 && res.rows[0].receipt_number) {
-      const highest = parseInt(res.rows[0].receipt_number, 10);
-      return String(highest + 1);
-    }
-  } catch (_e) {
-    // Database may be offline or unmigrated
-  }
-
-  return '4372';
+  return getNextCustomMemberId(gymId);
 };
 
 /**
@@ -92,16 +88,22 @@ export const formatMemberResponse = (row) => {
     ? parseFloat(row.balanceAmount)
     : (row.balance_amount !== undefined && row.balance_amount !== null ? parseFloat(row.balance_amount) : Math.max(0, total - paid));
 
-  // Determine customMemberId: use custom_member_id if available, or extract clean short number from id
+  // Determine customMemberId: pure number format
   let customId = row.customMemberId || row.custom_member_id;
   if (!customId && row.id) {
-    const numMatch = row.id.match(/\d{4,}/);
-    customId = numMatch ? numMatch[0] : row.id.slice(-6);
+    if (/^\d+$/.test(String(row.id).trim())) {
+      customId = String(row.id).trim();
+    } else {
+      const numMatch = String(row.id).match(/\d+/);
+      customId = numMatch ? numMatch[0] : row.id;
+    }
   }
+
+  const receiptNo = row.receiptNumber || row.receipt_number || customId || (row.id ? String(row.id).replace(/\D/g, '') : '');
 
   return {
     id: row.id,
-    customMemberId: customId || '2106',
+    customMemberId: customId || '1001',
     name: row.name || row.full_name || '',
     paymentDate: row.paymentDate || row.payment_date || row.joinDate || row.join_date || new Date().toISOString().split('T')[0],
     joinDate: row.joinDate || row.join_date || new Date().toISOString().split('T')[0],
@@ -111,7 +113,7 @@ export const formatMemberResponse = (row) => {
     totalAmount: total,
     paidAmount: paid,
     balanceAmount: balance,
-    receiptNumber: row.receiptNumber || row.receipt_number || '',
+    receiptNumber: receiptNo,
     phone: row.phone || '',
     email: row.email || '',
     slug: row.slug || '',
