@@ -240,6 +240,10 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
                 className="opm-action-btn"
                 onClick={() => {
                   setIsChangingPassword(true);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setOtp('');
+                  setOtpSent(false);
                   setFeedback({ type: null, message: '' });
                 }}
               >
@@ -252,6 +256,10 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
           {/* Collapsible Change Password Box */}
           {isChangingPassword ? (
             <div className="opm-password-box">
+              {/* Dummy hidden inputs to prevent browser password managers from autofilling */}
+              <input type="text" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} autoComplete="off" />
+              <input type="password" style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} autoComplete="new-password" />
+
               <div className="opm-password-header">
                 <div>
                   <h4 className="opm-password-title">Update Your Password</h4>
@@ -264,6 +272,9 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
                   className="opm-cancel-text-btn"
                   onClick={() => {
                     setIsChangingPassword(false);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setOtp('');
                     setOtpSent(false);
                     setFeedback({ type: null, message: '' });
                   }}
@@ -282,16 +293,32 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
 
               {!otpSent ? (
                 /* Step 1: Password inputs & Send OTP */
-                <div className="opm-form-fields">
+                <form
+                  className="opm-form-fields"
+                  autoComplete="off"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleRequestOtp();
+                  }}
+                >
+                  {/* Secondary autofill trap inside form */}
+                  <input type="text" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
+                  <input type="password" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
+
                   <div className="opm-field-group">
                     <label className="opm-field-label">New Password</label>
                     <div className="opm-input-wrapper">
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        name="fiftyfifty_new_pwd_field"
+                        id="fiftyfifty_new_pwd_field"
                         className="opm-input"
                         placeholder="At least 8 characters"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-form-type="other"
                       />
                       <button
                         type="button"
@@ -308,17 +335,22 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
                     <div className="opm-input-wrapper">
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        name="fiftyfifty_confirm_pwd_field"
+                        id="fiftyfifty_confirm_pwd_field"
                         className="opm-input"
                         placeholder="Re-enter password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-form-type="other"
                       />
                     </div>
                   </div>
 
                   <div className="opm-button-row">
                     <Button
-                      onClick={handleRequestOtp}
+                      type="submit"
                       disabled={isSendingOtp || !newPassword || !confirmPassword}
                       style={{ width: '100%' }}
                     >
@@ -335,7 +367,7 @@ export const OwnerProfileModal = ({ isOpen, onClose, user }) => {
                       )}
                     </Button>
                   </div>
-                </div>
+                </form>
               ) : (
                 /* Step 2: Enter OTP & Confirm */
                 <div className="opm-form-fields">

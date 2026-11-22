@@ -23,8 +23,45 @@ export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'N
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                {emptyMessage}
+              <td
+                colSpan={columns.length}
+                style={{
+                  padding: 0,
+                  border: 'none',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <div
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '48px 24px',
+                    textAlign: 'center'
+                  }}
+                >
+                  {typeof emptyMessage === 'string' && emptyMessage.toLowerCase().includes('loading') ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: '0.95rem', fontWeight: 500 }}>
+                      <span
+                        className="spin"
+                        style={{
+                          display: 'inline-block',
+                          width: 18,
+                          height: 18,
+                          border: '2px solid var(--brand-primary, #FF6B00)',
+                          borderTopColor: 'transparent',
+                          borderRadius: '50%'
+                        }}
+                      />
+                      <span>{emptyMessage}</span>
+                    </div>
+                  ) : (
+                    emptyMessage
+                  )}
+                </div>
               </td>
             </tr>
           ) : (
