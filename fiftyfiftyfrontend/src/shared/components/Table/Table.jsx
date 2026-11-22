@@ -89,17 +89,7 @@ export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'N
                 border: '1px solid var(--border-subtle, #E2E8F0)'
               }}
             >
-              <span
-                className="spin"
-                style={{
-                  display: 'inline-block',
-                  width: 20,
-                  height: 20,
-                  border: '2.5px solid var(--brand-primary, #FF6B00)',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%'
-                }}
-              />
+              <span className="table-loading-spinner" />
               <span>{emptyMessage}</span>
             </div>
           ) : (
