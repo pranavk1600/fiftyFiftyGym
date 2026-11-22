@@ -155,7 +155,7 @@ export const AttendanceScreen = () => {
       {/* Attendance Metric Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
         gap: 16,
         marginBottom: 24
       }}>
@@ -215,7 +215,7 @@ export const AttendanceScreen = () => {
           flexWrap: 'wrap'
         }}
       >
-        <div style={{ flex: 1, minWidth: 260 }}>
+        <div style={{ flex: 1, minWidth: 'min(100%, 220px)' }}>
           <input
             type="text"
             className="input-control"

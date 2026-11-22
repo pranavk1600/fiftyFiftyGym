@@ -230,3 +230,65 @@
   font-size: 0.775rem;
   color: var(--text-secondary);
 }
+
+/* Mobile responsive refinements */
+@media (max-width: 640px) {
+  .dashboard-header-container {
+    margin-bottom: 18px;
+    gap: 12px;
+  }
+
+  .dashboard-title-group h1 {
+    font-size: 1.4rem;
+  }
+
+  .dashboard-title-group p {
+    font-size: 0.825rem;
+  }
+
+  .dashboard-header-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .dashboard-header-actions .btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.825rem;
+    padding: 9px 10px;
+    white-space: nowrap;
+  }
+
+  .dashboard-panel {
+    padding: 16px 14px;
+    border-radius: 12px;
+  }
+
+  .dashboard-panel-header {
+    margin-bottom: 14px;
+  }
+
+  .dashboard-panel-title {
+    font-size: 1.05rem;
+  }
+
+  .recent-checkin-item,
+  .expiration-item {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .dashboard-title-group h1 {
+    font-size: 1.25rem;
+  }
+
+  .dashboard-header-actions {
+    flex-direction: column;
+  }
+
+  .dashboard-header-actions .btn {
+    width: 100%;
+  }
+}

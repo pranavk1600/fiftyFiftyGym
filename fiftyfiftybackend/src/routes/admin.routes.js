@@ -9,7 +9,7 @@ import { ROLES } from '../constants/roles.constant.js';
 import { sendGymOwnerInvitationEmail } from '../services/email.service.js';
 import { handleLogoUpload } from '../middlewares/upload.middleware.js';
 import { uploadGymLogoFromBuffer } from '../services/cloudinary.service.js';
-import { addInMemoryGym, getInMemoryGyms, findInMemoryGym, updateInMemoryGym, registerInMemoryToken } from '../services/devGymStore.js';
+import { addInMemoryGym, getInMemoryGyms, findInMemoryGym, updateInMemoryGym, deleteInMemoryGym, registerInMemoryToken } from '../services/devGymStore.js';
 
 const router = Router();
 
@@ -217,16 +217,6 @@ router.get('/gyms', async (req, res, next) => {
           displayInvitationStatus
         };
       });
-
-      // Merge in-memory gyms created during dev session
-      if (process.env.NODE_ENV !== 'production') {
-        const memGyms = getInMemoryGyms();
-        for (const mg of memGyms) {
-          if (!gyms.some((g) => g.id === mg.id || g.slug === mg.slug)) {
-            gyms.push(mg);
-          }
-        }
-      }
 
       return ApiResponse.success(res, gyms, 'Gyms retrieved from database');
     } catch (dbErr) {
@@ -712,23 +702,12 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
       console.warn('[Resend Invitation DB Warning]:', dbErr.message);
     }
 
-    // In dev mode or fallback for default 5050 gym
-    if (!gym && (id === 'gym-5050-fitness-club' || process.env.NODE_ENV !== 'production')) {
-      gym = {
-        id: 'gym-5050-fitness-club',
-        name: '5050 Fitness Club',
-        owner_name: 'Pranav Kondhalkar',
-        email: 'kondhalkarp7076@gmail.com',
-        phone: '+91 98765 43210',
-        slug: '5050-fitness-club'
-      };
-      owner = {
-        id: 'usr_owner_dev_001',
-        email: 'kondhalkarp7076@gmail.com',
-        full_name: 'Pranav Kondhalkar',
-        role: 'GYM_OWNER',
-        status: 'active'
-      };
+    // In dev mode fallback to dynamically created in-memory store
+    if (!gym) {
+      gym = findInMemoryGym(id);
+    }
+    if (!owner && gym) {
+      owner = findInMemoryOwner(gym.id) || findInMemoryOwner(gym.email);
     }
 
     if (!gym) {
@@ -946,6 +925,123 @@ router.put('/gyms/:id', async (req, res, next) => {
         return ApiResponse.success(res, updated, 'Gym settings updated successfully (dev fallback)');
       }
     }
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/gyms/:id
+ * Permanently deletes a gym and all associated tenant data:
+ * - password_reset_tokens
+ * - membership_receipts
+ * - attendance
+ * - payments
+ * - member_subscriptions
+ * - members
+ * - membership_plans
+ * - notifications
+ * - users linked to this gym
+ * - gym_owners
+ * - the gym record itself
+ */
+router.delete('/gyms/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id || !id.trim()) {
+      return ApiResponse.error(res, 'Gym ID is required', 400);
+    }
+    const cleanId = id.trim();
+
+    let client = null;
+    let deletedGym = null;
+    let dbSuccess = false;
+
+    try {
+      client = await db.getClient();
+      await client.query('BEGIN');
+
+      // Check if gym exists by id or slug
+      const checkResult = await client.query(
+        'SELECT id, name, slug FROM gyms WHERE id = $1 OR LOWER(slug) = LOWER($1) LIMIT 1',
+        [cleanId]
+      );
+
+      if (checkResult.rows.length > 0) {
+        deletedGym = checkResult.rows[0];
+        const targetGymId = deletedGym.id;
+
+        // 1. Invalidate and delete password reset tokens for gym owners and users
+        await client.query(`
+          DELETE FROM password_reset_tokens 
+          WHERE user_id IN (SELECT id FROM gym_owners WHERE gym_id = $1)
+             OR user_id IN (SELECT id FROM users WHERE gym_id = $1)
+             OR user_id IN (SELECT user_id FROM members WHERE gym_id = $1 AND user_id IS NOT NULL);
+        `, [targetGymId]);
+
+        // 2. Delete membership receipts
+        await client.query('DELETE FROM membership_receipts WHERE gym_id = $1;', [targetGymId]);
+
+        // 3. Delete attendance records
+        await client.query('DELETE FROM attendance WHERE gym_id = $1;', [targetGymId]);
+
+        // 4. Delete payments
+        await client.query('DELETE FROM payments WHERE gym_id = $1;', [targetGymId]);
+
+        // 5. Delete member subscriptions
+        await client.query('DELETE FROM member_subscriptions WHERE gym_id = $1;', [targetGymId]);
+
+        // 6. Delete members
+        await client.query('DELETE FROM members WHERE gym_id = $1;', [targetGymId]);
+
+        // 7. Delete membership plans
+        await client.query('DELETE FROM membership_plans WHERE gym_id = $1;', [targetGymId]);
+
+        // 8. Delete notifications
+        await client.query('DELETE FROM notifications WHERE gym_id = $1;', [targetGymId]);
+
+        // 9. Delete users associated with this gym
+        await client.query('DELETE FROM users WHERE gym_id = $1;', [targetGymId]);
+
+        // 10. Delete gym owners
+        await client.query('DELETE FROM gym_owners WHERE gym_id = $1;', [targetGymId]);
+
+        // 11. Finally delete the gym record
+        await client.query('DELETE FROM gyms WHERE id = $1;', [targetGymId]);
+
+        await client.query('COMMIT');
+        dbSuccess = true;
+      } else {
+        await client.query('ROLLBACK');
+      }
+    } catch (dbErr) {
+      if (client) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (_rbErr) {}
+      }
+      console.warn('[Admin API] Database error during gym deletion:', dbErr.message);
+    } finally {
+      if (client) {
+        try {
+          client.release();
+        } catch (_) {}
+      }
+    }
+
+    // Always ensure dev in-memory store is also cleared
+    const memDeleted = deleteInMemoryGym(cleanId);
+
+    if (dbSuccess || memDeleted) {
+      const gymName = deletedGym?.name || cleanId;
+      return ApiResponse.success(
+        res,
+        { id: cleanId, name: gymName },
+        `Gym "${gymName}" and all associated records permanently deleted`
+      );
+    }
+
+    return ApiResponse.error(res, `Gym with identifier "${cleanId}" not found`, 404);
+  } catch (error) {
     next(error);
   }
 });

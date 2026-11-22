@@ -1,45 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { ROLES } from '../constants/roles.constant.js';
 
-const defaultGym = {
-  id: 'gym-5050-fitness-club',
-  name: '5050 Fitness Club',
-  slug: '5050-fitness-club',
-  owner: 'Pranav Kondhalkar',
-  owner_name: 'Pranav Kondhalkar',
-  email: 'kondhalkarp7076@gmail.com',
-  owner_email: 'kondhalkarp7076@gmail.com',
-  phone: '+91 98765 43210',
-  status: 'active',
-  owner_status: 'active',
-  displayInvitationStatus: 'accepted',
-  invitation_status: 'accepted',
-  must_change_password: false,
-  opening_hours: '06:00 AM - 10:00 PM',
-  description: 'Welcome to 5050 Fitness Club',
-  address: 'Main Street, Pune',
-  city: 'Pune',
-  state: 'Maharashtra',
-  postal_code: '411001',
-  created_at: new Date().toISOString()
-};
-
-const defaultOwner = {
-  id: 'usr_owner_5050_pranav',
-  email: 'kondhalkarp7076@gmail.com',
-  full_name: 'Pranav Kondhalkar',
-  fullName: 'Pranav Kondhalkar',
-  phone: '+91 98765 43210',
-  role: ROLES.GYM_OWNER,
-  gymId: 'gym-5050-fitness-club',
-  status: 'active',
-  invitation_status: 'accepted',
-  must_change_password: false,
-  created_at: new Date().toISOString()
-};
-
-let inMemoryGyms = [defaultGym];
-let inMemoryOwners = [defaultOwner];
+let inMemoryGyms = [];
+let inMemoryOwners = [];
 const inMemoryTokens = new Map();
 
 export const addInMemoryGym = (gym, owner, temporaryPassword, resetToken) => {
@@ -125,6 +88,38 @@ export const updateInMemoryGym = (id, updates) => {
   return null;
 };
 
+export const deleteInMemoryGym = (idOrSlug) => {
+  if (!idOrSlug) return false;
+  const clean = idOrSlug.toLowerCase().trim();
+  const hyphenated = clean.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+  const gymIdx = inMemoryGyms.findIndex(g =>
+    g.id === idOrSlug ||
+    (g.slug && (g.slug.toLowerCase() === clean || g.slug.toLowerCase() === hyphenated)) ||
+    (g.name && g.name.toLowerCase() === clean)
+  );
+
+  let gymId = idOrSlug;
+  let deleted = false;
+  if (gymIdx >= 0) {
+    gymId = inMemoryGyms[gymIdx].id;
+    inMemoryGyms.splice(gymIdx, 1);
+    deleted = true;
+  }
+
+  // Remove corresponding owner(s)
+  inMemoryOwners = inMemoryOwners.filter(o => o.gymId !== gymId);
+
+  // Invalidate and delete associated tokens
+  for (const [key, val] of inMemoryTokens.entries()) {
+    if (val.gymId === gymId || val.gymSlug === clean || val.gymSlug === hyphenated) {
+      inMemoryTokens.delete(key);
+    }
+  }
+
+  return deleted;
+};
+
 export const validateInMemoryToken = (token) => {
   if (!token) return null;
   const data = inMemoryTokens.get(token.trim());
@@ -192,6 +187,7 @@ export default {
   findInMemoryGym,
   findInMemoryOwner,
   updateInMemoryGym,
+  deleteInMemoryGym,
   validateInMemoryToken,
   consumeInMemoryToken,
   resetInMemoryOwners

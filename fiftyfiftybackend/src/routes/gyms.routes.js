@@ -81,22 +81,36 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params;
     const cleanId = id.trim();
 
-    const result = await db.query(`
-      SELECT 
-        id, slug, name, owner_name, email, phone, status,
-        logo_url, address, city, state, postal_code, opening_hours,
-        description, business_contact, created_at
-      FROM gyms
-      WHERE id = $1 OR LOWER(slug) = LOWER($1)
-      LIMIT 1;
-    `, [cleanId]);
+    try {
+      const result = await db.query(`
+        SELECT 
+          id, slug, name, owner_name, email, phone, status,
+          logo_url, address, city, state, postal_code, opening_hours,
+          description, business_contact, created_at
+        FROM gyms
+        WHERE id = $1 OR LOWER(slug) = LOWER($1)
+        LIMIT 1;
+      `, [cleanId]);
 
-    if (result.rows.length === 0) {
+      if (result.rows.length > 0) {
+        const gym = result.rows[0];
+        return ApiResponse.success(res, gym, 'Gym details retrieved');
+      }
+
+      const memGym = findInMemoryGym(cleanId);
+      if (memGym) {
+        return ApiResponse.success(res, memGym, 'Gym details retrieved (dev store)');
+      }
+
+      return ApiResponse.error(res, 'Gym not found', 404);
+    } catch (dbErr) {
+      console.warn('[Gyms API] Database query error on /:id:', dbErr.message);
+      const memGym = findInMemoryGym(cleanId);
+      if (memGym) {
+        return ApiResponse.success(res, memGym, 'Gym details retrieved (dev store fallback)');
+      }
       return ApiResponse.error(res, 'Gym not found', 404);
     }
-
-    const gym = result.rows[0];
-    return ApiResponse.success(res, gym, 'Gym details retrieved');
   } catch (error) {
     next(error);
   }

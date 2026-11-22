@@ -75,6 +75,7 @@
 }
 
 /* SVG Chart Elements */
+.attendance-svg-wrap,
 .attendance-svg-wrapper {
   width: 100%;
   position: relative;
@@ -82,6 +83,7 @@
   user-select: none;
 }
 
+.attendance-chart-svg,
 .attendance-svg {
   width: 100%;
   height: auto;
@@ -191,4 +193,27 @@
 
 .chart-footer-value strong {
   font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .attendance-chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .chart-mode-toggle {
+    width: 100%;
+  }
+
+  .chart-mode-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .attendance-chart-footer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    gap: 12px;
+  }
 }
