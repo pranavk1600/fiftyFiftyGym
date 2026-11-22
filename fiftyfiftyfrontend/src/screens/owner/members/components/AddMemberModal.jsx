@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus, RefreshCw, Lock, User, Calendar, CreditCard, AlertCircle } from 'lucide-react';
 import { Modal } from '../../../../shared/components/Modal/Modal';
 import { Button } from '../../../../shared/components/Button/Button';
+import { PlanSelectDropdown } from './PlanSelectDropdown';
 
 export const AddMemberModal = ({
   isOpen,
@@ -60,6 +61,25 @@ export const AddMemberModal = ({
       }));
     }
   }, [nextReceiptNo]);
+
+  // Default to first created plan if available
+  useEffect(() => {
+    if (plans.length > 0 && !form.plan) {
+      const first = plans[0];
+      const days = first.duration_days || first.durationDays || 30;
+      const months = days >= 360 ? 12 : days >= 180 ? 6 : days >= 90 ? 3 : days >= 60 ? 2 : 1;
+      const price = parseFloat(first.price) || 1200;
+      setForm((prev) => ({
+        ...prev,
+        plan: first.name,
+        durationMonths: months,
+        totalAmount: price,
+        paidAmount: price,
+        balanceAmount: 0,
+        expiryDate: calculateEndDate(prev.joinDate, months)
+      }));
+    }
+  }, [plans]);
 
   // Validation function
   const validateField = (fieldName, value, currentForm = form) => {
@@ -333,58 +353,47 @@ export const AddMemberModal = ({
             <span>Membership & Validity</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 14 }}>
             <div className="input-group">
               <label className="input-label" htmlFor="new-membership-type">
                 Membership Type <span className="label-required">*</span>
               </label>
-              {plans.length > 0 ? (
-                <select
-                  id="new-membership-type"
-                  className="input-control"
-                  value={form.membershipType}
-                  onChange={(e) => handlePlanSelect(e.target.value)}
-                  disabled={isSubmitting}
-                  style={{ height: '42px', fontSize: '0.9rem', cursor: 'pointer' }}
-                >
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.name}>
-                      {p.name} (₹{p.price})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id="new-membership-type"
-                  type="text"
-                  className="input-control"
-                  value={form.membershipType}
-                  onChange={(e) => setForm({ ...form, membershipType: e.target.value, plan: e.target.value })}
-                  placeholder="Gym + cardio"
-                  disabled={isSubmitting}
-                />
-              )}
+              <input
+                id="new-membership-type"
+                type="text"
+                className="input-control"
+                value={form.membershipType}
+                onChange={(e) => handleChange('membershipType', e.target.value)}
+                placeholder="e.g. Gym + cardio"
+                disabled={isSubmitting}
+              />
             </div>
 
             <div className="input-group">
-              <label className="input-label" htmlFor="new-member-duration">
-                Plan Duration
+              <label className="input-label" htmlFor="new-select-plan">
+                Select Plan <span className="label-required">*</span>
               </label>
-              <select
-                id="new-member-duration"
-                className="input-control"
-                value={form.durationMonths}
-                onChange={(e) => handleDurationChange(e.target.value)}
+              <PlanSelectDropdown
+                plans={plans}
+                selectedPlanName={form.plan}
+                selectedMonths={form.durationMonths}
+                onSelectPlan={(selected) => {
+                  const months = selected.durationMonths || 1;
+                  const newEnd = calculateEndDate(form.joinDate, months);
+                  const price = selected.price !== undefined ? selected.price : 1200;
+                  setForm((prev) => ({
+                    ...prev,
+                    plan: selected.name,
+                    durationMonths: months,
+                    expiryDate: newEnd,
+                    totalAmount: price,
+                    paidAmount: price,
+                    balanceAmount: 0
+                  }));
+                  setErrors((errs) => ({ ...errs, totalAmount: '', paidAmount: '' }));
+                }}
                 disabled={isSubmitting}
-                style={{ height: '42px', fontSize: '0.9rem', cursor: 'pointer' }}
-              >
-                <option value="1">1 Month</option>
-                <option value="2">2 Months</option>
-                <option value="3">3 Months</option>
-                <option value="4">4 Months</option>
-                <option value="6">6 Months</option>
-                <option value="12">12 Months</option>
-              </select>
+              />
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, RefreshCw, Lock, User, Calendar, CreditCard } from 'lucide-react';
 import { Modal } from '../../../../shared/components/Modal/Modal';
 import { Button } from '../../../../shared/components/Button/Button';
+import { PlanSelectDropdown } from './PlanSelectDropdown';
 
 export const EditMemberModal = ({
   isOpen,
@@ -336,58 +337,47 @@ export const EditMemberModal = ({
             <span>Membership & Validity</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 14 }}>
             <div className="input-group">
               <label className="input-label" htmlFor="edit-membership-type">
                 Membership Type <span className="label-required">*</span>
               </label>
-              {plans.length > 0 ? (
-                <select
-                  id="edit-membership-type"
-                  className="input-control"
-                  value={form.membershipType}
-                  onChange={(e) => handlePlanSelect(e.target.value)}
-                  disabled={isSubmitting}
-                  style={{ height: '42px', fontSize: '0.9rem', cursor: 'pointer' }}
-                >
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.name}>
-                      {p.name} (₹{p.price})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id="edit-membership-type"
-                  type="text"
-                  className="input-control"
-                  value={form.membershipType}
-                  onChange={(e) => setForm({ ...form, membershipType: e.target.value, plan: e.target.value })}
-                  placeholder="Gym + cardio"
-                  disabled={isSubmitting}
-                />
-              )}
+              <input
+                id="edit-membership-type"
+                type="text"
+                className="input-control"
+                value={form.membershipType}
+                onChange={(e) => handleChange('membershipType', e.target.value)}
+                placeholder="e.g. Gym + cardio"
+                disabled={isSubmitting}
+              />
             </div>
 
             <div className="input-group">
-              <label className="input-label" htmlFor="edit-member-duration">
-                Plan Duration
+              <label className="input-label" htmlFor="edit-select-plan">
+                Select Plan <span className="label-required">*</span>
               </label>
-              <select
-                id="edit-member-duration"
-                className="input-control"
-                value={form.durationMonths}
-                onChange={(e) => handleDurationChange(e.target.value)}
+              <PlanSelectDropdown
+                plans={plans}
+                selectedPlanName={form.plan}
+                selectedMonths={form.durationMonths}
+                onSelectPlan={(selected) => {
+                  const months = selected.durationMonths || 1;
+                  const newEnd = calculateEndDate(form.joinDate, months);
+                  const price = selected.price !== undefined ? selected.price : form.totalAmount;
+                  setForm((prev) => ({
+                    ...prev,
+                    plan: selected.name,
+                    durationMonths: months,
+                    expiryDate: newEnd,
+                    totalAmount: price,
+                    paidAmount: price,
+                    balanceAmount: 0
+                  }));
+                  setErrors((errs) => ({ ...errs, totalAmount: '', paidAmount: '' }));
+                }}
                 disabled={isSubmitting}
-                style={{ height: '42px', fontSize: '0.9rem', cursor: 'pointer' }}
-              >
-                <option value="1">1 Month</option>
-                <option value="2">2 Months</option>
-                <option value="3">3 Months</option>
-                <option value="4">4 Months</option>
-                <option value="6">6 Months</option>
-                <option value="12">12 Months</option>
-              </select>
+              />
             </div>
           </div>
 
