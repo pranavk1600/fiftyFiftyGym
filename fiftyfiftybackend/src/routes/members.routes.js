@@ -11,6 +11,12 @@ import { generateMembershipReceiptPdf } from '../services/pdf.service.js';
 import { uploadReceiptPdf, generateReceiptSignedUrls } from '../services/storage.service.js';
 import { getFrontendUrl } from '../config/frontend.config.js';
 import { ROLES } from '../constants/roles.constant.js';
+import {
+  calculateEndDate,
+  getNextCustomMemberId,
+  getNextReceiptNumber,
+  formatMemberResponse
+} from '../services/member.service.js';
 
 const router = Router();
 
@@ -40,10 +46,17 @@ router.get('/', async (req, res, next) => {
     try {
       let queryText = `
         SELECT 
-          id, gym_id AS "gymId", full_name AS name, phone, email, 
+          id, custom_member_id AS "customMemberId", gym_id AS "gymId", full_name AS name, phone, email, 
           slug, current_plan_name AS plan, current_plan_id AS "planId",
+          TO_CHAR(payment_date, 'YYYY-MM-DD') AS "paymentDate",
           TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate", 
           TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+          duration_months AS "durationMonths",
+          membership_type AS "membershipType",
+          total_amount AS "totalAmount",
+          paid_amount AS "paidAmount",
+          balance_amount AS "balanceAmount",
+          receipt_number AS "receiptNumber",
           status, total_visits AS visits,
           invitation_status AS "invitationStatus",
           invitation_sent_at AS "invitationSentAt",
@@ -60,14 +73,45 @@ router.get('/', async (req, res, next) => {
 
       if (search && search.trim()) {
         params.push(`%${search.trim()}%`);
-        queryText += ` AND (full_name ILIKE $${params.length} OR phone ILIKE $${params.length} OR id ILIKE $${params.length} OR email ILIKE $${params.length} OR slug ILIKE $${params.length})`;
+        queryText += ` AND (full_name ILIKE $${params.length} OR phone ILIKE $${params.length} OR id ILIKE $${params.length} OR email ILIKE $${params.length} OR custom_member_id ILIKE $${params.length} OR receipt_number ILIKE $${params.length} OR slug ILIKE $${params.length})`;
       }
 
       queryText += ' ORDER BY created_at DESC';
 
-      const result = await db.query(queryText, params);
+      let result;
+      try {
+        result = await db.query(queryText, params);
+      } catch (colErr) {
+        // Fallback for unmigrated database
+        console.warn('[Members Query] Falling back to standard columns:', colErr.message);
+        let fallbackQuery = `
+          SELECT 
+            id, gym_id AS "gymId", full_name AS name, phone, email, 
+            slug, current_plan_name AS plan, current_plan_id AS "planId",
+            TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate", 
+            TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+            status, total_visits AS visits,
+            invitation_status AS "invitationStatus",
+            invitation_sent_at AS "invitationSentAt",
+            created_at AS "createdAt"
+          FROM members 
+          WHERE gym_id = $1
+        `;
+        const fbParams = [gymId];
+        if (status && status !== 'ALL') {
+          fbParams.push(status.toLowerCase());
+          fallbackQuery += ` AND status = $${fbParams.length}`;
+        }
+        if (search && search.trim()) {
+          fbParams.push(`%${search.trim()}%`);
+          fallbackQuery += ` AND (full_name ILIKE $${fbParams.length} OR phone ILIKE $${fbParams.length} OR id ILIKE $${fbParams.length} OR email ILIKE $${fbParams.length} OR slug ILIKE $${fbParams.length})`;
+        }
+        fallbackQuery += ' ORDER BY created_at DESC';
+        result = await db.query(fallbackQuery, fbParams);
+      }
 
-      return ApiResponse.success(res, result.rows, 'Members retrieved from database');
+      const formattedMembers = result.rows.map(formatMemberResponse);
+      return ApiResponse.success(res, formattedMembers, 'Members retrieved from database');
     } catch (err) {
       console.error('[Members Query Error]:', err.message);
       return ApiResponse.success(res, [], 'No members found');
@@ -81,7 +125,23 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const gymId = await resolveGymId(req);
-    const { name, phone, email, plan, joinDate, status } = req.body || {};
+    const {
+      customMemberId,
+      name,
+      phone,
+      email,
+      plan,
+      paymentDate,
+      joinDate,
+      expiryDate,
+      durationMonths,
+      membershipType,
+      totalAmount,
+      paidAmount,
+      balanceAmount,
+      receiptNumber: manualReceiptNumber,
+      status
+    } = req.body || {};
 
     if (!name || !name.trim()) {
       return ApiResponse.error(res, 'Member full name is required', 400);
@@ -89,14 +149,48 @@ router.post('/', async (req, res, next) => {
     if (!phone || !phone.trim()) {
       return ApiResponse.error(res, 'Phone number is required', 400);
     }
-    if (!email || !email.trim()) {
-      return ApiResponse.error(res, 'Email address is required for member portal invitation', 400);
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      return ApiResponse.error(res, 'Please provide a valid 10-digit mobile number', 400);
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!emailRegex.test(normalizedEmail)) {
-      return ApiResponse.error(res, 'Please provide a valid email address', 400);
+    // Prevent duplicate phone number under the same gym context
+    const phoneCheckSql = `
+      SELECT id, full_name AS "fullName", phone
+      FROM members
+      WHERE gym_id = $1
+        AND (
+          REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = $2
+          OR (LENGTH($2) = 10 AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = '91' || $2)
+          OR (LENGTH($2) >= 12 AND $2 LIKE '91%' AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = SUBSTRING($2 FROM 3))
+          OR phone = $3
+        )
+      LIMIT 1;
+    `;
+    const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, cleanPhone, String(phone).trim()]);
+    if (dupPhoneCheck.rows.length > 0) {
+      const existing = dupPhoneCheck.rows[0];
+      const numericDisplayId = String(existing.id).replace(/\D/g, '') || existing.id;
+      return res.status(409).json({
+        success: false,
+        errorType: 'DUPLICATE_PHONE',
+        message: 'Number already exists, use a different number',
+        existingMember: {
+          name: existing.fullName,
+          customMemberId: numericDisplayId,
+          phone: existing.phone
+        }
+      });
+    }
+
+    let normalizedEmail = null;
+    if (email && String(email).trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      normalizedEmail = String(email).trim().toLowerCase();
+      if (!emailRegex.test(normalizedEmail)) {
+        return ApiResponse.error(res, 'Please provide a valid email address', 400);
+      }
     }
 
     if (!gymId) {
@@ -114,20 +208,22 @@ router.post('/', async (req, res, next) => {
     const gym = gymRes.rows[0];
     const gymSlug = gym.slug || (gym.name ? gym.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : gym.id);
 
-    // 2. Prevent duplicate email under the same gym context
-    const dupCheck = await db.query(
-      'SELECT id FROM members WHERE gym_id = $1 AND LOWER(email) = $2 LIMIT 1',
-      [gymId, normalizedEmail]
-    );
-    if (dupCheck.rows.length > 0) {
-      return ApiResponse.error(res, 'A member with this email address is already registered in this gym', 409);
+    // 2. Prevent duplicate email under the same gym context (if email provided)
+    if (normalizedEmail) {
+      const dupCheck = await db.query(
+        'SELECT id FROM members WHERE gym_id = $1 AND LOWER(email) = $2 LIMIT 1',
+        [gymId, normalizedEmail]
+      );
+      if (dupCheck.rows.length > 0) {
+        return ApiResponse.error(res, 'A member with this email address is already registered in this gym', 409);
+      }
     }
 
-    // 3. Resolve plan and validate duration for end date calculation
+    // 3. Resolve plan, duration, and amounts
     let planId = null;
-    let planName = plan || 'Standard Membership';
+    let planName = plan || membershipType || 'Gym + cardio';
     let durationDays = 30;
-    let planPrice = 0;
+    let planPrice = 1200;
 
     const planQuery = await db.query(
       'SELECT id, name, duration_days, price FROM membership_plans WHERE gym_id = $1 AND (LOWER(name) = LOWER($2) OR id::text = $2) LIMIT 1',
@@ -138,12 +234,29 @@ router.post('/', async (req, res, next) => {
       planId = planQuery.rows[0].id;
       planName = planQuery.rows[0].name;
       durationDays = Number(planQuery.rows[0].duration_days) || 30;
-      planPrice = planQuery.rows[0].price ? parseFloat(planQuery.rows[0].price) : 0;
+      planPrice = planQuery.rows[0].price ? parseFloat(planQuery.rows[0].price) : 1200;
     }
 
-    // Backend-verified membership end date
+    // Excel Alignment Fields Calculations
+    const calcDurationMonths = parseInt(durationMonths, 10) || (durationDays >= 360 ? 12 : (durationDays >= 180 ? 6 : (durationDays >= 90 ? 3 : 1)));
     const memberJoinDate = joinDate ? String(joinDate).split('T')[0] : new Date().toISOString().split('T')[0];
-    const memberExpiryDate = calculateMembershipEndDate(memberJoinDate, durationDays);
+    const memberPaymentDate = paymentDate ? String(paymentDate).split('T')[0] : memberJoinDate;
+    const memberExpiryDate = expiryDate ? String(expiryDate).split('T')[0] : calculateEndDate(memberJoinDate, calcDurationMonths);
+    const calcMembershipType = membershipType || planName || 'Gym + cardio';
+    const calcTotalAmount = totalAmount !== undefined && totalAmount !== '' ? parseFloat(totalAmount) : planPrice;
+    const calcPaidAmount = paidAmount !== undefined && paidAmount !== '' ? parseFloat(paidAmount) : calcTotalAmount;
+    const calcBalanceAmount = balanceAmount !== undefined && balanceAmount !== '' ? parseFloat(balanceAmount) : Math.max(0, calcTotalAmount - calcPaidAmount);
+
+    // Strictly numeric sequential Member ID and Receipt Number (incremented from previous ID)
+    const numericId = (customMemberId && /^\d+$/.test(String(customMemberId).trim()))
+      ? String(customMemberId).trim()
+      : await getNextCustomMemberId(gymId);
+
+    const memberId = numericId;
+    const calcCustomId = numericId;
+    const receiptNumber = (manualReceiptNumber && /^\d+$/.test(String(manualReceiptNumber).trim()))
+      ? String(manualReceiptNumber).trim()
+      : numericId;
 
     // 4. Generate URL-safe unique member slug
     const baseSlug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'member';
@@ -162,47 +275,107 @@ router.post('/', async (req, res, next) => {
       memberSlug = `${baseSlug}-${counter}`;
     }
 
-    // 5. Generate secure member record ID and initial random password hash
-    const memberId = `MEM${Date.now().toString().slice(-4)}${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    // 5. Generate initial random password hash
     const initialPlaceholderPass = crypto.randomBytes(32).toString('hex');
     const placeholderHash = await bcrypt.hash(initialPlaceholderPass, 10);
 
-    const insertSql = `
-      INSERT INTO members (
-        id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
-        join_date, expiry_date, status, slug, password_hash, must_change_password,
-        invitation_status, invitation_sent_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, 'pending', CURRENT_TIMESTAMP)
-      RETURNING 
-        id, gym_id AS "gymId", full_name AS name, phone, email, slug,
-        current_plan_name AS plan, current_plan_id AS "planId",
-        TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
-        TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
-        status, total_visits AS visits,
-        invitation_status AS "invitationStatus",
-        invitation_sent_at AS "invitationSentAt";
-    `;
+    let createdMember;
+    try {
+      const insertSql = `
+        INSERT INTO members (
+          id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
+          join_date, expiry_date, status, slug, password_hash, must_change_password,
+          invitation_status, invitation_sent_at,
+          custom_member_id, payment_date, duration_months, membership_type,
+          total_amount, paid_amount, balance_amount, receipt_number
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, 'pending', CURRENT_TIMESTAMP, $13, $14, $15, $16, $17, $18, $19, $20)
+        RETURNING 
+          id, custom_member_id AS "customMemberId", gym_id AS "gymId", full_name AS name, phone, email, slug,
+          current_plan_name AS plan, current_plan_id AS "planId",
+          TO_CHAR(payment_date, 'YYYY-MM-DD') AS "paymentDate",
+          TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+          TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+          duration_months AS "durationMonths",
+          membership_type AS "membershipType",
+          total_amount AS "totalAmount",
+          paid_amount AS "paidAmount",
+          balance_amount AS "balanceAmount",
+          receipt_number AS "receiptNumber",
+          status, total_visits AS visits,
+          invitation_status AS "invitationStatus",
+          invitation_sent_at AS "invitationSentAt";
+      `;
 
-    const result = await db.query(insertSql, [
-      memberId,
-      gymId,
-      name.trim(),
-      phone.trim(),
-      normalizedEmail,
-      planId,
-      planName,
-      memberJoinDate,
-      memberExpiryDate,
-      status || 'active',
-      memberSlug,
-      placeholderHash
-    ]);
-
-    const createdMember = result.rows[0];
+      const result = await db.query(insertSql, [
+        memberId,
+        gymId,
+        name.trim(),
+        phone.trim(),
+        normalizedEmail,
+        planId,
+        planName,
+        memberJoinDate,
+        memberExpiryDate,
+        status || 'active',
+        memberSlug,
+        placeholderHash,
+        calcCustomId,
+        memberPaymentDate,
+        calcDurationMonths,
+        calcMembershipType,
+        calcTotalAmount,
+        calcPaidAmount,
+        calcBalanceAmount,
+        receiptNumber
+      ]);
+      createdMember = formatMemberResponse(result.rows[0]);
+    } catch (insertErr) {
+      console.warn('[Member Insert] Falling back to base insert columns:', insertErr.message);
+      const fallbackSql = `
+        INSERT INTO members (
+          id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
+          join_date, expiry_date, status, slug, password_hash, must_change_password,
+          invitation_status, invitation_sent_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, 'pending', CURRENT_TIMESTAMP)
+        RETURNING 
+          id, gym_id AS "gymId", full_name AS name, phone, email, slug,
+          current_plan_name AS plan, current_plan_id AS "planId",
+          TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+          TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+          status, total_visits AS visits,
+          invitation_status AS "invitationStatus",
+          invitation_sent_at AS "invitationSentAt";
+      `;
+      const fbResult = await db.query(fallbackSql, [
+        memberId,
+        gymId,
+        name.trim(),
+        phone.trim(),
+        normalizedEmail,
+        planId,
+        planName,
+        memberJoinDate,
+        memberExpiryDate,
+        status || 'active',
+        memberSlug,
+        placeholderHash
+      ]);
+      createdMember = formatMemberResponse({
+        ...fbResult.rows[0],
+        customMemberId: calcCustomId,
+        paymentDate: memberPaymentDate,
+        durationMonths: calcDurationMonths,
+        membershipType: calcMembershipType,
+        totalAmount: calcTotalAmount,
+        paidAmount: calcPaidAmount,
+        balanceAmount: calcBalanceAmount,
+        receiptNumber
+      });
+    }
 
     // 6. Generate official PDF Membership Receipt & Registration Acknowledgement
-    const receiptNumber = `REC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
     let pdfBuffer = null;
     let receiptRecord = null;
 
@@ -291,54 +464,64 @@ router.post('/', async (req, res, next) => {
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
-    // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment
-    let emailStatus = 'pending';
+    // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment if email provided
+    let emailStatus = normalizedEmail ? 'pending' : 'not_provided';
     let emailError = null;
 
-    try {
-      const emailResult = await sendMemberInvitationEmail({
-        to: normalizedEmail,
-        gymName: gym.name,
-        gymLogoUrl: gym.logo_url,
-        memberName: createdMember.name,
-        planName,
-        joinDate: createdMember.joinDate,
-        expiryDate: createdMember.expiryDate,
-        loginUrl,
-        activationUrl,
-        expiryDays: 7,
-        receiptPdfBuffer: pdfBuffer,
-        receiptNumber
-      });
+    if (normalizedEmail) {
+      try {
+        const emailResult = await sendMemberInvitationEmail({
+          to: normalizedEmail,
+          gymName: gym.name,
+          gymLogoUrl: gym.logo_url,
+          memberName: createdMember.name,
+          idNo: createdMember.id || receiptNumber,
+          planName,
+          durationMonths: createdMember.durationMonths || 1,
+          startDate: createdMember.joinDate,
+          expiryDate: createdMember.expiryDate,
+          totalAmount: createdMember.totalAmount,
+          paidAmount: createdMember.paidAmount,
+          balanceAmount: createdMember.balanceAmount,
+          loginUrl,
+          activationUrl,
+          expiryDays: 7,
+          receiptPdfBuffer: pdfBuffer,
+          receiptNumber
+        });
 
-      if (emailResult.success) {
-        emailStatus = 'sent';
-        await db.query("UPDATE members SET invitation_status = 'sent', invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $1", [createdMember.id]);
-        createdMember.invitationStatus = 'sent';
-      } else {
+        if (emailResult.success) {
+          emailStatus = 'sent';
+          await db.query("UPDATE members SET invitation_status = 'sent', invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $1", [createdMember.id]);
+          createdMember.invitationStatus = 'sent';
+        } else {
+          emailStatus = 'failed';
+          emailError = emailResult.error || emailResult.message || 'Brevo delivery unconfigured';
+          await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
+          createdMember.invitationStatus = 'failed';
+        }
+      } catch (err) {
+        console.error('[Member Invitation Email Exception]:', err.message);
         emailStatus = 'failed';
-        emailError = emailResult.error || emailResult.message || 'Brevo delivery unconfigured';
+        emailError = err.message;
         await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
         createdMember.invitationStatus = 'failed';
       }
-    } catch (err) {
-      console.error('[Member Invitation Email Exception]:', err.message);
-      emailStatus = 'failed';
-      emailError = err.message;
-      await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
-      createdMember.invitationStatus = 'failed';
     }
 
     return ApiResponse.success(res, {
       ...createdMember,
+      gymName: gym.name,
       receipt: receiptRecord,
       loginUrl,
       activationUrl,
       emailStatus,
       emailError
-    }, emailStatus === 'sent'
-      ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
-      : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`,
+    }, normalizedEmail
+      ? (emailStatus === 'sent'
+          ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
+          : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
+      : 'Member registered and official receipt generated successfully!',
       201
     );
   } catch (error) {
@@ -354,6 +537,11 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
 
     const memRes = await db.query(
       `SELECT m.id, m.full_name AS name, m.email, m.slug, m.current_plan_name AS plan,
+              m.receipt_number AS "receiptNumber",
+              m.total_amount AS "totalAmount",
+              m.paid_amount AS "paidAmount",
+              m.balance_amount AS "balanceAmount",
+              m.duration_months AS "durationMonths",
               TO_CHAR(m.join_date, 'YYYY-MM-DD') AS "joinDate",
               TO_CHAR(m.expiry_date, 'YYYY-MM-DD') AS "expiryDate",
               g.name AS "gymName", g.slug AS "gymSlug", g.logo_url AS "gymLogoUrl"
@@ -389,17 +577,22 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
     const frontendUrl = getFrontendUrl();
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
-    const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
-    const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
+    const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
+    const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
     const emailResult = await sendMemberInvitationEmail({
       to: member.email,
       gymName: member.gymName,
       gymLogoUrl: member.gymLogoUrl,
       memberName: member.name,
+      idNo: member.id || member.receiptNumber,
       planName: member.plan || 'Standard Membership',
-      joinDate: member.joinDate,
+      durationMonths: member.durationMonths || 1,
+      startDate: member.joinDate,
       expiryDate: member.expiryDate,
+      totalAmount: member.totalAmount || 0,
+      paidAmount: member.paidAmount || 0,
+      balanceAmount: member.balanceAmount || 0,
       loginUrl,
       activationUrl,
       expiryDays: 7
@@ -425,32 +618,151 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, phone, email, plan, status } = req.body || {};
+    const gymId = await resolveGymId(req);
+    const {
+      name,
+      phone,
+      email,
+      plan,
+      customMemberId,
+      paymentDate,
+      joinDate,
+      expiryDate,
+      durationMonths,
+      membershipType,
+      totalAmount,
+      paidAmount,
+      balanceAmount,
+      receiptNumber,
+      status
+    } = req.body || {};
 
-    const updateSql = `
-      UPDATE members 
-      SET full_name = COALESCE($1, full_name),
-          phone = COALESCE($2, phone),
-          email = COALESCE($3, email),
-          current_plan_name = COALESCE($4, current_plan_name),
-          status = COALESCE($5, status),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
-      RETURNING 
-        id, gym_id AS "gymId", full_name AS name, phone, email, slug,
-        current_plan_name AS plan, current_plan_id AS "planId",
-        TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
-        TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
-        status, total_visits AS visits,
-        invitation_status AS "invitationStatus",
-        invitation_sent_at AS "invitationSentAt";
-    `;
-    const result = await db.query(updateSql, [name, phone, email, plan, status, id]);
-    if (result.rows.length === 0) {
-      return ApiResponse.error(res, 'Member not found', 404);
+    // Check duplicate phone number under the same gym context (excluding current member)
+    if (phone && String(phone).trim() && gymId) {
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      const phoneCheckSql = `
+        SELECT id, full_name AS "fullName", phone
+        FROM members
+        WHERE gym_id = $1
+          AND id != $2
+          AND (
+            REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = $3
+            OR (LENGTH($3) = 10 AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = '91' || $3)
+            OR (LENGTH($3) >= 12 AND $3 LIKE '91%' AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = SUBSTRING($3 FROM 3))
+            OR phone = $4
+          )
+        LIMIT 1;
+      `;
+      const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, id, cleanPhone, String(phone).trim()]);
+      if (dupPhoneCheck.rows.length > 0) {
+        const existing = dupPhoneCheck.rows[0];
+        const numericDisplayId = String(existing.id).replace(/\D/g, '') || existing.id;
+        return res.status(409).json({
+          success: false,
+          errorType: 'DUPLICATE_PHONE',
+          message: 'Number already exists, use a different number',
+          existingMember: {
+            name: existing.fullName,
+            customMemberId: numericDisplayId,
+            phone: existing.phone
+          }
+        });
+      }
     }
 
-    return ApiResponse.success(res, result.rows[0], 'Member updated successfully');
+    const calcTotal = totalAmount !== undefined ? parseFloat(totalAmount) : null;
+    const calcPaid = paidAmount !== undefined ? parseFloat(paidAmount) : null;
+    const calcBalance = balanceAmount !== undefined
+      ? parseFloat(balanceAmount)
+      : (calcTotal !== null && calcPaid !== null ? Math.max(0, calcTotal - calcPaid) : null);
+
+    try {
+      const updateSql = `
+        UPDATE members 
+        SET full_name = COALESCE($1, full_name),
+            phone = COALESCE($2, phone),
+            email = COALESCE($3, email),
+            current_plan_name = COALESCE($4, current_plan_name),
+            status = COALESCE($5, status),
+            custom_member_id = COALESCE($6, custom_member_id),
+            payment_date = COALESCE($7::date, payment_date),
+            join_date = COALESCE($8::date, join_date),
+            expiry_date = COALESCE($9::date, expiry_date),
+            duration_months = COALESCE($10, duration_months),
+            membership_type = COALESCE($11, membership_type),
+            total_amount = COALESCE($12, total_amount),
+            paid_amount = COALESCE($13, paid_amount),
+            balance_amount = COALESCE($14, balance_amount),
+            receipt_number = COALESCE($15, receipt_number),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $16
+        RETURNING 
+          id, custom_member_id AS "customMemberId", gym_id AS "gymId", full_name AS name, phone, email, slug,
+          current_plan_name AS plan, current_plan_id AS "planId",
+          TO_CHAR(payment_date, 'YYYY-MM-DD') AS "paymentDate",
+          TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+          TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+          duration_months AS "durationMonths",
+          membership_type AS "membershipType",
+          total_amount AS "totalAmount",
+          paid_amount AS "paidAmount",
+          balance_amount AS "balanceAmount",
+          receipt_number AS "receiptNumber",
+          status, total_visits AS visits,
+          invitation_status AS "invitationStatus",
+          invitation_sent_at AS "invitationSentAt";
+      `;
+      const result = await db.query(updateSql, [
+        name, phone, email, plan || membershipType, status,
+        customMemberId, paymentDate, joinDate, expiryDate,
+        durationMonths, membershipType || plan,
+        calcTotal, calcPaid, calcBalance, receiptNumber,
+        id
+      ]);
+
+      if (result.rows.length === 0) {
+        return ApiResponse.error(res, 'Member not found', 404);
+      }
+
+      return ApiResponse.success(res, formatMemberResponse(result.rows[0]), 'Member updated successfully');
+    } catch (_fallbackErr) {
+      // Fallback for unmigrated database
+      const fallbackSql = `
+        UPDATE members 
+        SET full_name = COALESCE($1, full_name),
+            phone = COALESCE($2, phone),
+            email = COALESCE($3, email),
+            current_plan_name = COALESCE($4, current_plan_name),
+            status = COALESCE($5, status),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $6
+        RETURNING 
+          id, gym_id AS "gymId", full_name AS name, phone, email, slug,
+          current_plan_name AS plan, current_plan_id AS "planId",
+          TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+          TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+          status, total_visits AS visits,
+          invitation_status AS "invitationStatus",
+          invitation_sent_at AS "invitationSentAt";
+      `;
+      const fbResult = await db.query(fallbackSql, [name, phone, email, plan, status, id]);
+      if (fbResult.rows.length === 0) {
+        return ApiResponse.error(res, 'Member not found', 404);
+      }
+      return ApiResponse.success(res, formatMemberResponse({
+        ...fbResult.rows[0],
+        customMemberId,
+        paymentDate,
+        joinDate,
+        expiryDate,
+        durationMonths,
+        membershipType,
+        totalAmount: calcTotal,
+        paidAmount: calcPaid,
+        balanceAmount: calcBalance,
+        receiptNumber
+      }), 'Member updated successfully');
+    }
   } catch (error) {
     next(error);
   }
