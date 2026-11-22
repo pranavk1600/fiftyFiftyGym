@@ -196,7 +196,7 @@ export const OwnerLayout = () => {
 
         {/* Right Section: Desktop Controls & Profile */}
         <div className="owner-desktop-actions">
-          <ThemeToggle />
+          <ThemeToggle showLabel={false} />
 
           <div
             className="owner-profile-widget"
@@ -224,7 +224,7 @@ export const OwnerLayout = () => {
 
         {/* Mobile Header Actions (Visible <= 1024px) */}
         <div className="owner-mobile-header-actions">
-          <ThemeToggle />
+          <ThemeToggle showLabel={false} />
           <button
             type="button"
             className="owner-hamburger-btn"
