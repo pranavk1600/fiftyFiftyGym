@@ -86,9 +86,10 @@ export const AddMemberModal = ({
       if (!value || !value.trim()) error = 'Phone number is required';
       else if (digits.length !== 10) error = 'Enter a valid 10-digit mobile number';
     } else if (fieldName === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!value || !value.trim()) error = 'Email address is required';
-      else if (!emailRegex.test(value.trim())) error = 'Enter a valid email address';
+      if (value && String(value).trim()) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(String(value).trim())) error = 'Enter a valid email address';
+      }
     } else if (fieldName === 'totalAmount') {
       const num = parseFloat(value);
       if (isNaN(num) || num < 0) error = 'Total amount must be ₹0 or greater';
@@ -202,7 +203,10 @@ export const AddMemberModal = ({
   };
 
   const validateAll = () => {
-    const fieldsToValidate = ['customMemberId', 'name', 'phone', 'email', 'totalAmount', 'paidAmount'];
+    const fieldsToValidate = ['customMemberId', 'name', 'phone', 'totalAmount', 'paidAmount'];
+    if (form.email && String(form.email).trim()) {
+      fieldsToValidate.push('email');
+    }
     const newErrors = {};
     const newTouched = {};
 
@@ -338,13 +342,13 @@ export const AddMemberModal = ({
 
             <div className="input-group">
               <label className="input-label" htmlFor="new-member-email">
-                Email Address <span className="label-required">*</span>
+                Email Address <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>(optional)</span>
               </label>
               <input
                 id="new-member-email"
                 type="email"
                 className={`input-control ${errors.email ? 'input-error is-invalid' : ''}`}
-                placeholder="e.g. yasa@example.com"
+                placeholder="e.g. yasa@example.com (optional)"
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 onBlur={() => handleBlur('email')}

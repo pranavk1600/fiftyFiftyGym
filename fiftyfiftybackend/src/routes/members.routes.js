@@ -148,14 +148,14 @@ router.post('/', async (req, res, next) => {
     if (!phone || !phone.trim()) {
       return ApiResponse.error(res, 'Phone number is required', 400);
     }
-    if (!email || !email.trim()) {
-      return ApiResponse.error(res, 'Email address is required for member portal invitation', 400);
-    }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!emailRegex.test(normalizedEmail)) {
-      return ApiResponse.error(res, 'Please provide a valid email address', 400);
+    let normalizedEmail = null;
+    if (email && String(email).trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      normalizedEmail = String(email).trim().toLowerCase();
+      if (!emailRegex.test(normalizedEmail)) {
+        return ApiResponse.error(res, 'Please provide a valid email address', 400);
+      }
     }
 
     if (!gymId) {
@@ -173,13 +173,15 @@ router.post('/', async (req, res, next) => {
     const gym = gymRes.rows[0];
     const gymSlug = gym.slug || (gym.name ? gym.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : gym.id);
 
-    // 2. Prevent duplicate email under the same gym context
-    const dupCheck = await db.query(
-      'SELECT id FROM members WHERE gym_id = $1 AND LOWER(email) = $2 LIMIT 1',
-      [gymId, normalizedEmail]
-    );
-    if (dupCheck.rows.length > 0) {
-      return ApiResponse.error(res, 'A member with this email address is already registered in this gym', 409);
+    // 2. Prevent duplicate email under the same gym context (if email provided)
+    if (normalizedEmail) {
+      const dupCheck = await db.query(
+        'SELECT id FROM members WHERE gym_id = $1 AND LOWER(email) = $2 LIMIT 1',
+        [gymId, normalizedEmail]
+      );
+      if (dupCheck.rows.length > 0) {
+        return ApiResponse.error(res, 'A member with this email address is already registered in this gym', 409);
+      }
     }
 
     // 3. Resolve plan, duration, and amounts
@@ -421,54 +423,59 @@ router.post('/', async (req, res, next) => {
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
-    // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment
-    let emailStatus = 'pending';
+    // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment if email provided
+    let emailStatus = normalizedEmail ? 'pending' : 'not_provided';
     let emailError = null;
 
-    try {
-      const emailResult = await sendMemberInvitationEmail({
-        to: normalizedEmail,
-        gymName: gym.name,
-        gymLogoUrl: gym.logo_url,
-        memberName: createdMember.name,
-        planName,
-        joinDate: createdMember.joinDate,
-        expiryDate: createdMember.expiryDate,
-        loginUrl,
-        activationUrl,
-        expiryDays: 7,
-        receiptPdfBuffer: pdfBuffer,
-        receiptNumber
-      });
+    if (normalizedEmail) {
+      try {
+        const emailResult = await sendMemberInvitationEmail({
+          to: normalizedEmail,
+          gymName: gym.name,
+          gymLogoUrl: gym.logo_url,
+          memberName: createdMember.name,
+          planName,
+          joinDate: createdMember.joinDate,
+          expiryDate: createdMember.expiryDate,
+          loginUrl,
+          activationUrl,
+          expiryDays: 7,
+          receiptPdfBuffer: pdfBuffer,
+          receiptNumber
+        });
 
-      if (emailResult.success) {
-        emailStatus = 'sent';
-        await db.query("UPDATE members SET invitation_status = 'sent', invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $1", [createdMember.id]);
-        createdMember.invitationStatus = 'sent';
-      } else {
+        if (emailResult.success) {
+          emailStatus = 'sent';
+          await db.query("UPDATE members SET invitation_status = 'sent', invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $1", [createdMember.id]);
+          createdMember.invitationStatus = 'sent';
+        } else {
+          emailStatus = 'failed';
+          emailError = emailResult.error || emailResult.message || 'Brevo delivery unconfigured';
+          await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
+          createdMember.invitationStatus = 'failed';
+        }
+      } catch (err) {
+        console.error('[Member Invitation Email Exception]:', err.message);
         emailStatus = 'failed';
-        emailError = emailResult.error || emailResult.message || 'Brevo delivery unconfigured';
+        emailError = err.message;
         await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
         createdMember.invitationStatus = 'failed';
       }
-    } catch (err) {
-      console.error('[Member Invitation Email Exception]:', err.message);
-      emailStatus = 'failed';
-      emailError = err.message;
-      await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
-      createdMember.invitationStatus = 'failed';
     }
 
     return ApiResponse.success(res, {
       ...createdMember,
+      gymName: gym.name,
       receipt: receiptRecord,
       loginUrl,
       activationUrl,
       emailStatus,
       emailError
-    }, emailStatus === 'sent'
-      ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
-      : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`,
+    }, normalizedEmail
+      ? (emailStatus === 'sent'
+          ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
+          : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
+      : 'Member registered and official receipt generated successfully!',
       201
     );
   } catch (error) {

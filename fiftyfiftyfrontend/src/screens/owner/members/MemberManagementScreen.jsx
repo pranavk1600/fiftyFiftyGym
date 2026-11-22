@@ -5,6 +5,8 @@ import { Table } from '../../../shared/components/Table/Table';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
 
+import { formatExcelDate } from '../../../shared/utils/formatters';
+
 // Modular Subcomponents & Columns
 import { getMemberColumns } from './components/memberTableColumns';
 import { AddMemberModal } from './components/AddMemberModal';
@@ -81,7 +83,7 @@ export const MemberManagementScreen = () => {
     fetchPlans();
   }, []);
 
-  // Handle Add Member
+  // Handle Add Member & Open WhatsApp Web
   const handleAddMember = async (formData) => {
     setIsSubmitting(true);
     try {
@@ -89,7 +91,75 @@ export const MemberManagementScreen = () => {
       const created = res.data?.data || res.data;
       setMembers((prev) => [created, ...prev]);
       setIsAddModalOpen(false);
-      showToast(`Member ${created.name || formData.name} registered and saved to list!`, 'success');
+
+      const emailSent = Boolean(created.email && created.emailStatus === 'sent');
+      const emailNote = emailSent ? ` and invitation email sent to ${created.email}` : '';
+      showToast(`Member ${created.name || formData.name} registered${emailNote}! Opening WhatsApp chat...`, 'success');
+
+      // WhatsApp Web Chat Integration: open chat with pre-filled message
+      const memberPhone = created.phone || formData.phone;
+      if (memberPhone) {
+        const digits = String(memberPhone).replace(/\D/g, '');
+        const cleanPhone = digits.length === 10 ? `91${digits}` : digits;
+
+        const gymName = created.gymName || 'FiftyFifty Gym';
+        const memberName = created.name || formData.name;
+        const idNo = created.customMemberId || formData.customMemberId || created.receiptNumber || formData.receiptNumber;
+        const planName = created.plan || formData.plan || formData.membershipType || 'Gym + cardio';
+        const durationMonths = created.durationMonths || formData.durationMonths || 1;
+        const startDate = formatExcelDate(created.joinDate || formData.joinDate);
+        const endDate = formatExcelDate(created.expiryDate || formData.expiryDate);
+        const total = created.totalAmount !== undefined ? created.totalAmount : formData.totalAmount;
+        const paid = created.paidAmount !== undefined ? created.paidAmount : formData.paidAmount;
+        const balance = created.balanceAmount !== undefined ? created.balanceAmount : formData.balanceAmount;
+        const activationUrl = created.activationUrl;
+        const loginUrl = created.loginUrl;
+
+        const msgLines = [
+          `🏋️‍♂️ *WELCOME TO ${gymName.toUpperCase()}*`,
+          ``,
+          `Hello *${memberName}*,`,
+          `Your gym membership has been successfully registered! Below are your membership and billing details:`,
+          ``,
+          `📋 *MEMBERSHIP SUMMARY:*`,
+          `• *Member ID / Receipt #:* ${idNo}`,
+          `• *Plan:* ${planName}`,
+          `• *Duration:* ${durationMonths} Month(s)`,
+          `• *Start Date:* ${startDate}`,
+          `• *Expiry Date:* ${endDate}`,
+          ``,
+          `💰 *PAYMENT DETAILS:*`,
+          `• *Total Fee:* ₹${total}`,
+          `• *Amount Paid:* ₹${paid}`,
+          `• *Balance Due:* ₹${balance}`
+        ];
+
+        if (activationUrl) {
+          msgLines.push(
+            ``,
+            `🔑 *ACTIVATE YOUR MEMBER ACCOUNT:*`,
+            `Click the link below to set your password and access your member portal:`,
+            `${activationUrl}`
+          );
+        }
+
+        if (loginUrl) {
+          msgLines.push(
+            ``,
+            `📲 *Member Login Portal:*`,
+            `${loginUrl}`
+          );
+        }
+
+        msgLines.push(
+          ``,
+          `Thank you for choosing *${gymName}*! Stay fit and healthy! 💪🔥`
+        );
+
+        const waText = encodeURIComponent(msgLines.join('\n'));
+        const whatsappUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${waText}`;
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      }
     } catch (err) {
       showToast(err.response?.data?.message || err.message || 'Failed to register member', 'danger');
     } finally {
