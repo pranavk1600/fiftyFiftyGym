@@ -8,7 +8,8 @@ import {
   LogOut,
   Dumbbell,
   Menu,
-  X
+  X,
+  CalendarCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
@@ -220,6 +221,15 @@ export const OwnerLayout = () => {
             <LogOut size={16} />
             <span>Sign Out</span>
           </button>
+
+          <NavLink
+            to="/owner/attendance"
+            className={({ isActive }) => `owner-nav-attendance-btn ${isActive ? 'active' : ''}`}
+            title="Mark Member Attendance"
+          >
+            <CalendarCheck size={16} />
+            <span>Mark Attendance</span>
+          </NavLink>
         </div>
 
         {/* Mobile Header Actions (Visible <= 1024px) */}
@@ -312,6 +322,15 @@ export const OwnerLayout = () => {
 
             {/* Drawer Footer with Theme Toggle & Logout */}
             <div className="owner-drawer-footer">
+              <NavLink
+                to="/owner/attendance"
+                onClick={closeMobileMenu}
+                className="owner-drawer-attendance-btn"
+              >
+                <CalendarCheck size={18} />
+                <span>Mark Attendance</span>
+              </NavLink>
+
               <div className="owner-drawer-theme-row">
                 <span className="owner-drawer-theme-label">Appearance</span>
                 <ThemeToggle />

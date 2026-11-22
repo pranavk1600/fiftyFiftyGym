@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Users, CalendarCheck, IndianRupee, AlertTriangle } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { StatCard } from '../../../shared/components/StatCard/StatCard';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { apiClient } from '../../../shared/services/apiClient';
@@ -43,21 +42,11 @@ export const OwnerDashboardScreen = () => {
 
   return (
     <div className="animate-fade-in">
-      {/* Top Header & Fast Action Shortcuts */}
+      {/* Top Header */}
       <div className="dashboard-header-container">
         <div className="dashboard-title-group">
           <h1>Gym Operations Dashboard</h1>
           <p>Real-time analytics, daily attendance throughput, and membership oversight</p>
-        </div>
-        <div className="dashboard-header-actions">
-          <Link to="/owner/attendance" className="btn btn-primary">
-            <CalendarCheck size={17} />
-            <span>Mark Attendance</span>
-          </Link>
-          <Link to="/owner/members" className="btn btn-secondary">
-            <Users size={17} />
-            <span>Manage Members</span>
-          </Link>
         </div>
       </div>
 
