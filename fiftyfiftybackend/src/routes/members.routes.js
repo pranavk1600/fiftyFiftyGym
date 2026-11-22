@@ -458,11 +458,10 @@ router.post('/', async (req, res, next) => {
       [createdMember.id, tokenHash, tokenExpiry]
     );
 
-    // 8. Construct dynamic URLs using FRONTEND_URL
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
-    const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
-    const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
+    // 8. Construct dynamic member URLs with https://fiftyfiftygym.vercel.app as base URL
+    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://fiftyfiftygym.vercel.app').replace(/\/$/, '');
+    const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
+    const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
     // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment if email provided
     let emailStatus = normalizedEmail ? 'pending' : 'not_provided';
@@ -475,9 +474,14 @@ router.post('/', async (req, res, next) => {
           gymName: gym.name,
           gymLogoUrl: gym.logo_url,
           memberName: createdMember.name,
+          idNo: createdMember.id || receiptNumber,
           planName,
-          joinDate: createdMember.joinDate,
+          durationMonths: createdMember.durationMonths || 1,
+          startDate: createdMember.joinDate,
           expiryDate: createdMember.expiryDate,
+          totalAmount: createdMember.totalAmount,
+          paidAmount: createdMember.paidAmount,
+          balanceAmount: createdMember.balanceAmount,
           loginUrl,
           activationUrl,
           expiryDays: 7,
@@ -532,6 +536,11 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
 
     const memRes = await db.query(
       `SELECT m.id, m.full_name AS name, m.email, m.slug, m.current_plan_name AS plan,
+              m.receipt_number AS "receiptNumber",
+              m.total_amount AS "totalAmount",
+              m.paid_amount AS "paidAmount",
+              m.balance_amount AS "balanceAmount",
+              m.duration_months AS "durationMonths",
               TO_CHAR(m.join_date, 'YYYY-MM-DD') AS "joinDate",
               TO_CHAR(m.expiry_date, 'YYYY-MM-DD') AS "expiryDate",
               g.name AS "gymName", g.slug AS "gymSlug", g.logo_url AS "gymLogoUrl"
@@ -564,21 +573,25 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
       [member.id, tokenHash, tokenExpiry]
     );
 
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
+    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://fiftyfiftygym.vercel.app').replace(/\/$/, '');
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
-    const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
-    const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
+    const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
+    const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
     const emailResult = await sendMemberInvitationEmail({
       to: member.email,
       gymName: member.gymName,
       gymLogoUrl: member.gymLogoUrl,
       memberName: member.name,
+      idNo: member.id || member.receiptNumber,
       planName: member.plan || 'Standard Membership',
-      joinDate: member.joinDate,
+      durationMonths: member.durationMonths || 1,
+      startDate: member.joinDate,
       expiryDate: member.expiryDate,
+      totalAmount: member.totalAmount || 0,
+      paidAmount: member.paidAmount || 0,
+      balanceAmount: member.balanceAmount || 0,
       loginUrl,
       activationUrl,
       expiryDays: 7

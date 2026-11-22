@@ -153,7 +153,7 @@ export const MemberManagementScreen = () => {
 
         const gymName = created.gymName || 'FiftyFifty Gym';
         const memberName = created.name || formData.name;
-        const idNo = created.customMemberId || formData.customMemberId || created.receiptNumber || formData.receiptNumber;
+        const idNo = created.id || created.customMemberId || formData.customMemberId || created.receiptNumber || formData.receiptNumber;
         const planName = created.plan || formData.plan || formData.membershipType || 'Gym + cardio';
         const durationMonths = created.durationMonths || formData.durationMonths || 1;
         const startDate = formatExcelDate(created.joinDate || formData.joinDate);
@@ -161,8 +161,16 @@ export const MemberManagementScreen = () => {
         const total = created.totalAmount !== undefined ? created.totalAmount : formData.totalAmount;
         const paid = created.paidAmount !== undefined ? created.paidAmount : formData.paidAmount;
         const balance = created.balanceAmount !== undefined ? created.balanceAmount : formData.balanceAmount;
-        const activationUrl = created.activationUrl;
-        const loginUrl = created.loginUrl;
+
+        // Ensure base URL is https://fiftyfiftygym.vercel.app
+        let activationUrl = created.activationUrl;
+        let loginUrl = created.loginUrl;
+        if (loginUrl) {
+          loginUrl = loginUrl.replace(/^https?:\/\/[^\/]+/, 'https://fiftyfiftygym.vercel.app');
+        }
+        if (activationUrl) {
+          activationUrl = activationUrl.replace(/^https?:\/\/[^\/]+/, 'https://fiftyfiftygym.vercel.app');
+        }
 
         const msgLines = [
           `🏋️‍♂️ *WELCOME TO ${gymName.toUpperCase()}*`,
