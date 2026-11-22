@@ -182,7 +182,7 @@
   color: #FFFFFF;
 }
 
-/* Modal Form Section Headers */
+/* Modal Form Section Headers & Cards */
 .form-section-title {
   display: flex;
   align-items: center;
@@ -196,3 +196,82 @@
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-subtle);
 }
+
+.modal-form-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease;
+}
+
+.modal-form-card:hover {
+  border-color: rgba(255, 107, 0, 0.25);
+}
+
+.modal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #64748B);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle, #F1F5F9);
+}
+
+.modal-card-icon {
+  color: var(--brand-primary, #FF6B00);
+}
+
+.label-required {
+  color: #EF4444;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.input-control.is-invalid,
+.input-control.input-error {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+  background-color: #FFFDFD;
+}
+
+.form-error-text {
+  font-size: 0.75rem;
+  color: #DC2626;
+  font-weight: 500;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.auto-calc-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #2563EB;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.due-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #DC2626;
+  background: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
