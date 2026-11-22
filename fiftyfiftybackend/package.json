@@ -9,6 +9,7 @@
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/database/migrate.js",
     "prisma:validate": "node scripts/validate_prisma.js",
+    "test:email": "node src/tests/production_email_url.test.js",
     "test": "node src/tests/verify.test.js"
   },
   "keywords": [],
