@@ -13,6 +13,7 @@ import { AddMemberModal } from './components/AddMemberModal';
 import { EditMemberModal } from './components/EditMemberModal';
 import { MemberProfileModal } from './components/MemberProfileModal';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
+import { CustomAlertModal } from './components/CustomAlertModal';
 
 // Styles
 import './styles/memberManagement.css';
@@ -33,6 +34,46 @@ export const MemberManagementScreen = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState(null);
+
+  // Custom Alert Modal state
+  const [alertModal, setAlertModal] = useState({
+    isOpen: false,
+    type: 'warning',
+    title: '',
+    message: '',
+    details: null,
+    existingMember: null,
+    confirmText: 'Got It',
+    cancelText: null,
+    onConfirm: null
+  });
+
+  const showAlert = ({
+    type = 'warning',
+    title = 'Notice',
+    message = '',
+    details = null,
+    existingMember = null,
+    confirmText = 'Got It',
+    cancelText = null,
+    onConfirm = null
+  }) => {
+    setAlertModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+      details,
+      existingMember,
+      confirmText,
+      cancelText,
+      onConfirm
+    });
+  };
+
+  const closeAlert = () => {
+    setAlertModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Receipt Modal state
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -161,7 +202,23 @@ export const MemberManagementScreen = () => {
         window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Failed to register member', 'danger');
+      const errData = err.response?.data;
+      if (errData?.errorType === 'DUPLICATE_PHONE') {
+        showAlert({
+          type: 'warning',
+          title: 'Number Already Exists',
+          message: errData.message || 'Number already exists, use a different number',
+          existingMember: errData.existingMember,
+          confirmText: 'Change Number'
+        });
+      } else {
+        showAlert({
+          type: 'danger',
+          title: 'Registration Failed',
+          message: errData?.message || err.message || 'Failed to register member',
+          confirmText: 'Close'
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +236,23 @@ export const MemberManagementScreen = () => {
       setMemberToEdit(null);
       showToast(`Member ${updated.name} updated successfully!`, 'success');
     } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Failed to update member', 'danger');
+      const errData = err.response?.data;
+      if (errData?.errorType === 'DUPLICATE_PHONE') {
+        showAlert({
+          type: 'warning',
+          title: 'Number Already Exists',
+          message: errData.message || 'Number already exists, use a different number',
+          existingMember: errData.existingMember,
+          confirmText: 'Change Number'
+        });
+      } else {
+        showAlert({
+          type: 'danger',
+          title: 'Update Failed',
+          message: errData?.message || err.message || 'Failed to update member',
+          confirmText: 'Close'
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -188,7 +261,12 @@ export const MemberManagementScreen = () => {
   // Handle Resend Invitation
   const handleResendInvitation = async (member) => {
     if (!member.email) {
-      showToast('This member has no email address configured.', 'warning');
+      showAlert({
+        type: 'warning',
+        title: 'No Email Configured',
+        message: 'This member does not have an email address registered to receive invitations.',
+        confirmText: 'Understood'
+      });
       return;
     }
     setResendingId(member.id);
@@ -204,7 +282,12 @@ export const MemberManagementScreen = () => {
         )
       );
     } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Failed to resend invitation email', 'danger');
+      showAlert({
+        type: 'danger',
+        title: 'Invitation Dispatch Failed',
+        message: err.response?.data?.message || err.message || 'Failed to resend invitation email',
+        confirmText: 'Close'
+      });
       setMembers((prev) =>
         prev.map((m) => (m.id === member.id ? { ...m, invitationStatus: 'failed' } : m))
       );
@@ -236,7 +319,12 @@ export const MemberManagementScreen = () => {
       }
     } catch (err) {
       console.error('Failed to load member receipts:', err);
-      showToast('Could not load receipt details. Please try again.', 'warning');
+      showAlert({
+        type: 'warning',
+        title: 'Receipt Unavailable',
+        message: 'Could not load receipt details at this time. Please try again.',
+        confirmText: 'Close'
+      });
     } finally {
       setReceiptLoading(false);
     }
@@ -250,7 +338,12 @@ export const MemberManagementScreen = () => {
       await apiClient.post(`/receipts/${receiptId}/resend`);
       showToast('Official receipt email successfully resent with PDF attachment!', 'success');
     } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Failed to resend receipt email', 'danger');
+      showAlert({
+        type: 'danger',
+        title: 'Email Dispatch Failed',
+        message: err.response?.data?.message || err.message || 'Failed to resend receipt email',
+        confirmText: 'Close'
+      });
     } finally {
       setIsResendingReceipt(false);
     }
@@ -498,6 +591,21 @@ export const MemberManagementScreen = () => {
         receiptLoading={receiptLoading}
         isResendingReceipt={isResendingReceipt}
         onResendReceiptEmail={handleResendReceiptEmail}
+      />
+
+      {/* 5. Custom Alert & Notification Modal */}
+      <CustomAlertModal
+        isOpen={alertModal.isOpen}
+        onClose={closeAlert}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+        details={alertModal.details}
+        existingMember={alertModal.existingMember}
+        confirmText={alertModal.confirmText}
+        cancelText={alertModal.cancelText}
+        onConfirm={alertModal.onConfirm || closeAlert}
+        onCancel={closeAlert}
       />
     </div>
   );

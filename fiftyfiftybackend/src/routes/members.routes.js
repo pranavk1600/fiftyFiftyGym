@@ -149,6 +149,39 @@ router.post('/', async (req, res, next) => {
       return ApiResponse.error(res, 'Phone number is required', 400);
     }
 
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      return ApiResponse.error(res, 'Please provide a valid 10-digit mobile number', 400);
+    }
+
+    // Prevent duplicate phone number under the same gym context
+    const phoneCheckSql = `
+      SELECT id, full_name AS "fullName", custom_member_id AS "customMemberId", phone
+      FROM members
+      WHERE gym_id = $1
+        AND (
+          REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = $2
+          OR (LENGTH($2) = 10 AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = '91' || $2)
+          OR (LENGTH($2) >= 12 AND $2 LIKE '91%' AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = SUBSTRING($2 FROM 3))
+          OR phone = $3
+        )
+      LIMIT 1;
+    `;
+    const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, cleanPhone, String(phone).trim()]);
+    if (dupPhoneCheck.rows.length > 0) {
+      const existing = dupPhoneCheck.rows[0];
+      return res.status(409).json({
+        success: false,
+        errorType: 'DUPLICATE_PHONE',
+        message: 'Number already exists, use a different number',
+        existingMember: {
+          name: existing.fullName,
+          customMemberId: existing.customMemberId,
+          phone: existing.phone
+        }
+      });
+    }
+
     let normalizedEmail = null;
     if (email && String(email).trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -563,6 +596,7 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+    const gymId = await resolveGymId(req);
     const {
       name,
       phone,
@@ -580,6 +614,38 @@ router.put('/:id', async (req, res, next) => {
       receiptNumber,
       status
     } = req.body || {};
+
+    // Check duplicate phone number under the same gym context (excluding current member)
+    if (phone && String(phone).trim() && gymId) {
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      const phoneCheckSql = `
+        SELECT id, full_name AS "fullName", custom_member_id AS "customMemberId", phone
+        FROM members
+        WHERE gym_id = $1
+          AND id != $2
+          AND (
+            REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = $3
+            OR (LENGTH($3) = 10 AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = '91' || $3)
+            OR (LENGTH($3) >= 12 AND $3 LIKE '91%' AND REGEXP_REPLACE(phone, '[^0-9]', '', 'g') = SUBSTRING($3 FROM 3))
+            OR phone = $4
+          )
+        LIMIT 1;
+      `;
+      const dupPhoneCheck = await db.query(phoneCheckSql, [gymId, id, cleanPhone, String(phone).trim()]);
+      if (dupPhoneCheck.rows.length > 0) {
+        const existing = dupPhoneCheck.rows[0];
+        return res.status(409).json({
+          success: false,
+          errorType: 'DUPLICATE_PHONE',
+          message: 'Number already exists, use a different number',
+          existingMember: {
+            name: existing.fullName,
+            customMemberId: existing.customMemberId,
+            phone: existing.phone
+          }
+        });
+      }
+    }
 
     const calcTotal = totalAmount !== undefined ? parseFloat(totalAmount) : null;
     const calcPaid = paidAmount !== undefined ? parseFloat(paidAmount) : null;
