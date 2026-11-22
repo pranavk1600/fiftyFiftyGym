@@ -697,7 +697,7 @@ router.post('/forgot-password', async (req, res, next) => {
           );
 
           // 5. Construct secure reset link using configured FRONTEND_URL
-          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
           const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
           const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
@@ -807,7 +807,7 @@ router.post('/gym/forgot-password', async (req, res, next) => {
         );
 
         // 5. Construct secure gym-specific reset link using configured FRONTEND_URL
-        const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+        const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
         const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
         const targetSlug = owner.gym_slug || normalizedSlug || (owner.gym_name ? owner.gym_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'portal');
         const resetUrl = `${frontendUrl}/gym/${targetSlug}/reset-password?token=${rawToken}`;
@@ -1034,7 +1034,7 @@ router.post('/member/forgot-password', async (req, res, next) => {
             [member.id, tokenHash, expiresAt]
           );
 
-          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
           const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
           const resetUrl = `${frontendUrl}/gym/${member.gym_slug}/${member.member_slug}/reset-password?token=${rawToken}`;
 

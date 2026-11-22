@@ -458,8 +458,8 @@ router.post('/', async (req, res, next) => {
       [createdMember.id, tokenHash, tokenExpiry]
     );
 
-    // 8. Construct dynamic member URLs with https://fiftyfiftygym.vercel.app as base URL
-    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://fiftyfiftygym.vercel.app').replace(/\/$/, '');
+    // 8. Construct dynamic member URLs with https://leopardxgyms.vercel.app as base URL
+    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://leopardxgyms.vercel.app').replace(/\/$/, '');
     const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
     const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
@@ -573,7 +573,7 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
       [member.id, tokenHash, tokenExpiry]
     );
 
-    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://fiftyfiftygym.vercel.app').replace(/\/$/, '');
+    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://leopardxgyms.vercel.app').replace(/\/$/, '');
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
     const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;

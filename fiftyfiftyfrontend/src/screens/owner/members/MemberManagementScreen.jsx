@@ -162,14 +162,14 @@ export const MemberManagementScreen = () => {
         const paid = created.paidAmount !== undefined ? created.paidAmount : formData.paidAmount;
         const balance = created.balanceAmount !== undefined ? created.balanceAmount : formData.balanceAmount;
 
-        // Ensure base URL is https://fiftyfiftygym.vercel.app
+        // Ensure base URL is https://leopardxgyms.vercel.app
         let activationUrl = created.activationUrl;
         let loginUrl = created.loginUrl;
         if (loginUrl) {
-          loginUrl = loginUrl.replace(/^https?:\/\/[^\/]+/, 'https://fiftyfiftygym.vercel.app');
+          loginUrl = loginUrl.replace(/^https?:\/\/[^\/]+/, 'https://leopardxgyms.vercel.app');
         }
         if (activationUrl) {
-          activationUrl = activationUrl.replace(/^https?:\/\/[^\/]+/, 'https://fiftyfiftygym.vercel.app');
+          activationUrl = activationUrl.replace(/^https?:\/\/[^\/]+/, 'https://leopardxgyms.vercel.app');
         }
 
         const msgLines = [
