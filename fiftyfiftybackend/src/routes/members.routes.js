@@ -9,7 +9,7 @@ import { calculateMembershipEndDate } from '../utils/dateUtils.js';
 import { sendMemberInvitationEmail } from '../services/email.service.js';
 import { generateMembershipReceiptPdf } from '../services/pdf.service.js';
 import { uploadReceiptPdf, generateReceiptSignedUrls } from '../services/storage.service.js';
-import { getFrontendUrl } from '../config/frontend.config.js';
+import { getFrontendUrl, getMemberFrontendUrl } from '../config/frontend.config.js';
 import { ROLES } from '../constants/roles.constant.js';
 
 const router = Router();
@@ -286,8 +286,8 @@ router.post('/', async (req, res, next) => {
       [createdMember.id, tokenHash, tokenExpiry]
     );
 
-    // 8. Construct dynamic URLs using FRONTEND_URL
-    const frontendUrl = getFrontendUrl();
+    // 8. Construct dynamic URLs using FRONTEND_URL or MEMBER_FRONTEND_URL
+    const frontendUrl = getMemberFrontendUrl();
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
@@ -386,7 +386,7 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
       [member.id, tokenHash, tokenExpiry]
     );
 
-    const frontendUrl = getFrontendUrl();
+    const frontendUrl = getMemberFrontendUrl();
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;

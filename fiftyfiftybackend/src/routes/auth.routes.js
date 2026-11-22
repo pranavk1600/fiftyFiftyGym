@@ -7,7 +7,7 @@ import { ApiResponse } from '../utils/apiResponse.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { ROLES } from '../constants/roles.constant.js';
 import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail } from '../services/email.service.js';
-import { getFrontendUrl } from '../config/frontend.config.js';
+import { getFrontendUrl, getMemberFrontendUrl } from '../config/frontend.config.js';
 import { validateInMemoryToken, consumeInMemoryToken, findInMemoryGym, findInMemoryOwner } from '../services/devGymStore.js';
 
 const router = Router();
@@ -1120,7 +1120,7 @@ router.post('/member/forgot-password', async (req, res, next) => {
             [member.id, tokenHash, expiresAt]
           );
 
-          const frontendUrl = getFrontendUrl();
+          const frontendUrl = getMemberFrontendUrl();
           const resetUrl = `${frontendUrl}/gym/${member.gym_slug}/${member.member_slug}/reset-password?token=${rawToken}`;
 
           await sendMemberPasswordResetEmail({
