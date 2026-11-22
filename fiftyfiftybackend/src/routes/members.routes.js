@@ -9,6 +9,7 @@ import { calculateMembershipEndDate } from '../utils/dateUtils.js';
 import { sendMemberInvitationEmail } from '../services/email.service.js';
 import { generateMembershipReceiptPdf } from '../services/pdf.service.js';
 import { uploadReceiptPdf, generateReceiptSignedUrls } from '../services/storage.service.js';
+import { getFrontendUrl } from '../config/frontend.config.js';
 import { ROLES } from '../constants/roles.constant.js';
 import {
   calculateEndDate,
@@ -458,10 +459,10 @@ router.post('/', async (req, res, next) => {
       [createdMember.id, tokenHash, tokenExpiry]
     );
 
-    // 8. Construct dynamic member URLs with https://leopardxgyms.vercel.app as base URL
-    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://leopardxgyms.vercel.app').replace(/\/$/, '');
-    const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
-    const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
+    // 8. Construct dynamic URLs using FRONTEND_URL
+    const frontendUrl = getFrontendUrl();
+    const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
+    const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
     // 9. Send transactional invitation email via Brevo with PDF Receipt Attachment if email provided
     let emailStatus = normalizedEmail ? 'pending' : 'not_provided';
@@ -573,7 +574,7 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
       [member.id, tokenHash, tokenExpiry]
     );
 
-    const memberBaseUrl = (process.env.MEMBER_FRONTEND_URL || 'https://leopardxgyms.vercel.app').replace(/\/$/, '');
+    const frontendUrl = getFrontendUrl();
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
     const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;

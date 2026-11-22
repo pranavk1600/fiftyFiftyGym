@@ -9,6 +9,7 @@ import { ROLES } from '../constants/roles.constant.js';
 import { sendGymOwnerInvitationEmail } from '../services/email.service.js';
 import { handleLogoUpload } from '../middlewares/upload.middleware.js';
 import { uploadGymLogoFromBuffer } from '../services/cloudinary.service.js';
+import { getFrontendUrl } from '../config/frontend.config.js';
 import { addInMemoryGym, getInMemoryGyms, findInMemoryGym, updateInMemoryGym, deleteInMemoryGym, registerInMemoryToken } from '../services/devGymStore.js';
 
 const router = Router();
@@ -578,8 +579,7 @@ router.post('/gyms', async (req, res, next) => {
     }
 
     // 5. Brevo Owner Invitation Email
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
+    const frontendUrl = getFrontendUrl();
     const loginUrl = `${frontendUrl}/gym/${uniqueSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${uniqueSlug}/setup-password?token=${rawToken}`;
 
@@ -749,8 +749,7 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
       console.warn('[Resend Invitation DB Token Warning]:', dbErr.message);
     }
 
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
-    const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
+    const frontendUrl = getFrontendUrl();
     const gymSlug = gym.slug || gym.id;
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${gymSlug}/setup-password?token=${rawToken}`;
