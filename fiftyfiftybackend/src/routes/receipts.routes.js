@@ -98,14 +98,14 @@ const verifyReceiptAccess = async (req, receiptId) => {
     }
 
     if (userRole === ROLES.GYM_OWNER) {
-      if (req.user.gymId !== receipt.gymId) {
+      if (String(req.user.gymId) !== String(receipt.gymId)) {
         return { receipt: null, error: 'Forbidden: Access denied to receipt of another gym tenant', status: 403 };
       }
       return { receipt };
     }
 
     if (userRole === ROLES.MEMBER) {
-      if (req.user.memberId !== receipt.memberId && req.user.id !== receipt.memberId) {
+      if (String(req.user.memberId) !== String(receipt.memberId) && String(req.user.id) !== String(receipt.memberId)) {
         return { receipt: null, error: 'Forbidden: You can only access your own receipts', status: 403 };
       }
       return { receipt };
@@ -236,11 +236,14 @@ router.get('/:receiptId/preview', optionalAuthenticate, async (req, res, next) =
       return ApiResponse.error(res, error || 'Receipt not found', status || 404);
     }
 
+    // Check if token signature is valid
+    const isSignedTokenValid = Boolean(
+      token && (verifySignedDownloadToken(receipt.id, token) || verifySignedDownloadToken(receipt.receiptNumber, token))
+    );
+
     // If not authenticated via JWT, verify signed token
-    if (!req.user) {
-      if (!token || !verifySignedDownloadToken(receipt.id, token)) {
-        return ApiResponse.error(res, 'Invalid or expired preview token. Please refresh your session.', 401);
-      }
+    if (!req.user && !isSignedTokenValid) {
+      return ApiResponse.error(res, 'Invalid or expired preview token. Please refresh your session.', 401);
     }
 
     // Generate official PDF dynamically on-the-fly (zero storage)
@@ -272,11 +275,14 @@ router.get('/:receiptId/download', optionalAuthenticate, async (req, res, next) 
       return ApiResponse.error(res, error || 'Receipt not found', status || 404);
     }
 
+    // Check if token signature is valid
+    const isSignedTokenValid = Boolean(
+      token && (verifySignedDownloadToken(receipt.id, token) || verifySignedDownloadToken(receipt.receiptNumber, token))
+    );
+
     // If not authenticated via JWT, verify signed token
-    if (!req.user) {
-      if (!token || !verifySignedDownloadToken(receipt.id, token)) {
-        return ApiResponse.error(res, 'Invalid or expired download token. Please refresh your session.', 401);
-      }
+    if (!req.user && !isSignedTokenValid) {
+      return ApiResponse.error(res, 'Invalid or expired download token. Please refresh your session.', 401);
     }
 
     // Generate official PDF dynamically on-the-fly (zero storage)
