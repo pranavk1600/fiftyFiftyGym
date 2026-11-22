@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
-import { Modal } from '../../../shared/components/Modal/Modal';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
 
@@ -32,8 +31,6 @@ export const MemberManagementScreen = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [memberToDelete, setMemberToDelete] = useState(null);
 
   // Receipt Modal state
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -123,20 +120,6 @@ export const MemberManagementScreen = () => {
     }
   };
 
-  // Handle Delete Member
-  const confirmDeleteMember = async () => {
-    if (!memberToDelete) return;
-    try {
-      await apiClient.delete(`/members/${memberToDelete.id}`);
-      setMembers(members.filter((m) => m.id !== memberToDelete.id));
-      setIsDeleteModalOpen(false);
-      showToast(`Member ${memberToDelete.name} has been removed.`, 'info');
-      setMemberToDelete(null);
-    } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Failed to delete member', 'danger');
-    }
-  };
-
   // Handle Resend Invitation
   const handleResendInvitation = async (member) => {
     if (!member.email) {
@@ -178,7 +161,7 @@ export const MemberManagementScreen = () => {
       try {
         const res = await apiClient.get(`/receipts/member/${member.id}`);
         receipts = res.data?.data || res.data || [];
-      } catch (firstErr) {
+      } catch (_firstErr) {
         const fbRes = await apiClient.get(`/members/${member.id}/receipts`);
         receipts = fbRes.data?.data || fbRes.data || [];
       }
@@ -280,10 +263,6 @@ export const MemberManagementScreen = () => {
       onEditMember: (m) => {
         setMemberToEdit(m);
         setIsEditModalOpen(true);
-      },
-      onDeleteMember: (m) => {
-        setMemberToDelete(m);
-        setIsDeleteModalOpen(true);
       },
       resendingId,
       renderInvitationBadge
@@ -455,49 +434,6 @@ export const MemberManagementScreen = () => {
         isResendingReceipt={isResendingReceipt}
         onResendReceiptEmail={handleResendReceiptEmail}
       />
-
-      {/* 5. Delete Member Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Confirm Member Deletion"
-        footer={
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={confirmDeleteMember}>
-              Delete Member
-            </Button>
-          </div>
-        }
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 'var(--radius-full)',
-              background: 'var(--color-danger-bg, #FEE2E2)',
-              color: 'var(--color-danger, #DC2626)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <AlertTriangle size={24} />
-          </div>
-          <div>
-            <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: 4 }}>
-              Are you sure you want to remove this member?
-            </h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Member <strong>{memberToDelete?.name}</strong> ({memberToDelete?.customMemberId || memberToDelete?.id}) will be permanently deleted from the gym records.
-            </p>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

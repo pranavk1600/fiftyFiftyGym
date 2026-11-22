@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../../styles/components/table.css';
 
 export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'No records found' }) => {
   return (
@@ -7,7 +8,13 @@ export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'N
         <thead>
           <tr>
             {columns.map((col, idx) => (
-              <th key={col.key || idx} style={col.width ? { width: col.width } : undefined}>
+              <th
+                key={col.key || idx}
+                style={{
+                  ...(col.width ? { width: col.width, minWidth: col.width } : {}),
+                  ...(col.align ? { textAlign: col.align } : {})
+                }}
+              >
                 {col.header}
               </th>
             ))}
@@ -24,7 +31,13 @@ export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'N
             data.map((row, rowIdx) => (
               <tr key={keyExtractor ? keyExtractor(row) : row.id || rowIdx}>
                 {columns.map((col, colIdx) => (
-                  <td key={col.key || colIdx}>
+                  <td
+                    key={col.key || colIdx}
+                    style={{
+                      ...(col.width ? { width: col.width, minWidth: col.width } : {}),
+                      ...(col.align ? { textAlign: col.align } : {})
+                    }}
+                  >
                     {col.render ? col.render(row) : row[col.key]}
                   </td>
                 ))}
@@ -36,3 +49,5 @@ export const Table = ({ columns = [], data = [], keyExtractor, emptyMessage = 'N
     </div>
   );
 };
+
+export default Table;

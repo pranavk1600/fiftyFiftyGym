@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, FileText, Send, RefreshCw, Edit2, Trash2 } from 'lucide-react';
+import { Eye, FileText, Send, RefreshCw, Edit2 } from 'lucide-react';
 import { formatCurrency, formatExcelDate } from '../../../../shared/utils/formatters';
 import { Badge } from '../../../../shared/components/Badge/Badge';
 
@@ -7,13 +7,13 @@ import { Badge } from '../../../../shared/components/Badge/Badge';
  * Builds the complete columns configuration for the Member Table.
  * First 11 columns match the Excel sheet layout in exact order,
  * followed by the platform's extra management columns.
+ * All headers and data cells are strictly centered and rendered in one line.
  */
 export const getMemberColumns = ({
   onSelectMember,
   onOpenReceipt,
   onResendInvitation,
   onEditMember,
-  onDeleteMember,
   resendingId,
   renderInvitationBadge
 }) => {
@@ -36,24 +36,25 @@ export const getMemberColumns = ({
       key: 'name',
       width: '180px',
       render: (m) => (
-        <div>
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>
-            {m.name}
-          </span>
-          {m.email && (
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block' }}>
-              {m.email}
-            </span>
-          )}
-        </div>
+        <span
+          style={{
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            whiteSpace: 'nowrap',
+            display: 'inline-block'
+          }}
+          title={m.email ? `${m.name} (${m.email})` : m.name}
+        >
+          {m.name}
+        </span>
       )
     },
     {
       header: 'Payment',
       key: 'paymentDate',
-      width: '105px',
+      width: '110px',
       render: (m) => (
-        <span style={{ fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+        <span style={{ fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
           {formatExcelDate(m.paymentDate)}
         </span>
       )
@@ -61,7 +62,7 @@ export const getMemberColumns = ({
     {
       header: 'Start D',
       key: 'joinDate',
-      width: '105px',
+      width: '115px',
       render: (m) => (
         <span className="badge-excel-start">
           {formatExcelDate(m.joinDate)}
@@ -71,7 +72,7 @@ export const getMemberColumns = ({
     {
       header: 'End D',
       key: 'expiryDate',
-      width: '105px',
+      width: '115px',
       render: (m) => (
         <span className="badge-excel-end">
           {formatExcelDate(m.expiryDate)}
@@ -81,7 +82,7 @@ export const getMemberColumns = ({
     {
       header: 'Duration',
       key: 'durationMonths',
-      width: '95px',
+      width: '105px',
       render: (m) => (
         <span className="badge-excel-duration">
           {m.durationMonths ? `${m.durationMonths} ${m.durationMonths === 1 ? 'Month' : 'Months'}` : '1 Month'}
@@ -91,7 +92,7 @@ export const getMemberColumns = ({
     {
       header: 'M Type',
       key: 'membershipType',
-      width: '130px',
+      width: '160px',
       render: (m) => (
         <span className="badge-excel-type">
           {m.membershipType || m.plan || 'Gym + cardio'}
@@ -101,9 +102,9 @@ export const getMemberColumns = ({
     {
       header: 'Total Am',
       key: 'totalAmount',
-      width: '100px',
+      width: '110px',
       render: (m) => (
-        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
           {formatCurrency(m.totalAmount)}
         </span>
       )
@@ -111,9 +112,9 @@ export const getMemberColumns = ({
     {
       header: 'Received Am',
       key: 'paidAmount',
-      width: '110px',
+      width: '115px',
       render: (m) => (
-        <span style={{ fontWeight: 600, color: 'var(--color-success, #16A34A)' }}>
+        <span style={{ fontWeight: 600, color: 'var(--color-success, #16A34A)', whiteSpace: 'nowrap' }}>
           {formatCurrency(m.paidAmount)}
         </span>
       )
@@ -121,7 +122,7 @@ export const getMemberColumns = ({
     {
       header: 'Bal. Am',
       key: 'balanceAmount',
-      width: '110px',
+      width: '115px',
       render: (m) => {
         const bal = parseFloat(m.balanceAmount || 0);
         return bal > 0 ? (
@@ -138,7 +139,7 @@ export const getMemberColumns = ({
     {
       header: 'Rc N',
       key: 'receiptNumber',
-      width: '90px',
+      width: '95px',
       render: (m) => (
         m.receiptNumber ? (
           <button
@@ -156,14 +157,14 @@ export const getMemberColumns = ({
     },
 
     // -------------------------------------------------------------
-    // EXTRA SOFTWARE / PLATFORM COLUMNS (12 - 16)
+    // EXTRA SOFTWARE / PLATFORM COLUMNS (12 - 15)
     // -------------------------------------------------------------
     {
       header: 'Phone Number',
       key: 'phone',
-      width: '130px',
+      width: '135px',
       render: (m) => (
-        <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+        <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
           {m.phone || '—'}
         </span>
       )
@@ -172,20 +173,28 @@ export const getMemberColumns = ({
       header: 'Invitation',
       key: 'invitationStatus',
       width: '110px',
-      render: (m) => renderInvitationBadge(m.invitationStatus)
+      render: (m) => (
+        <div style={{ display: 'flex', justifyContent: 'center', whiteSpace: 'nowrap' }}>
+          {renderInvitationBadge(m.invitationStatus)}
+        </div>
+      )
     },
     {
       header: 'Status',
       key: 'status',
       width: '100px',
-      render: (m) => <Badge status={m.status} />
+      render: (m) => (
+        <div style={{ display: 'flex', justifyContent: 'center', whiteSpace: 'nowrap' }}>
+          <Badge status={m.status} />
+        </div>
+      )
     },
     {
       header: 'Actions',
       key: 'actions',
-      width: '260px',
+      width: '210px',
       render: (m) => (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -232,15 +241,6 @@ export const getMemberColumns = ({
             title="Edit Member / Renew"
           >
             <Edit2 size={13} />
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => onDeleteMember(m)}
-            title="Delete Member"
-            style={{ color: 'var(--color-danger, #DC2626)' }}
-          >
-            <Trash2 size={13} />
           </button>
         </div>
       )

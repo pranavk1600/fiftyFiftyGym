@@ -13,113 +13,168 @@
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
   box-shadow: var(--shadow-sm);
+  -webkit-overflow-scrolling: touch;
 }
 
-.member-table-container table {
-  min-width: 1350px;
+/* Ensure table header & data are centered and in ONE line */
+.member-table-container .table-responsive-wrapper {
+  overflow-x: visible;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.member-table-container .custom-table {
+  width: 100%;
+  min-width: 1500px;
+  border-collapse: collapse;
+}
+
+.member-table-container .custom-table th {
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.member-table-container .custom-table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+  padding: 12px 16px;
+  font-size: 0.875rem;
 }
 
 /* Excel Sheet Specific Column Highlighting & Tags */
 .badge-excel-id {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   font-family: var(--font-mono, monospace);
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--text-primary);
   background: var(--bg-surface-elevated, #F1F5F9);
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle, #E2E8F0);
+  margin: 0 auto;
 }
 
 .badge-excel-start {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
   background: #FEF9C3; /* Soft Warm Yellow like Excel */
   color: #854D0E;
   font-weight: 600;
-  font-size: 0.82rem;
-  padding: 3px 8px;
+  font-size: 0.85rem;
+  padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid #FDE047;
+  letter-spacing: 0.02em;
+  margin: 0 auto;
 }
 
 .badge-excel-end {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
   background: #FFEDD5; /* Soft Amber/Orange like Excel */
   color: #9A3412;
   font-weight: 600;
-  font-size: 0.82rem;
-  padding: 3px 8px;
+  font-size: 0.85rem;
+  padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid #FDBA74;
+  letter-spacing: 0.02em;
+  margin: 0 auto;
 }
 
 .badge-excel-duration {
-  display: inline-block;
-  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-secondary);
   background: var(--bg-surface-elevated);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
   border: 1px solid var(--border-subtle);
+  margin: 0 auto;
 }
 
 .badge-excel-type {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--brand-primary);
   background: var(--brand-primary-soft, rgba(255, 107, 0, 0.08));
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 6px;
   border: 1px solid var(--brand-primary-soft-border, rgba(255, 107, 0, 0.2));
+  margin: 0 auto;
 }
 
 .badge-balance-due {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
   background: #FEE2E2; /* Red highlight for pending dues */
   color: #991B1B;
   font-weight: 700;
   font-size: 0.85rem;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid #FCA5A5;
+  margin: 0 auto;
 }
 
 .badge-balance-cleared {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
   background: #DCFCE7; /* Green for zero balance */
   color: #166534;
   font-weight: 600;
-  font-size: 0.82rem;
-  padding: 3px 8px;
+  font-size: 0.85rem;
+  padding: 4px 10px;
   border-radius: 6px;
   border: 1px solid #86EFAC;
+  margin: 0 auto;
 }
 
 .receipt-no-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   gap: 4px;
   font-weight: 600;
   font-size: 0.85rem;
   color: var(--brand-primary);
   text-decoration: none;
   cursor: pointer;
-  padding: 3px 8px;
+  padding: 3px 9px;
   background: rgba(255, 107, 0, 0.06);
   border-radius: 6px;
   border: 1px solid rgba(255, 107, 0, 0.25);
   transition: all 0.15s ease;
+  margin: 0 auto;
 }
 
 .receipt-no-link:hover {
