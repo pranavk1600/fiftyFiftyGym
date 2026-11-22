@@ -3,6 +3,7 @@ dotenv.config();
 
 import app from './app.js';
 import { checkDatabaseHealth } from './config/db.js';
+import { runExcelColumnsMigration } from './database/create_excel_columns_migration.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -10,11 +11,14 @@ const server = app.listen(PORT, async () => {
   console.log(`[FiftyFifty Gym] Server listening on port ${PORT}`);
   console.log(`[FiftyFifty Gym] Health check available at http://localhost:${PORT}/api/health`);
 
-  // Safe startup database probe
+  // Safe startup database probe & migration check
   try {
     const dbStatus = await checkDatabaseHealth();
     if (dbStatus.connected) {
       console.log(`[FiftyFifty Gym] Database connected successfully to "${dbStatus.database}" (${dbStatus.latencyMs}ms)`);
+      await runExcelColumnsMigration().catch((migErr) => {
+        console.warn('[FiftyFifty Gym] Migration auto-check note:', migErr.message);
+      });
     } else if (dbStatus.status === 'unconfigured') {
       console.warn(`[FiftyFifty Gym Notice] Database unconfigured: ${dbStatus.message}`);
     } else {

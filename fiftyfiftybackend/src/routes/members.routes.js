@@ -379,6 +379,13 @@ router.post('/', async (req, res, next) => {
     let pdfBuffer = null;
     let receiptRecord = null;
 
+    const isPaid = calcPaidAmount >= calcTotalAmount && calcPaidAmount > 0;
+    const isPartial = calcPaidAmount > 0 && calcPaidAmount < calcTotalAmount;
+    const computedPaymentStatus = isPaid ? 'PAID' : (isPartial ? 'PARTIAL' : 'PAYMENT_PENDING');
+    const computedReceiptType = calcPaidAmount > 0 ? 'PAYMENT_RECEIPT' : 'REGISTRATION_ACKNOWLEDGEMENT';
+    const computedPaymentMode = calcPaidAmount > 0 ? (req.body.mode || req.body.paymentMode || 'Cash') : 'UNPAID';
+    const computedPaymentRef = calcPaidAmount > 0 ? `REG-${receiptNumber}` : 'PENDING_CONFIRMATION';
+
     try {
       pdfBuffer = await generateMembershipReceiptPdf({
         gym: {
@@ -406,14 +413,14 @@ router.post('/', async (req, res, next) => {
         },
         receipt: {
           receiptNumber,
-          issuedDate: memberJoinDate,
+          issuedDate: memberPaymentDate,
           joinDate: memberJoinDate,
           expiryDate: memberExpiryDate,
-          amount: planPrice,
-          paymentStatus: 'PAYMENT_PENDING',
-          receiptType: 'REGISTRATION_ACKNOWLEDGEMENT',
-          paymentReference: 'PENDING_CONFIRMATION',
-          paymentMode: 'UNPAID'
+          amount: calcPaidAmount > 0 ? calcPaidAmount : planPrice,
+          paymentStatus: computedPaymentStatus,
+          receiptType: computedReceiptType,
+          paymentReference: computedPaymentRef,
+          paymentMode: computedPaymentMode
         }
       });
 
@@ -432,7 +439,7 @@ router.post('/', async (req, res, next) => {
           payment_status, receipt_type, storage_path, issued_date,
           payment_reference, payment_mode
         )
-        VALUES ($1, $2, $3, $4, $5, 'PAYMENT_PENDING', 'REGISTRATION_ACKNOWLEDGEMENT', $6, $7, 'PENDING_CONFIRMATION', 'UNPAID')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id, receipt_number AS "receiptNumber", amount, payment_status AS "paymentStatus", receipt_type AS "receiptType";
       `;
       const receiptRes = await db.query(receiptInsertSql, [
@@ -440,11 +447,40 @@ router.post('/', async (req, res, next) => {
         gymId,
         createdMember.id,
         planName,
-        planPrice,
+        calcPaidAmount > 0 ? calcPaidAmount : planPrice,
+        computedPaymentStatus,
+        computedReceiptType,
         uploadResult.storagePath,
-        memberJoinDate
+        memberPaymentDate,
+        computedPaymentRef,
+        computedPaymentMode
       ]);
       receiptRecord = receiptRes.rows[0];
+
+      // Record in payments table if paidAmount > 0 so Dashboard & Payments reflect revenue immediately
+      if (calcPaidAmount > 0) {
+        try {
+          const paymentId = `PAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          await db.query(
+            `INSERT INTO payments (id, gym_id, member_id, member_name, amount, mode, plan_name, status, notes, date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              paymentId,
+              gymId,
+              createdMember.id,
+              createdMember.name,
+              calcPaidAmount,
+              computedPaymentMode,
+              planName,
+              'paid',
+              `Registration payment (Receipt #${receiptNumber})`,
+              memberPaymentDate
+            ]
+          );
+        } catch (payErr) {
+          console.warn('[Member Registration Payment Record Notice]:', payErr.message);
+        }
+      }
     } catch (pdfErr) {
       console.error('[Receipt PDF Generation/Storage Error]:', pdfErr.message);
     }
@@ -475,7 +511,7 @@ router.post('/', async (req, res, next) => {
           gymName: gym.name,
           gymLogoUrl: gym.logo_url,
           memberName: createdMember.name,
-          idNo: createdMember.id || receiptNumber,
+          idNo: createdMember.customMemberId || createdMember.id || receiptNumber,
           planName,
           durationMonths: createdMember.durationMonths || 1,
           startDate: createdMember.joinDate,

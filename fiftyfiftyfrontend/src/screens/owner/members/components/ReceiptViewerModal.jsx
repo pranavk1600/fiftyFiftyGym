@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RefreshCw, FileText, Send, ExternalLink, Download, CheckCircle2, Clock } from 'lucide-react';
 import { Modal } from '../../../../shared/components/Modal/Modal';
 import { Button } from '../../../../shared/components/Button/Button';
 import { formatDate } from '../../../../shared/utils/formatters';
+import { downloadReceiptPdf, previewReceiptPdf } from '../../../../shared/utils/receiptDownload';
 
 export const ReceiptViewerModal = ({
   isOpen,
@@ -15,6 +16,33 @@ export const ReceiptViewerModal = ({
   isResendingReceipt,
   onResendReceiptEmail
 }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  const handleDownload = async () => {
+    if (!selectedReceipt) return;
+    try {
+      setIsDownloading(true);
+      await downloadReceiptPdf(selectedReceipt);
+    } catch (err) {
+      alert(err.message || 'Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!selectedReceipt) return;
+    try {
+      setIsPreviewing(true);
+      await previewReceiptPdf(selectedReceipt);
+    } catch (err) {
+      alert(err.message || 'Failed to preview PDF');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -42,27 +70,27 @@ export const ReceiptViewerModal = ({
             <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
-            {selectedReceipt?.previewUrl && (
+            {selectedReceipt && (
               <Button
                 variant="secondary"
-                onClick={() => window.open(selectedReceipt.previewUrl, '_blank', 'noopener,noreferrer')}
+                onClick={handlePreview}
+                disabled={isPreviewing}
                 title="Preview PDF in new tab"
               >
-                <ExternalLink size={15} />
-                <span>Preview PDF</span>
+                {isPreviewing ? <RefreshCw size={15} className="spin" /> : <ExternalLink size={15} />}
+                <span>{isPreviewing ? 'Loading...' : 'Preview PDF'}</span>
               </Button>
             )}
-            {selectedReceipt?.downloadUrl && (
-              <a
-                href={selectedReceipt.downloadUrl}
-                download={`${selectedReceipt.receiptNumber || 'receipt'}.pdf`}
-                className="btn btn-primary"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            {selectedReceipt && (
+              <Button
+                variant="primary"
+                onClick={handleDownload}
+                disabled={isDownloading}
                 title="Download Official PDF Receipt"
               >
-                <Download size={15} />
-                <span>Download PDF</span>
-              </a>
+                {isDownloading ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}
+                <span>{isDownloading ? 'Downloading...' : 'Download PDF'}</span>
+              </Button>
             )}
           </div>
         </div>

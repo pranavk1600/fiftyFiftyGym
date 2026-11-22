@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, FileText, Download, ExternalLink, Receipt, CheckCircle2, Clock } from 'lucide-react';
+import { Dumbbell, FileText, Download, ExternalLink, Receipt, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { formatDate } from '../../../shared/utils/formatters';
 import { useAuth } from '../../../context/AuthContext';
 import { apiClient } from '../../../shared/services/apiClient';
+import { downloadReceiptPdf, previewReceiptPdf } from '../../../shared/utils/receiptDownload';
 
 export const MemberDashboardScreen = () => {
   const { user } = useAuth();
   const [receipts, setReceipts] = useState([]);
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [previewingId, setPreviewingId] = useState(null);
 
   const membershipInfo = {
     planName: user?.planName || user?.plan || 'No Active Membership',
@@ -264,29 +267,44 @@ export const MemberDashboardScreen = () => {
                     </td>
                     <td style={{ padding: '14px 12px', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 8 }}>
-                        {rcp.previewUrl && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => window.open(rcp.previewUrl, '_blank', 'noopener,noreferrer')}
-                            title="Preview PDF"
-                          >
-                            <ExternalLink size={13} />
-                            <span>View</span>
-                          </button>
-                        )}
-                        {rcp.downloadUrl && (
-                          <a
-                            href={rcp.downloadUrl}
-                            download={`${rcp.receiptNumber}.pdf`}
-                            className="btn btn-primary btn-sm"
-                            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            title="Download PDF"
-                          >
-                            <Download size={13} />
-                            <span>Download</span>
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={async () => {
+                            try {
+                              setPreviewingId(rcp.id);
+                              await previewReceiptPdf(rcp);
+                            } catch (err) {
+                              alert(err.message || 'Failed to preview PDF');
+                            } finally {
+                              setPreviewingId(null);
+                            }
+                          }}
+                          disabled={previewingId === rcp.id}
+                          title="Preview PDF"
+                        >
+                          {previewingId === rcp.id ? <RefreshCw size={13} className="spin" /> : <ExternalLink size={13} />}
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={async () => {
+                            try {
+                              setDownloadingId(rcp.id);
+                              await downloadReceiptPdf(rcp);
+                            } catch (err) {
+                              alert(err.message || 'Failed to download PDF');
+                            } finally {
+                              setDownloadingId(null);
+                            }
+                          }}
+                          disabled={downloadingId === rcp.id}
+                          title="Download PDF"
+                        >
+                          {downloadingId === rcp.id ? <RefreshCw size={13} className="spin" /> : <Download size={13} />}
+                          <span>Download</span>
+                        </button>
                       </div>
                     </td>
                   </tr>
