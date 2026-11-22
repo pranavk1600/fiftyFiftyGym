@@ -196,11 +196,7 @@ export const OwnerLayout = () => {
         <div className="owner-desktop-actions">
           <ThemeToggle />
 
-          <div className="owner-profile-widget">
-            <div className="owner-profile-text">
-              <span className="owner-profile-name">{user?.fullName || 'Gym Owner'}</span>
-              <span className="owner-profile-role">Gym Manager</span>
-            </div>
+          <div className="owner-profile-widget" title={user?.fullName || 'Gym Owner'}>
             <div className="owner-profile-avatar">
               {(user?.fullName || 'G').charAt(0)}
             </div>
@@ -274,7 +270,6 @@ export const OwnerLayout = () => {
               </div>
               <div className="owner-drawer-user-info">
                 <span className="owner-drawer-user-name">{user?.fullName || 'Gym Owner'}</span>
-                <span className="owner-drawer-user-role">Gym Manager</span>
               </div>
             </div>
 
