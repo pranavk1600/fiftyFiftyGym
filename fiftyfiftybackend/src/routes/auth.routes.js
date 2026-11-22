@@ -170,14 +170,17 @@ const executeSuperAdminLogin = async (req, res, next) => {
  * Never authenticates against super_admins.
  */
 const executeGymOwnerLogin = async (req, res, next) => {
-  const { email, password, gymSlug, slug } = req.body || {};
+  const { email, phone, identifier, password, gymSlug, slug } = req.body || {};
   const targetSlug = (gymSlug || slug || '').toLowerCase().trim();
-  const normalizedEmail = (email || '').toLowerCase().trim();
+  const rawIdentifier = (identifier || email || phone || '').trim();
+  const normalizedEmail = rawIdentifier.toLowerCase();
+  const digitsOnly = rawIdentifier.replace(/\D/g, '');
+  const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
   const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
 
   try {
-    if (!email || !email.trim()) {
-      return ApiResponse.error(res, 'Email is required', 400);
+    if (!rawIdentifier) {
+      return ApiResponse.error(res, 'Email address or mobile number is required', 400);
     }
     if (!password) {
       return ApiResponse.error(res, 'Password is required', 400);
@@ -188,18 +191,37 @@ const executeGymOwnerLogin = async (req, res, next) => {
     if (targetSlug) {
       const hyphenatedTargetSlug = targetSlug.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       const gymQuery = await db.query(
-        'SELECT id, name, slug, status FROM gyms WHERE LOWER(slug) = $1 OR LOWER(slug) = $2 OR id = $1 LIMIT 1',
+        'SELECT id, name, slug, status FROM gyms WHERE LOWER(slug) = $1 OR LOWER(slug) = $2 OR LOWER(name) = $1 OR LOWER(name) = $2 OR id = $1 LIMIT 1',
         [targetSlug, hyphenatedTargetSlug]
       );
-      if (gymQuery.rows.length === 0) {
-        return ApiResponse.error(res, 'Gym not found', 404);
+      if (gymQuery.rows.length > 0) {
+        targetGym = gymQuery.rows[0];
       }
-      targetGym = gymQuery.rows[0];
     }
 
     const result = await db.query(
-      'SELECT go.id, go.email, go.password_hash, go.full_name, go.phone, go.role, go.gym_id, go.status, go.must_change_password, g.name AS gym_name, g.slug AS gym_slug, g.status AS gym_status, g.logo_url AS gym_logo_url FROM gym_owners go LEFT JOIN gyms g ON g.id = go.gym_id WHERE LOWER(go.email) = $1 LIMIT 1',
-      [normalizedEmail]
+      `SELECT go.id, go.email, go.password_hash, go.full_name, go.phone, go.role, go.gym_id, go.status, go.must_change_password, 
+              g.name AS gym_name, g.slug AS gym_slug, g.status AS gym_status, g.logo_url AS gym_logo_url 
+       FROM gym_owners go 
+       LEFT JOIN gyms g ON g.id = go.gym_id 
+       WHERE (
+         LOWER(go.email) = $1 
+         OR LOWER(COALESCE(go.phone, '')) = $1 
+         OR LOWER(COALESCE(g.phone, '')) = $1 
+         OR LOWER(COALESCE(g.business_contact, '')) = $1 
+         OR ($2 <> '' AND (
+             REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2
+             OR REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g') = $2
+             OR REGEXP_REPLACE(COALESCE(g.business_contact, ''), '[^0-9]', '', 'g') = $2
+         ))
+         OR ($3 <> '' AND (
+             REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+             OR REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+             OR REGEXP_REPLACE(COALESCE(g.business_contact, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+         ))
+       ) 
+       LIMIT 1`,
+      [normalizedEmail, digitsOnly, last10Digits]
     );
 
     if (result.rows.length === 0) {
@@ -359,9 +381,14 @@ const executeMemberLogin = async (req, res, next) => {
         g.name AS gym_name, g.slug AS gym_slug, g.status AS gym_status, g.logo_url AS gym_logo_url
       FROM members m
       LEFT JOIN gyms g ON g.id = m.gym_id
-      WHERE LOWER(m.email) = $1
+      WHERE (
+        LOWER(COALESCE(m.email, '')) = $1 
+        OR LOWER(COALESCE(m.phone, '')) = $1 
+        OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(m.phone, ''), '[^0-9]', '', 'g') = $2)
+        OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(m.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+      )
     `;
-    const memParams = [normalizedEmail];
+    const memParams = [normalizedEmail, digitsOnly, last10Digits];
 
     if (targetGym) {
       memParams.push(targetGym.id);
@@ -443,9 +470,14 @@ const executeMemberLogin = async (req, res, next) => {
       SELECT u.id, u.email, u.password_hash, u.full_name, u.role, u.gym_id, u.status, g.name AS gym_name, g.slug AS gym_slug
       FROM users u
       LEFT JOIN gyms g ON g.id = u.gym_id
-      WHERE LOWER(u.email) = $1 AND u.role = 'MEMBER'
+      WHERE (
+        LOWER(u.email) = $1 
+        OR LOWER(COALESCE(u.phone, '')) = $1 
+        OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(u.phone, ''), '[^0-9]', '', 'g') = $2)
+        OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(u.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+      ) AND u.role = 'MEMBER'
       LIMIT 1;
-    `, [normalizedEmail]);
+    `, [normalizedEmail, digitsOnly, last10Digits]);
 
     if (result.rows.length === 0) {
       return ApiResponse.error(res, 'Invalid email or password', 401);
@@ -529,12 +561,15 @@ const executeUserLogin = async (req, res, next) => {
     return ApiResponse.error(res, 'Invalid portal specified', 400);
   }
 
-  // If no portal is provided, detect target table by email
-  const { email } = req.body || {};
-  const normalizedEmail = (email || '').toLowerCase().trim();
+  // If no portal is provided, detect target table by email or mobile number
+  const { email, phone, identifier } = req.body || {};
+  const rawIdentifier = (identifier || email || phone || '').trim();
+  const normalizedEmail = rawIdentifier.toLowerCase();
+  const digitsOnly = rawIdentifier.replace(/\D/g, '');
+  const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
 
-  if (!normalizedEmail) {
-    return ApiResponse.error(res, 'Email is required', 400);
+  if (!rawIdentifier) {
+    return ApiResponse.error(res, 'Email address or mobile number is required', 400);
   }
 
   try {
@@ -543,13 +578,55 @@ const executeUserLogin = async (req, res, next) => {
       return executeSuperAdminLogin(req, res, next);
     }
 
-    const ownerCheck = await db.query('SELECT id FROM gym_owners WHERE LOWER(email) = $1 LIMIT 1', [normalizedEmail]);
+    const ownerCheck = await db.query(
+      `SELECT go.id FROM gym_owners go
+       LEFT JOIN gyms g ON g.id = go.gym_id
+       WHERE LOWER(go.email) = $1 
+          OR LOWER(COALESCE(go.phone, '')) = $1 
+          OR LOWER(COALESCE(g.phone, '')) = $1 
+          OR LOWER(COALESCE(g.business_contact, '')) = $1 
+          OR ($2 <> '' AND (
+              REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2
+              OR REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g') = $2
+              OR REGEXP_REPLACE(COALESCE(g.business_contact, ''), '[^0-9]', '', 'g') = $2
+          ))
+          OR ($3 <> '' AND (
+              REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+              OR REGEXP_REPLACE(COALESCE(g.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+              OR REGEXP_REPLACE(COALESCE(g.business_contact, ''), '[^0-9]', '', 'g') LIKE '%' || $3
+          ))
+       LIMIT 1`,
+      [normalizedEmail, digitsOnly, last10Digits]
+    );
     if (ownerCheck.rows.length > 0) {
       return executeGymOwnerLogin(req, res, next);
     }
 
-    const memberCheck = await db.query('SELECT id FROM users WHERE LOWER(email) = $1 AND role = $2 LIMIT 1', [normalizedEmail, ROLES.MEMBER]);
+    const memberCheck = await db.query(
+      `SELECT id FROM members 
+       WHERE LOWER(COALESCE(email, '')) = $1 
+          OR LOWER(COALESCE(phone, '')) = $1 
+          OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') = $2)
+          OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+       LIMIT 1`,
+      [normalizedEmail, digitsOnly, last10Digits]
+    );
     if (memberCheck.rows.length > 0) {
+      return executeMemberLogin(req, res, next);
+    }
+
+    const userCheck = await db.query(
+      `SELECT id FROM users 
+       WHERE (
+         LOWER(email) = $1 
+         OR LOWER(COALESCE(phone, '')) = $1 
+         OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') = $2)
+         OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+       ) AND role = $4 
+       LIMIT 1`,
+      [normalizedEmail, digitsOnly, last10Digits, ROLES.MEMBER]
+    );
+    if (userCheck.rows.length > 0) {
       return executeMemberLogin(req, res, next);
     }
 
@@ -760,18 +837,23 @@ router.post('/gym/forgot-password', async (req, res, next) => {
             g.id AS gym_id, g.name AS gym_name, g.slug AS gym_slug
           FROM gym_owners go
           JOIN gyms g ON g.id = go.gym_id
-          WHERE LOWER(go.email) = $1 
+          WHERE (
+              LOWER(go.email) = $1 
+              OR LOWER(COALESCE(go.phone, '')) = $1
+              OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2)
+              OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+            )
             AND go.status = 'active'
             AND (
-              g.slug = $2 
-              OR LOWER(REPLACE(g.name, ' ', '-')) = $2
-              OR LOWER(g.name) = LOWER($3)
+              g.slug = $4 
+              OR LOWER(REPLACE(g.name, ' ', '-')) = $4
+              OR LOWER(g.name) = LOWER($5)
             )
           LIMIT 1;
-        `, [normalizedEmail, normalizedSlug, (gymSlug || '').trim()]);
+        `, [normalizedEmail, digitsOnly, last10Digits, normalizedSlug, (gymSlug || '').trim()]);
       }
 
-      // If not found with gymSlug or if no gymSlug was provided, query by active owner email
+      // If not found with gymSlug or if no gymSlug was provided, query by active owner email or mobile
       if (!ownerRes || ownerRes.rows.length === 0) {
         ownerRes = await db.query(`
           SELECT 
@@ -779,9 +861,14 @@ router.post('/gym/forgot-password', async (req, res, next) => {
             g.id AS gym_id, g.name AS gym_name, g.slug AS gym_slug
           FROM gym_owners go
           JOIN gyms g ON g.id = go.gym_id
-          WHERE LOWER(go.email) = $1 AND go.status = 'active'
+          WHERE (
+            LOWER(go.email) = $1 
+            OR LOWER(COALESCE(go.phone, '')) = $1
+            OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2)
+            OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
+          ) AND go.status = 'active'
           LIMIT 1;
-        `, [normalizedEmail]);
+        `, [normalizedEmail, digitsOnly, last10Digits]);
       }
 
       if (ownerRes.rows.length > 0) {

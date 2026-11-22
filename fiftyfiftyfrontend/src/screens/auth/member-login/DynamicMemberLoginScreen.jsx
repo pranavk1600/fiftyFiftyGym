@@ -103,7 +103,7 @@ export const DynamicMemberLoginScreen = () => {
     setErrorMessage('');
 
     if (!email.trim()) {
-      setErrorMessage('Please enter your email address');
+      setErrorMessage('Please enter your email address or mobile number');
       return;
     }
     if (!password) {
@@ -115,7 +115,9 @@ export const DynamicMemberLoginScreen = () => {
 
     try {
       const response = await apiClient.post('/auth/member/login', {
-        email: email.trim().toLowerCase(),
+        email: email.trim(),
+        identifier: email.trim(),
+        phone: email.trim(),
         password,
         gymSlug,
         memberSlug
@@ -294,17 +296,17 @@ export const DynamicMemberLoginScreen = () => {
               {/* Email Field */}
               <div className="dynamic-gym-field">
                 <label className="dynamic-gym-label" htmlFor="member-email">
-                  Member Email Address
+                  Member Email or Mobile Number
                 </label>
                 <div className="dynamic-gym-input-wrapper">
                   <Mail size={18} className="dynamic-gym-input-icon" />
                   <input
                     id="member-email"
-                    type="email"
+                    type="text"
                     name="email"
-                    autoComplete="email"
+                    autoComplete="username"
                     required
-                    placeholder="e.g. member@example.com"
+                    placeholder="e.g. member@fitness.com or 9876543210"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="dynamic-gym-input"

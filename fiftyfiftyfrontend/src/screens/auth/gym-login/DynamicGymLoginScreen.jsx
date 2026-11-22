@@ -131,7 +131,7 @@ export const DynamicGymLoginScreen = () => {
     setErrorMessage('');
 
     if (!email.trim()) {
-      setErrorMessage('Please enter your email address');
+      setErrorMessage('Please enter your email address or mobile number');
       return;
     }
     if (!password) {
@@ -143,9 +143,11 @@ export const DynamicGymLoginScreen = () => {
 
     try {
       const response = await apiClient.post('/auth/gym/login', {
-        email: email.trim().toLowerCase(),
+        email: email.trim(),
+        identifier: email.trim(),
+        phone: email.trim(),
         password,
-        gymSlug: gym?.slug || targetSlug || slug
+        gymSlug: (gym?.slug || slug || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
       });
 
       const data = response.data?.data || response.data || response;
@@ -209,6 +211,7 @@ export const DynamicGymLoginScreen = () => {
     try {
       await apiClient.post('/auth/gym/forgot-password', {
         email: forgotEmail.trim(),
+        identifier: forgotEmail.trim(),
         gymSlug: slug
       });
       setForgotSubmitted(true);
@@ -345,17 +348,17 @@ export const DynamicGymLoginScreen = () => {
               {/* Email Field */}
               <div className="dynamic-gym-field">
                 <label className="dynamic-gym-label" htmlFor="gym-owner-email">
-                  Owner Email Address
+                  Owner Email or Mobile Number
                 </label>
                 <div className="dynamic-gym-input-wrapper">
                   <Mail size={18} className="dynamic-gym-input-icon" />
                   <input
                     id="gym-owner-email"
-                    type="email"
+                    type="text"
                     name="email"
-                    autoComplete="email"
+                    autoComplete="username"
                     required
-                    placeholder="e.g. owner@pranavfitness.com"
+                    placeholder="e.g. owner@pranavfitness.com or 9876543210"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="dynamic-gym-input"
