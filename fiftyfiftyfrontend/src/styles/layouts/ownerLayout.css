@@ -331,6 +331,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  border-radius: var(--radius-full, 9999px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.owner-profile-widget:hover .owner-profile-avatar {
+  background: var(--brand-primary, #FF6B00);
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(255, 107, 0, 0.18);
+  transform: scale(1.05);
 }
 
 .owner-profile-text {

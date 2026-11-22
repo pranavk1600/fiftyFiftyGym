@@ -13,11 +13,13 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
 import { apiClient } from '../../shared/services/apiClient';
+import { OwnerProfileModal } from './components/OwnerProfileModal';
 
 export const OwnerLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   // Dynamic Gym Branding State initialized from authenticated user context
@@ -196,7 +198,14 @@ export const OwnerLayout = () => {
         <div className="owner-desktop-actions">
           <ThemeToggle />
 
-          <div className="owner-profile-widget" title={user?.fullName || 'Gym Owner'}>
+          <div
+            className="owner-profile-widget"
+            title="View Profile & Settings"
+            onClick={() => setIsProfileModalOpen(true)}
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="owner-profile-avatar">
               {(user?.fullName || 'G').charAt(0)}
             </div>
@@ -264,7 +273,17 @@ export const OwnerLayout = () => {
             </div>
 
             {/* Owner Profile Card in Drawer */}
-            <div className="owner-drawer-user-card">
+            <div
+              className="owner-drawer-user-card"
+              onClick={() => {
+                closeMobileMenu();
+                setIsProfileModalOpen(true);
+              }}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+              title="View Profile & Settings"
+            >
               <div className="owner-drawer-avatar">
                 {(user?.fullName || 'G').charAt(0)}
               </div>
@@ -314,6 +333,13 @@ export const OwnerLayout = () => {
       <main className="owner-main-content">
         <Outlet />
       </main>
+
+      {/* Gym Owner Profile & Change Password Modal */}
+      <OwnerProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+      />
     </div>
   );
 };

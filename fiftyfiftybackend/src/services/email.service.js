@@ -1013,6 +1013,89 @@ export const sendMemberPasswordResetEmail = async ({
   });
 };
 
+/**
+ * Sends a 6-digit verification OTP to the user's email for password change verification.
+ */
+export const sendPasswordChangeOtpEmail = async ({
+  to,
+  recipientName = 'Gym Owner',
+  otp,
+  expiryMinutes = 10
+}) => {
+  const subject = `Your FiftyFifty Gym Password Change Verification Code: ${otp}`;
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification Code for Password Change</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; line-height: 1.6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <!-- Header Bar -->
+          <tr>
+            <td style="padding: 28px 36px 20px; border-bottom: 1px solid #F1F5F9; text-align: left;">
+              <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #111827;">
+                <span style="color: #FF6B00;">FIFTYFIFTY</span> GYM
+              </span>
+            </td>
+          </tr>
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 32px 36px;">
+              <h1 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 16px;">
+                Password Change Verification Code
+              </h1>
+              <p style="font-size: 15px; color: #4B5563; margin: 0 0 16px;">
+                Hello <strong>${recipientName}</strong>,
+              </p>
+              <p style="font-size: 15px; color: #4B5563; margin: 0 0 24px;">
+                You recently requested to change your password for your FiftyFifty Gym account. Please enter the following 6-digit verification code in the profile dialog to complete the update:
+              </p>
+              <!-- OTP Box -->
+              <div style="background-color: #FFF7ED; border: 2px dashed #FF6B00; border-radius: 12px; padding: 20px 24px; text-align: center; margin: 0 0 24px;">
+                <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #EA580C; display: block;">
+                  ${otp}
+                </span>
+                <span style="font-size: 12px; font-weight: 600; color: #9A3412; text-transform: uppercase; margin-top: 8px; display: block;">
+                  Valid for ${expiryMinutes} minutes
+                </span>
+              </div>
+              <p style="font-size: 14px; color: #6B7280; margin: 0 0 16px;">
+                Never share this verification code with anyone. FiftyFifty Gym staff will never ask for your code or password.
+              </p>
+              <p style="font-size: 13px; color: #9CA3AF; margin: 0;">
+                If you did not request this password change, please disregard this email. Your current password remains secure.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 36px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9; text-align: center;">
+              <p style="font-size: 12px; color: #9CA3AF; margin: 0;">
+                &copy; ${new Date().getFullYear()} FiftyFifty Gym Network. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return sendEmail({
+    to,
+    recipientName,
+    subject,
+    htmlContent,
+    textContent: `Hello ${recipientName},\n\nYour FiftyFifty Gym password change verification code is: ${otp}\n\nThis code is valid for ${expiryMinutes} minutes. If you did not make this request, please ignore this email.`
+  });
+};
+
 export default {
   getBrevoClient,
   sendEmail,
@@ -1031,5 +1114,6 @@ export default {
   sendMemberReceiptEmail,
   sendMemberPasswordResetEmail,
   renderMemberPasswordResetHtml,
-  renderMemberPasswordResetText
+  renderMemberPasswordResetText,
+  sendPasswordChangeOtpEmail
 };
