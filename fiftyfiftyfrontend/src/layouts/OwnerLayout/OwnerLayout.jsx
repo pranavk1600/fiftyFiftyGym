@@ -145,12 +145,13 @@ export const OwnerLayout = () => {
     return raw.toUpperCase();
   };
 
-  // Top navigation items — Notifications and Attendance removed per prompt requirements
+  // Top navigation items — Attendance positioned after Payments
   const navLinks = [
     { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/owner/members', label: 'Members', icon: Users },
     { to: '/owner/plans', label: 'Membership Plans', icon: CreditCard },
-    { to: '/owner/payments', label: 'Payments', icon: Receipt }
+    { to: '/owner/payments', label: 'Payments', icon: Receipt },
+    { to: '/owner/attendance', label: 'Mark Attendance', icon: CalendarCheck }
   ];
 
   return (
@@ -216,20 +217,11 @@ export const OwnerLayout = () => {
             type="button"
             onClick={handleLogout}
             className="owner-logout-btn"
-            title="Sign Out of Gym Owner Portal"
+            title="Sign Out"
+            aria-label="Sign Out"
           >
             <LogOut size={16} />
-            <span>Sign Out</span>
           </button>
-
-          <NavLink
-            to="/owner/attendance"
-            className={({ isActive }) => `owner-nav-attendance-btn ${isActive ? 'active' : ''}`}
-            title="Mark Member Attendance"
-          >
-            <CalendarCheck size={16} />
-            <span>Mark Attendance</span>
-          </NavLink>
         </div>
 
         {/* Mobile Header Actions (Visible <= 1024px) */}
@@ -322,15 +314,6 @@ export const OwnerLayout = () => {
 
             {/* Drawer Footer with Theme Toggle & Logout */}
             <div className="owner-drawer-footer">
-              <NavLink
-                to="/owner/attendance"
-                onClick={closeMobileMenu}
-                className="owner-drawer-attendance-btn"
-              >
-                <CalendarCheck size={18} />
-                <span>Mark Attendance</span>
-              </NavLink>
-
               <div className="owner-drawer-theme-row">
                 <span className="owner-drawer-theme-label">Appearance</span>
                 <ThemeToggle />
