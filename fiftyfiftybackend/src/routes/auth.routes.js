@@ -6,7 +6,7 @@ import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { ROLES } from '../constants/roles.constant.js';
-import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail } from '../services/email.service.js';
+import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail, sendPasswordChangeOtpEmail } from '../services/email.service.js';
 import { validateInMemoryToken, consumeInMemoryToken, findInMemoryGym, findInMemoryOwner } from '../services/devGymStore.js';
 
 const router = Router();
@@ -774,7 +774,7 @@ router.post('/forgot-password', async (req, res, next) => {
           );
 
           // 5. Construct secure reset link using configured FRONTEND_URL
-          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
           const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
           const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
@@ -894,7 +894,7 @@ router.post('/gym/forgot-password', async (req, res, next) => {
         );
 
         // 5. Construct secure gym-specific reset link using configured FRONTEND_URL
-        const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+        const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
         const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
         const targetSlug = owner.gym_slug || normalizedSlug || (owner.gym_name ? owner.gym_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'portal');
         const resetUrl = `${frontendUrl}/gym/${targetSlug}/reset-password?token=${rawToken}`;
@@ -1121,7 +1121,7 @@ router.post('/member/forgot-password', async (req, res, next) => {
             [member.id, tokenHash, expiresAt]
           );
 
-          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+          const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
           const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
           const resetUrl = `${frontendUrl}/gym/${member.gym_slug}/${member.member_slug}/reset-password?token=${rawToken}`;
 
@@ -1419,6 +1419,234 @@ router.post('/reset-password', async (req, res, next) => {
       },
       'Your password has been set successfully. Please sign in with your new password.'
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+// In-memory OTP cache for instant lookup & fallback
+const activeOtpStore = new Map();
+
+/**
+ * GET /api/auth/profile
+ * Retrieves enriched profile details for the authenticated user (including gym information).
+ */
+router.get('/profile', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = (req.user.email || '').toLowerCase().trim();
+
+    // 1. Check gym_owners table
+    const ownerRes = await db.query(`
+      SELECT go.id, go.email, go.full_name AS "fullName", go.phone, go.role, go.status,
+             go.invitation_status AS "invitationStatus",
+             TO_CHAR(go.created_at, 'YYYY-MM-DD') AS "createdAt",
+             g.id AS "gymId", g.name AS "gymName", g.slug AS "gymSlug", g.logo_url AS "gymLogoUrl",
+             g.address AS "gymAddress", g.city AS "gymCity", g.state AS "gymState", g.postal_code AS "gymPostalCode",
+             g.phone AS "gymPhone", g.email AS "gymEmail"
+      FROM gym_owners go
+      LEFT JOIN gyms g ON g.id = go.gym_id
+      WHERE go.id = $1 OR LOWER(go.email) = $2
+      LIMIT 1;
+    `, [userId, userEmail]);
+
+    if (ownerRes.rows.length > 0) {
+      const owner = ownerRes.rows[0];
+      return ApiResponse.success(res, {
+        id: owner.id,
+        email: owner.email,
+        fullName: owner.fullName,
+        phone: owner.phone,
+        role: 'Gym Owner',
+        status: owner.status,
+        createdAt: owner.createdAt,
+        gym: {
+          id: owner.gymId,
+          name: owner.gymName || 'FiftyFifty Gym',
+          slug: owner.gymSlug,
+          logoUrl: owner.gymLogoUrl,
+          address: owner.gymAddress,
+          city: owner.gymCity,
+          state: owner.gymState,
+          postalCode: owner.gymPostalCode,
+          phone: owner.gymPhone,
+          email: owner.gymEmail
+        }
+      }, 'Owner profile retrieved');
+    }
+
+    // Fallback to basic session user
+    return ApiResponse.success(res, {
+      id: req.user.id,
+      email: req.user.email,
+      fullName: req.user.fullName || 'Gym Owner',
+      role: 'Gym Owner',
+      gym: {
+        id: req.user.gymId,
+        name: req.user.gymName || 'FiftyFifty Gym'
+      }
+    }, 'User profile retrieved');
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/auth/send-password-otp
+ * Generates and emails a 6-digit verification code to the authenticated owner's email.
+ */
+router.post('/send-password-otp', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    let userEmail = (req.user.email || '').toLowerCase().trim();
+    let recipientName = req.user.fullName || 'Gym Owner';
+
+    // Verify user in gym_owners or users
+    const ownerRes = await db.query(
+      'SELECT id, email, full_name AS "fullName" FROM gym_owners WHERE id = $1 OR LOWER(email) = $2 LIMIT 1',
+      [userId, userEmail]
+    );
+
+    if (ownerRes.rows.length > 0) {
+      userEmail = ownerRes.rows[0].email;
+      recipientName = ownerRes.rows[0].fullName || recipientName;
+    }
+
+    if (!userEmail) {
+      return ApiResponse.error(res, 'No verified email address found for this account', 400);
+    }
+
+    // Rate limiting: 1 request every 30 seconds
+    const rateLimitKey = `otp_rate_${userId}`;
+    if (activeOtpStore.has(rateLimitKey)) {
+      const remainingSeconds = Math.ceil((activeOtpStore.get(rateLimitKey) - Date.now()) / 1000);
+      if (remainingSeconds > 0) {
+        return ApiResponse.error(res, `Please wait ${remainingSeconds} seconds before requesting a new verification code`, 429);
+      }
+    }
+
+    // Generate secure 6-digit numeric OTP
+    const otp = Math.floor(100000 + crypto.randomInt(900000)).toString();
+    const tokenHash = crypto.createHash('sha256').update(`${userId}:${otp}`).digest('hex');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store in database
+    try {
+      await db.query(
+        'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
+        [userId]
+      );
+      await db.query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [userId, tokenHash, expiresAt]
+      );
+    } catch (dbErr) {
+      console.warn('[OTP Notice] Token table write notice:', dbErr.message);
+    }
+
+    // Store in active in-memory cache
+    activeOtpStore.set(`otp_${userId}`, {
+      tokenHash,
+      expiresAt: expiresAt.getTime(),
+      email: userEmail
+    });
+    activeOtpStore.set(rateLimitKey, Date.now() + 30 * 1000);
+
+    // Send transactional email via Brevo
+    const emailResult = await sendPasswordChangeOtpEmail({
+      to: userEmail,
+      recipientName,
+      otp,
+      expiryMinutes: 10
+    });
+
+    const maskedEmail = userEmail.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => `${a}***${c}`);
+
+    if (emailResult.success) {
+      return ApiResponse.success(res, {
+        sent: true,
+        email: maskedEmail,
+        expiresInSeconds: 600
+      }, `Verification code sent to ${maskedEmail}`);
+    } else {
+      return ApiResponse.error(res, `Failed to dispatch email via Brevo: ${emailResult.error || emailResult.message || 'Delivery error'}`, 502);
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/auth/change-password-with-otp
+ * Validates the 6-digit OTP and updates the owner's password hash.
+ */
+router.post('/change-password-with-otp', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { otp, newPassword } = req.body || {};
+
+    if (!otp || !String(otp).trim()) {
+      return ApiResponse.error(res, 'Verification OTP is required', 400);
+    }
+
+    if (!newPassword || String(newPassword).length < 8) {
+      return ApiResponse.error(res, 'New password must be at least 8 characters long', 400);
+    }
+
+    const cleanOtp = String(otp).trim();
+    const tokenHash = crypto.createHash('sha256').update(`${userId}:${cleanOtp}`).digest('hex');
+
+    // 1. Verify OTP in DB or in-memory store
+    let isValid = false;
+
+    // Check DB
+    try {
+      const tokenRes = await db.query(`
+        SELECT id FROM password_reset_tokens 
+        WHERE user_id = $1 AND token_hash = $2 AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+        LIMIT 1;
+      `, [userId, tokenHash]);
+
+      if (tokenRes.rows.length > 0) {
+        isValid = true;
+        await db.query('UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = $1', [tokenRes.rows[0].id]);
+      }
+    } catch (_dbErr) {}
+
+    // Check in-memory store fallback
+    if (!isValid) {
+      const memEntry = activeOtpStore.get(`otp_${userId}`);
+      if (memEntry && memEntry.tokenHash === tokenHash && memEntry.expiresAt > Date.now()) {
+        isValid = true;
+        activeOtpStore.delete(`otp_${userId}`);
+      }
+    }
+
+    if (!isValid) {
+      return ApiResponse.error(res, 'Invalid or expired verification code. Please request a new one.', 400);
+    }
+
+    // 2. Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // 3. Update password in gym_owners and users
+    try {
+      await db.query(
+        'UPDATE gym_owners SET password_hash = $1, must_change_password = false, updated_at = CURRENT_TIMESTAMP WHERE id = $2 OR LOWER(email) = LOWER($3)',
+        [passwordHash, userId, req.user.email || '']
+      );
+      await db.query(
+        'UPDATE users SET password_hash = $1, must_change_password = false, updated_at = CURRENT_TIMESTAMP WHERE id = $2 OR LOWER(email) = LOWER($3)',
+        [passwordHash, userId, req.user.email || '']
+      ).catch(() => {});
+    } catch (updateErr) {
+      console.error('[Password Update Error]:', updateErr.message);
+      return ApiResponse.error(res, 'Failed to update password in database', 500);
+    }
+
+    activeOtpStore.delete(`otp_${userId}`);
+
+    return ApiResponse.success(res, { updated: true }, 'Password has been updated successfully! Please use your new password next time you log in.');
   } catch (error) {
     next(error);
   }

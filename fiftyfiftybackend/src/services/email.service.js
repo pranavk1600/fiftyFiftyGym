@@ -542,22 +542,31 @@ export const sendGymOwnerInvitationEmail = async ({
 
 /**
  * Generates responsive branded HTML email for Gym Member invitation and account activation.
+ * Exactly matches the WhatsApp registration welcome message structure and details.
  */
 export const renderMemberInvitationHtml = ({
   gymName = 'FiftyFifty Gym',
   gymLogoUrl,
   memberName = 'Member',
+  idNo = 'N/A',
   planName = 'Standard Plan',
+  durationMonths = 1,
+  startDate,
   joinDate,
   expiryDate,
+  totalAmount = 0,
+  paidAmount = 0,
+  balanceAmount = 0,
   loginUrl,
   activationUrl,
   expiryDays = 7
 }) => {
   const brandOrange = '#FF6B00';
+  const effectiveStartDate = startDate || joinDate || 'N/A';
+
   const logoHtml = gymLogoUrl
     ? `<img src="${gymLogoUrl}" alt="${gymName}" style="max-height: 48px; max-width: 180px; object-fit: contain; margin-bottom: 12px; display: block;" />`
-    : `<div style="font-size: 22px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; margin-bottom: 12px;">${gymName}</div>`;
+    : `<div style="font-size: 22px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; margin-bottom: 12px;"><span style="color: #FF6B00;">${gymName.toUpperCase()}</span></div>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -581,44 +590,85 @@ export const renderMemberInvitationHtml = ({
             <td style="padding: 36px 36px 20px; text-align: left;">
               ${logoHtml}
               <div style="display: inline-block; background: rgba(255, 107, 0, 0.12); color: ${brandOrange}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; margin-bottom: 14px;">
-                MEMBER PORTAL INVITATION
+                MEMBER REGISTRATION &amp; PORTAL ACCESS
               </div>
               <h1 style="margin: 0 0 10px; font-size: 22px; font-weight: 700; color: #FFFFFF; line-height: 1.3;">
-                Welcome to ${gymName}, ${memberName}!
+                🏋️‍♂️ Welcome to ${gymName}, ${memberName}!
               </h1>
               <p style="margin: 0; font-size: 14px; color: #94A3B8; line-height: 1.6;">
-                Your membership account has been registered by your gym administrator. You can now activate your account to log workout attendance, view fee receipts, and access your personal fitness dashboard.
+                Your gym membership has been successfully registered! Below are your membership and billing details:
               </p>
             </td>
           </tr>
 
           <!-- Membership Details Summary Box -->
           <tr>
-            <td style="padding: 10px 36px 24px;">
+            <td style="padding: 10px 36px 16px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #1A2234; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 18px 20px;">
                 <tr>
-                  <td style="padding-bottom: 10px; font-size: 13px; color: #94A3B8;">Member Name:</td>
-                  <td align="right" style="padding-bottom: 10px; font-size: 13px; font-weight: 600; color: #FFFFFF;">${memberName}</td>
+                  <td colspan="2" style="padding-bottom: 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: ${brandOrange}; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                    📋 MEMBERSHIP SUMMARY
+                  </td>
                 </tr>
                 <tr>
-                  <td style="padding-bottom: 10px; font-size: 13px; color: #94A3B8;">Membership Plan:</td>
-                  <td align="right" style="padding-bottom: 10px; font-size: 13px; font-weight: 600; color: ${brandOrange};">${planName}</td>
+                  <td style="padding-top: 12px; padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Member ID / Receipt #:</td>
+                  <td align="right" style="padding-top: 12px; padding-bottom: 8px; font-size: 13px; font-weight: 700; color: #FFFFFF;">${idNo}</td>
                 </tr>
                 <tr>
-                  <td style="padding-bottom: 10px; font-size: 13px; color: #94A3B8;">Joining Date:</td>
-                  <td align="right" style="padding-bottom: 10px; font-size: 13px; font-weight: 500; color: #E2E8F0;">${joinDate || 'N/A'}</td>
+                  <td style="padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Plan:</td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 13px; font-weight: 600; color: ${brandOrange};">${planName}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94A3B8;">Membership Expiry:</td>
+                  <td style="padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Duration:</td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 13px; font-weight: 500; color: #E2E8F0;">${durationMonths} Month(s)</td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Start Date:</td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 13px; font-weight: 500; color: #E2E8F0;">${effectiveStartDate}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94A3B8;">Expiry Date:</td>
                   <td align="right" style="font-size: 13px; font-weight: 600; color: #F59E0B;">${expiryDate || 'N/A'}</td>
                 </tr>
               </table>
             </td>
           </tr>
 
-          <!-- Call to Action Button -->
+          <!-- Payment Details Summary Box -->
+          <tr>
+            <td style="padding: 0 36px 24px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #1A2234; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 18px 20px;">
+                <tr>
+                  <td colspan="2" style="padding-bottom: 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: ${brandOrange}; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                    💰 PAYMENT DETAILS
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 12px; padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Total Fee:</td>
+                  <td align="right" style="padding-top: 12px; padding-bottom: 8px; font-size: 13px; font-weight: 600; color: #FFFFFF;">₹${totalAmount}</td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom: 8px; font-size: 13px; color: #94A3B8;">Amount Paid:</td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 13px; font-weight: 700; color: #10B981;">₹${paidAmount}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94A3B8;">Balance Due:</td>
+                  <td align="right" style="font-size: 13px; font-weight: 700; color: ${Number(balanceAmount) > 0 ? '#EF4444' : '#10B981'};">₹${balanceAmount}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Call to Action Button: Activate Account -->
+          ${activationUrl ? `
           <tr>
             <td style="padding: 0 36px 28px; text-align: center;">
+              <div style="font-size: 14px; font-weight: 700; color: #FFFFFF; margin-bottom: 12px;">
+                🔑 ACTIVATE YOUR MEMBER ACCOUNT:
+              </div>
+              <p style="margin: 0 0 16px; font-size: 13px; color: #94A3B8;">
+                Click the link below to set your password and access your member portal:
+              </p>
               <a href="${activationUrl}" target="_blank" style="display: inline-block; background-color: #FF6B00; color: #FFFFFF; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);">
                 Activate Account &amp; Set Password &rarr;
               </a>
@@ -627,13 +677,15 @@ export const renderMemberInvitationHtml = ({
               </div>
             </td>
           </tr>
+          ` : ''}
 
-          <!-- Instructions & Member Login Link -->
+          <!-- Member Login Link -->
+          ${loginUrl ? `
           <tr>
-            <td style="padding: 0 36px 32px;">
+            <td style="padding: 0 36px 28px;">
               <div style="background-color: rgba(255, 255, 255, 0.02); border-left: 3px solid #FF6B00; padding: 14px 16px; border-radius: 0 8px 8px 0;">
                 <div style="font-size: 13px; font-weight: 600; color: #E2E8F0; margin-bottom: 4px;">
-                  Dedicated Member Portal URL:
+                  📲 Member Login Portal:
                 </div>
                 <div style="font-size: 12px; font-family: monospace; color: #94A3B8; word-break: break-all;">
                   <a href="${loginUrl}" style="color: #FF8533; text-decoration: underline;">${loginUrl}</a>
@@ -642,6 +694,16 @@ export const renderMemberInvitationHtml = ({
                   Once your password is set, bookmark this page for easy one-click sign in on your mobile or desktop browser.
                 </div>
               </div>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- Warm Closing -->
+          <tr>
+            <td style="padding: 0 36px 30px; text-align: center;">
+              <p style="margin: 0; font-size: 14px; font-weight: 600; color: #E2E8F0;">
+                Thank you for choosing <span style="color: #FF6B00;">${gymName}</span>! Stay fit and healthy! 💪🔥
+              </p>
             </td>
           </tr>
 
@@ -666,41 +728,65 @@ export const renderMemberInvitationHtml = ({
 
 /**
  * Generates plain-text fallback email for Gym Member invitation.
+ * Exactly matches the WhatsApp registration welcome message text.
  */
 export const renderMemberInvitationText = ({
   gymName = 'FiftyFifty Gym',
   memberName = 'Member',
+  idNo = 'N/A',
   planName = 'Standard Plan',
+  durationMonths = 1,
+  startDate,
   joinDate,
   expiryDate,
+  totalAmount = 0,
+  paidAmount = 0,
+  balanceAmount = 0,
   loginUrl,
   activationUrl,
   expiryDays = 7
 }) => {
-  return `WELCOME TO ${gymName.toUpperCase()} — YOUR MEMBER PORTAL ACCESS
+  const effectiveStartDate = startDate || joinDate || 'N/A';
+  let text = `🏋️‍♂️ WELCOME TO ${gymName.toUpperCase()}
 
 Hello ${memberName},
+Your gym membership has been successfully registered! Below are your membership and billing details:
 
-Your membership account has been registered by your gym administrator.
+📋 MEMBERSHIP SUMMARY:
+• Member ID / Receipt #: ${idNo}
+• Plan: ${planName}
+• Duration: ${durationMonths} Month(s)
+• Start Date: ${effectiveStartDate}
+• Expiry Date: ${expiryDate || 'N/A'}
 
-MEMBERSHIP SUMMARY:
-- Gym: ${gymName}
-- Member Name: ${memberName}
-- Plan: ${planName}
-- Joining Date: ${joinDate || 'N/A'}
-- Membership Expiry: ${expiryDate || 'N/A'}
+💰 PAYMENT DETAILS:
+• Total Fee: ₹${totalAmount}
+• Amount Paid: ₹${paidAmount}
+• Balance Due: ₹${balanceAmount}`;
 
-ACTIVATE YOUR ACCOUNT & SET YOUR PASSWORD:
-Click the link below to set your password (valid for ${expiryDays} days):
+  if (activationUrl) {
+    text += `
+
+🔑 ACTIVATE YOUR MEMBER ACCOUNT:
+Click the link below to set your password and access your member portal:
 ${activationUrl}
+(This secure activation link will expire in ${expiryDays} days)`;
+  }
 
-DEDICATED MEMBER LOGIN URL:
-${loginUrl}
+  if (loginUrl) {
+    text += `
 
-SECURITY NOTICE:
-FiftyFifty Gym never sends plain-text passwords via email. Please use the secure activation link above to set your permanent password.
+📲 Member Login Portal:
+${loginUrl}`;
+  }
+
+  text += `
+
+Thank you for choosing ${gymName}! Stay fit and healthy! 💪🔥
 
 © 2026 FiftyFifty Gym Management Software`;
+
+  return text;
 };
 
 /**
@@ -712,9 +798,15 @@ export const sendMemberInvitationEmail = async ({
   gymName,
   gymLogoUrl,
   memberName,
+  idNo,
   planName,
+  durationMonths = 1,
+  startDate,
   joinDate,
   expiryDate,
+  totalAmount = 0,
+  paidAmount = 0,
+  balanceAmount = 0,
   loginUrl,
   activationUrl,
   expiryDays = 7,
@@ -722,13 +814,21 @@ export const sendMemberInvitationEmail = async ({
   receiptNumber
 }) => {
   const subject = `Welcome to ${gymName} – Your Member Portal Access`;
+  const resolvedId = idNo || receiptNumber || 'N/A';
+  const resolvedStartDate = startDate || joinDate;
+
   const htmlContent = renderMemberInvitationHtml({
     gymName,
     gymLogoUrl,
     memberName,
+    idNo: resolvedId,
     planName,
-    joinDate,
+    durationMonths,
+    startDate: resolvedStartDate,
     expiryDate,
+    totalAmount,
+    paidAmount,
+    balanceAmount,
     loginUrl,
     activationUrl,
     expiryDays
@@ -736,9 +836,14 @@ export const sendMemberInvitationEmail = async ({
   const textContent = renderMemberInvitationText({
     gymName,
     memberName,
+    idNo: resolvedId,
     planName,
-    joinDate,
+    durationMonths,
+    startDate: resolvedStartDate,
     expiryDate,
+    totalAmount,
+    paidAmount,
+    balanceAmount,
     loginUrl,
     activationUrl,
     expiryDays
@@ -1013,6 +1118,89 @@ export const sendMemberPasswordResetEmail = async ({
   });
 };
 
+/**
+ * Sends a 6-digit verification OTP to the user's email for password change verification.
+ */
+export const sendPasswordChangeOtpEmail = async ({
+  to,
+  recipientName = 'Gym Owner',
+  otp,
+  expiryMinutes = 10
+}) => {
+  const subject = `Your FiftyFifty Gym Password Change Verification Code: ${otp}`;
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verification Code for Password Change</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; line-height: 1.6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F8FAFC; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <!-- Header Bar -->
+          <tr>
+            <td style="padding: 28px 36px 20px; border-bottom: 1px solid #F1F5F9; text-align: left;">
+              <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #111827;">
+                <span style="color: #FF6B00;">FIFTYFIFTY</span> GYM
+              </span>
+            </td>
+          </tr>
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 32px 36px;">
+              <h1 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0 0 16px;">
+                Password Change Verification Code
+              </h1>
+              <p style="font-size: 15px; color: #4B5563; margin: 0 0 16px;">
+                Hello <strong>${recipientName}</strong>,
+              </p>
+              <p style="font-size: 15px; color: #4B5563; margin: 0 0 24px;">
+                You recently requested to change your password for your FiftyFifty Gym account. Please enter the following 6-digit verification code in the profile dialog to complete the update:
+              </p>
+              <!-- OTP Box -->
+              <div style="background-color: #FFF7ED; border: 2px dashed #FF6B00; border-radius: 12px; padding: 20px 24px; text-align: center; margin: 0 0 24px;">
+                <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #EA580C; display: block;">
+                  ${otp}
+                </span>
+                <span style="font-size: 12px; font-weight: 600; color: #9A3412; text-transform: uppercase; margin-top: 8px; display: block;">
+                  Valid for ${expiryMinutes} minutes
+                </span>
+              </div>
+              <p style="font-size: 14px; color: #6B7280; margin: 0 0 16px;">
+                Never share this verification code with anyone. FiftyFifty Gym staff will never ask for your code or password.
+              </p>
+              <p style="font-size: 13px; color: #9CA3AF; margin: 0;">
+                If you did not request this password change, please disregard this email. Your current password remains secure.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 36px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9; text-align: center;">
+              <p style="font-size: 12px; color: #9CA3AF; margin: 0;">
+                &copy; ${new Date().getFullYear()} FiftyFifty Gym Network. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return sendEmail({
+    to,
+    recipientName,
+    subject,
+    htmlContent,
+    textContent: `Hello ${recipientName},\n\nYour FiftyFifty Gym password change verification code is: ${otp}\n\nThis code is valid for ${expiryMinutes} minutes. If you did not make this request, please ignore this email.`
+  });
+};
+
 export default {
   getBrevoClient,
   sendEmail,
@@ -1031,5 +1219,6 @@ export default {
   sendMemberReceiptEmail,
   sendMemberPasswordResetEmail,
   renderMemberPasswordResetHtml,
-  renderMemberPasswordResetText
+  renderMemberPasswordResetText,
+  sendPasswordChangeOtpEmail
 };

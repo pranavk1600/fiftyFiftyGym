@@ -578,7 +578,7 @@ router.post('/gyms', async (req, res, next) => {
     }
 
     // 5. Brevo Owner Invitation Email
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
     const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
     const loginUrl = `${frontendUrl}/gym/${uniqueSlug}/login`;
     const activationUrl = `${frontendUrl}/gym/${uniqueSlug}/setup-password?token=${rawToken}`;
@@ -749,7 +749,7 @@ router.post('/gyms/:id/resend-invitation', async (req, res, next) => {
       console.warn('[Resend Invitation DB Token Warning]:', dbErr.message);
     }
 
-    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
+    const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://leopardxgyms.vercel.app' : 'http://localhost:5173');
     const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
     const gymSlug = gym.slug || gym.id;
     const loginUrl = `${frontendUrl}/gym/${gymSlug}/login`;
