@@ -593,6 +593,7 @@ export const MemberManagementScreen = () => {
           if (!isSubmitting) setIsAddModalOpen(false);
         }}
         title="Add New Gym Member"
+        maxWidth={620}
         footer={
           <div style={{ display: 'flex', gap: 10, width: '100%', justifyContent: 'flex-end' }}>
             <Button
@@ -618,27 +619,28 @@ export const MemberManagementScreen = () => {
           </div>
         }
       >
-        <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Subtle Banner explaining invitation dispatch */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            padding: '10px 14px',
+            padding: '11px 16px',
             background: 'var(--brand-primary-light, #FFF7ED)',
-            borderRadius: 8,
+            borderRadius: 10,
             border: '1px solid rgba(255, 107, 0, 0.2)',
-            fontSize: '0.82rem',
-            color: 'var(--brand-primary)'
+            fontSize: '0.84rem',
+            color: 'var(--brand-primary)',
+            lineHeight: 1.45
           }}>
             <Sparkles size={16} style={{ flexShrink: 0 }} />
             <span>A secure invitation link will be sent to the member's email to set up their password.</span>
           </div>
 
           {/* Form Row 1: Full Name & Phone Number */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
             <Input
-              label="Full Name *"
+              label="Full Name"
               name="name"
               placeholder="e.g. Rahul Sharma"
               value={newMemberForm.name}
@@ -647,7 +649,7 @@ export const MemberManagementScreen = () => {
               disabled={isSubmitting}
             />
             <Input
-              label="Phone Number *"
+              label="Phone Number"
               name="phone"
               placeholder="e.g. +91 98765 43210"
               value={newMemberForm.phone}
@@ -658,9 +660,9 @@ export const MemberManagementScreen = () => {
           </div>
 
           {/* Form Row 2: Email & Membership Plan */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
             <Input
-              label="Email Address *"
+              label="Email Address"
               name="email"
               type="email"
               placeholder="e.g. rahul@example.com"
@@ -671,20 +673,29 @@ export const MemberManagementScreen = () => {
             />
 
             <div className="input-group">
-              <label className="input-label">Membership Plan *</label>
+              <label className="input-label" htmlFor="new-member-plan-select">
+                Membership Plan <span style={{ color: 'var(--color-danger, #DC2626)', marginLeft: '2px' }}>*</span>
+              </label>
               {plans.length > 0 ? (
                 <select
+                  id="new-member-plan-select"
                   className="input-control"
                   value={newMemberForm.plan}
                   onChange={(e) => handlePlanSelect(e.target.value)}
                   disabled={isSubmitting}
                   required
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                  }}
                 >
                   {plans.map((p) => {
                     const days = p.duration_days || p.durationDays || 30;
                     return (
                       <option key={p.id} value={p.name}>
-                        {p.name} (₹{p.price} • {days} Days)
+                        {p.name} ({days} Days • ₹{p.price})
                       </option>
                     );
                   })}
@@ -703,48 +714,72 @@ export const MemberManagementScreen = () => {
           </div>
 
           {/* Form Row 3: Joining Date & Membership End Date (Auto-calculated, read-only) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
             <div className="input-group">
-              <label className="input-label">Joining Date *</label>
+              <label className="input-label" htmlFor="new-member-join-date">
+                Joining Date <span style={{ color: 'var(--color-danger, #DC2626)', marginLeft: '2px' }}>*</span>
+              </label>
               <input
+                id="new-member-join-date"
                 type="date"
                 className="input-control"
                 value={newMemberForm.joinDate}
                 onChange={(e) => handleJoinDateChange(e.target.value)}
                 required
                 disabled={isSubmitting}
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  fontSize: '0.9rem'
+                }}
               />
             </div>
 
             <div className="input-group">
-              <label className="input-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Membership End Date</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--brand-primary)', fontWeight: 600 }}>
-                  Auto-calculated ({newMemberForm.planDays || 30} days)
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="input-label" htmlFor="new-member-expiry-date" style={{ marginBottom: 0 }}>
+                  Membership End Date
+                </label>
+                <span style={{
+                  fontSize: '0.72rem',
+                  color: 'var(--brand-primary)',
+                  fontWeight: 600,
+                  background: 'var(--brand-primary-soft, rgba(255, 107, 0, 0.08))',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  border: '1px solid var(--brand-primary-soft-border, rgba(255, 107, 0, 0.2))'
+                }}>
+                  Auto ({newMemberForm.planDays || 30} days)
                 </span>
-              </label>
-              <div style={{ position: 'relative' }}>
+              </div>
+              <div style={{ position: 'relative', width: '100%' }}>
                 <input
+                  id="new-member-expiry-date"
                   type="date"
                   className="input-control"
                   value={newMemberForm.expiryDate}
                   readOnly
                   disabled
                   style={{
+                    width: '100%',
+                    height: '42px',
                     backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
                     cursor: 'not-allowed',
                     color: 'var(--text-primary)',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    paddingRight: '36px',
+                    fontSize: '0.9rem'
                   }}
                 />
                 <Lock
-                  size={14}
+                  size={15}
                   style={{
                     position: 'absolute',
                     right: 12,
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)'
+                    color: 'var(--text-secondary, #94A3B8)',
+                    pointerEvents: 'none'
                   }}
                 />
               </div>

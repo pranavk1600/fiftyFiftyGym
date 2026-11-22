@@ -40,6 +40,8 @@ const executeSuperAdminLogin = async (req, res, next) => {
   const { email, password } = req.body || {};
   const normalizedEmail = (email || '').toLowerCase().trim();
   const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
+  const saEnvEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
+  const saEnvPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
 
   try {
     if (!email || !email.trim()) {
@@ -47,6 +49,31 @@ const executeSuperAdminLogin = async (req, res, next) => {
     }
     if (!password) {
       return ApiResponse.error(res, 'Password is required', 400);
+    }
+
+    // In development mode, allow instant login if credentials match configured .env values
+    if (process.env.NODE_ENV !== 'production' && normalizedEmail === saEnvEmail && password === saEnvPassword) {
+      console.log('[Super Admin Login] Authenticated via .env credentials for Super Admin (Dev Mode)');
+      const superAdmin = {
+        id: 'usr_superadmin_dev_001',
+        email: saEnvEmail,
+        fullName: 'Super Admin',
+        role: ROLES.SUPER_ADMIN,
+        gymId: null,
+        gymName: 'Platform Governance'
+      };
+      const token = jwt.sign(
+        {
+          id: superAdmin.id,
+          email: superAdmin.email,
+          role: superAdmin.role,
+          gymId: null,
+          fullName: superAdmin.fullName
+        },
+        secret,
+        { expiresIn: '7d' }
+      );
+      return ApiResponse.success(res, { user: superAdmin, token }, `Welcome back, ${superAdmin.fullName}!`);
     }
 
     const result = await db.query(
@@ -104,9 +131,8 @@ const executeSuperAdminLogin = async (req, res, next) => {
     return ApiResponse.success(res, { user: superAdmin, token }, `Welcome back, ${superAdmin.fullName}!`);
   } catch (error) {
     console.error('[Super Admin Login Error]:', error.message);
-    const isConnError = error.message?.includes('tenant') || error.message?.includes('timeout') || error.message?.includes('ENOTFOUND') || error.code === 'XX000';
 
-    if (process.env.NODE_ENV !== 'production' && isConnError) {
+    if (process.env.NODE_ENV !== 'production') {
       const saEnvEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
       const saEnvPassword = process.env.SUPERADMIN_INITIAL_PASSWORD || 'SuperAdmin#2026!FiftyFifty';
       if (normalizedEmail === saEnvEmail && password === saEnvPassword) {
@@ -527,6 +553,10 @@ const executeUserLogin = async (req, res, next) => {
     return ApiResponse.error(res, 'Invalid email or password', 401);
   } catch (_e) {
     console.error('[User Login DB Check Error]:', _e.message);
+    const saEnvEmail = (process.env.SUPERADMIN_EMAIL || 'leopardxtechnology@gmail.com').toLowerCase().trim();
+    if (process.env.NODE_ENV !== 'production' && normalizedEmail === saEnvEmail) {
+      return executeSuperAdminLogin(req, res, next);
+    }
     return ApiResponse.error(res, 'Database error during authentication', 500);
   }
 };

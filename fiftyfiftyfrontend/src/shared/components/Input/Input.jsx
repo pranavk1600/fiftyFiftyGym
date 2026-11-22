@@ -27,11 +27,13 @@ export const Input = ({
 
   const hasRightAction = shouldShowToggle || !!rightElement;
 
+  const cleanLabel = typeof label === 'string' ? label.replace(/\s*\*+$/, '') : label;
+
   return (
     <div className={`input-group ${className}`.trim()} style={style}>
       {label && (
         <label className="input-label" htmlFor={name}>
-          {label} {required && <span style={{ color: 'var(--color-danger, #DC2626)' }}>*</span>}
+          {cleanLabel} {required && <span style={{ color: 'var(--color-danger, #DC2626)', marginLeft: '2px' }}>*</span>}
         </label>
       )}
       <div
