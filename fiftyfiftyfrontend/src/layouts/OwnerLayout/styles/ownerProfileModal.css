@@ -1,0 +1,342 @@
+/* Owner Profile Modal Styles */
+.opm-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header Card */
+.opm-header-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-surface-elevated, #F8FAFC);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 14px;
+}
+
+.opm-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FF6B00 0%, #EA580C 100%);
+  color: #FFFFFF;
+  font-size: 1.4rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(255, 107, 0, 0.25);
+  flex-shrink: 0;
+}
+
+.opm-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.opm-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.opm-name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+  letter-spacing: -0.01em;
+}
+
+.opm-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #DCFCE7;
+  color: #15803D;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.opm-email-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748B);
+}
+
+.opm-icon {
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+
+/* Section Cards */
+.opm-section-card {
+  background: var(--bg-surface, #FFFFFF);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.opm-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.opm-card-title-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.opm-card-title-icon {
+  color: var(--brand-primary, #FF6B00);
+}
+
+/* Facility Grid */
+.opm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.opm-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.opm-grid-full {
+  grid-column: 1 / -1;
+}
+
+.opm-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #94A3B8);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.opm-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #1E293B);
+}
+
+/* Action Button */
+.opm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: var(--brand-primary-soft, #FFF3E8);
+  color: var(--brand-primary, #FF6B00);
+  border: 1px solid rgba(255, 107, 0, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.opm-action-btn:hover {
+  background: #FFEDD5;
+}
+
+.opm-security-status {
+  padding: 4px 0 2px;
+}
+
+.opm-status-text {
+  font-size: 0.84rem;
+  color: var(--text-secondary, #64748B);
+  line-height: 1.45;
+}
+
+/* Password Box */
+.opm-password-box {
+  background: var(--bg-surface-elevated, #F8FAFC);
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.opm-password-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opm-password-title {
+  margin: 0 0 3px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+}
+
+.opm-password-subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #64748B);
+  line-height: 1.4;
+}
+
+.opm-cancel-text-btn {
+  background: none;
+  border: none;
+  color: #64748B;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.opm-cancel-text-btn:hover {
+  color: #0F172A;
+  background: #E2E8F0;
+}
+
+/* Alert Box */
+.opm-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.opm-alert-success {
+  background: #F0FDF4;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+
+.opm-alert-error {
+  background: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+/* Form Fields */
+.opm-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.opm-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.opm-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary, #334155);
+}
+
+.opm-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.opm-input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 38px 8px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle, #CBD5E1);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-primary, #0F172A);
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.opm-input:focus {
+  border-color: var(--brand-primary, #FF6B00);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+}
+
+.opm-otp-input {
+  letter-spacing: 6px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.opm-eye-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.opm-eye-btn:hover {
+  color: #475569;
+}
+
+.opm-input-inner-icon {
+  position: absolute;
+  right: 12px;
+  color: #94A3B8;
+}
+
+.opm-otp-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.opm-resend-btn {
+  background: none;
+  border: none;
+  color: var(--brand-primary, #FF6B00);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.opm-resend-btn:disabled {
+  color: #94A3B8;
+  cursor: not-allowed;
+}
+
+.opm-button-row {
+  margin-top: 4px;
+}

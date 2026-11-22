@@ -69,8 +69,8 @@ test('Membership Receipt System - Comprehensive Verification Suite', async (t) =
     assert.equal(pdfBuffer.subarray(0, 5).toString('ascii'), '%PDF-', 'Must start with PDF header magic bytes');
   });
 
-  // 3. Test Storage Service - Upload and signed URLs
-  await t.test('3. Supabase / Local Storage Service persists PDF and generates signed URLs', async () => {
+  // 3. Test In-Memory Storage Service - Ephemeral path and signed streaming URLs
+  await t.test('3. In-Memory Ephemeral Storage Service generates signed streaming URLs', async () => {
     testReceiptNumber = `REC-${Date.now()}`;
     const dummyBuffer = Buffer.from('%PDF-1.4 Mock PDF Content For Storage Verification');
     const uploadResult = await uploadReceiptPdf({
@@ -82,11 +82,8 @@ test('Membership Receipt System - Comprehensive Verification Suite', async (t) =
 
     assert.ok(uploadResult.storagePath, 'Upload result must provide storagePath');
     assert.match(uploadResult.storagePath, new RegExp(testReceiptNumber), 'Storage path contains receipt number');
-
-    // Retrieve buffer
-    const retrievedBuffer = await getReceiptPdfBuffer(uploadResult.storagePath);
-    assert.ok(Buffer.isBuffer(retrievedBuffer), 'Retrieved content must be a buffer');
-    assert.equal(retrievedBuffer.toString('ascii'), dummyBuffer.toString('ascii'), 'Retrieved buffer matches original content');
+    assert.equal(uploadResult.bucket, null, 'Bucket must be null for zero cloud storage');
+    assert.equal(uploadResult.localPath, null, 'Local path must be null for zero disk storage');
 
     // Generate signed preview & download URLs
     const signedUrls = await generateReceiptSignedUrls({

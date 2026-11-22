@@ -33,7 +33,7 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'GYM_OWNER' })
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !email.trim()) {
-      showToast('Please enter your email address or mobile number', 'warning');
+      showToast('Please enter your email address', 'warning');
       return;
     }
     if (!password) {
@@ -147,12 +147,12 @@ export const CommonLoginModal = ({ isOpen, onClose, initialRole = 'GYM_OWNER' })
       {!isForgotView ? (
         <form onSubmit={handleLogin}>
           <Input
-            label="Email Address or Mobile Number"
+            label="Email Address"
             name="modal-email"
-            type="text"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com or 9876543210"
+            placeholder="name@company.com"
             required
           />
 
