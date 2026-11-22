@@ -102,17 +102,6 @@ export const DynamicGymLoginScreen = () => {
               }
             }, 1000);
           }
-        } else if (targetSlug === '5050-fitness-club') {
-          // Graceful fallback for flagship gym if database is connecting
-          if (isMounted) {
-            setGym({
-              id: 'gym-5050-fitness-club',
-              name: '5050 Fitness Club',
-              slug: '5050-fitness-club',
-              status: 'active'
-            });
-            setLoadState('ready');
-          }
         } else {
           if (isMounted) setLoadState('not_found');
         }
@@ -121,14 +110,6 @@ export const DynamicGymLoginScreen = () => {
         if (isMounted) {
           if (err.response?.status === 404 || err.status === 404) {
             setLoadState('not_found');
-          } else if (targetSlug === '5050-fitness-club') {
-            setGym({
-              id: 'gym-5050-fitness-club',
-              name: '5050 Fitness Club',
-              slug: '5050-fitness-club',
-              status: 'active'
-            });
-            setLoadState('ready');
           } else {
             setErrorMessage(err.response?.data?.message || err.message || 'Failed to connect to gym portal');
             setLoadState('ready');

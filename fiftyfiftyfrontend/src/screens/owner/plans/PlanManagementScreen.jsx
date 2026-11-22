@@ -142,7 +142,7 @@ export const PlanManagementScreen = () => {
           </Button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24 }}>
           {plans.map((plan) => {
             const features = Array.isArray(plan.features) ? plan.features : [];
 
@@ -280,7 +280,7 @@ export const PlanManagementScreen = () => {
             onChange={(e) => setNewPlanForm({ ...newPlanForm, name: e.target.value })}
             required
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 16 }}>
             <Input
               label="Duration (in Days) *"
               type="number"
@@ -343,7 +343,7 @@ export const PlanManagementScreen = () => {
               onChange={(e) => setEditingPlan({ ...editingPlan, name: e.target.value })}
               required
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 16 }}>
               <Input
                 label="Duration (in Days)"
                 type="number"

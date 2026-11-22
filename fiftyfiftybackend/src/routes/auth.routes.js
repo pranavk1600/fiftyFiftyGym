@@ -274,10 +274,13 @@ const executeGymOwnerLogin = async (req, res, next) => {
       console.warn('[Gym Owner Login] Database offline; resolving credentials via dev store for:', normalizedEmail);
       const inMemOwner = findInMemoryOwner(normalizedEmail);
       const inMemGym = inMemOwner ? findInMemoryGym(inMemOwner.gymId) : findInMemoryGym(targetSlug);
+      if (!inMemOwner && !inMemGym) {
+        return ApiResponse.error(res, 'Invalid credentials or gym not found', 401);
+      }
       const ownerName = inMemOwner?.full_name || inMemOwner?.fullName || 'Gym Owner';
-      const gymId = inMemOwner?.gymId || inMemGym?.id || 'gym-5050-fitness-club';
-      const gymName = inMemGym?.name || '5050 Fitness Club';
-      const gymSlugValue = inMemGym?.slug || targetSlug || '5050-fitness-club';
+      const gymId = inMemOwner?.gymId || inMemGym?.id || '';
+      const gymName = inMemGym?.name || 'Gym';
+      const gymSlugValue = inMemGym?.slug || targetSlug || '';
 
       const devOwner = {
         id: inMemOwner?.id || 'usr_owner_dev_001',
@@ -806,7 +809,7 @@ router.post('/gym/forgot-password', async (req, res, next) => {
         // 5. Construct secure gym-specific reset link using configured FRONTEND_URL
         const rawFrontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://fiftyfiftygym.vercel.app' : 'http://localhost:5173');
         const frontendUrl = rawFrontendUrl.replace(/\/$/, '');
-        const targetSlug = owner.gym_slug || normalizedSlug || '5050-fitness-club';
+        const targetSlug = owner.gym_slug || normalizedSlug || (owner.gym_name ? owner.gym_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'portal');
         const resetUrl = `${frontendUrl}/gym/${targetSlug}/reset-password?token=${rawToken}`;
 
         // 6. Send transactional email via Brevo

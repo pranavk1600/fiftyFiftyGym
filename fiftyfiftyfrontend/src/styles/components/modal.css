@@ -106,3 +106,43 @@
     transform: translateY(0) scale(1);
   }
 }
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 12px 8px;
+    align-items: flex-end;
+  }
+
+  .modal-container {
+    max-height: calc(100vh - 20px);
+    border-radius: 16px 16px 10px 10px;
+    margin: 0;
+    width: 100%;
+    max-width: 100% !important;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .modal-body {
+    padding: 16px 14px;
+    max-height: 70vh;
+  }
+
+  .modal-footer {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .modal-footer button,
+  .modal-footer .btn {
+    flex: 1 1 auto;
+    min-width: 110px;
+  }
+}

@@ -17,6 +17,7 @@ import {
   Edit3,
   UploadCloud,
   Trash2,
+  AlertTriangle,
   Copy,
   ExternalLink
 } from 'lucide-react';
@@ -295,6 +296,11 @@ export const GymManagementScreen = () => {
   // Resend invitation state (stores gymId being resent)
   const [resendingGymId, setResendingGymId] = useState(null);
 
+  // Permanent Delete Gym modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [gymToDelete, setGymToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   /**
    * Fetch all gyms from database
    */
@@ -541,6 +547,40 @@ export const GymManagementScreen = () => {
       showToast(err.message || 'Could not resend invitation email', 'danger');
     } finally {
       setResendingGymId(null);
+    }
+  };
+
+  // Permanent Delete Gym Handlers
+  const handleOpenDeleteModal = (gym) => {
+    setGymToDelete(gym);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteGym = async () => {
+    if (!gymToDelete) return;
+    setIsDeleting(true);
+    try {
+      const response = await apiClient.delete(`/admin/gyms/${gymToDelete.id}`);
+      const data = response.data || response;
+      showToast(data.message || `Gym "${gymToDelete.name}" was permanently deleted.`, 'success');
+
+      setIsDeleteModalOpen(false);
+      const deletedId = gymToDelete.id;
+      setGymToDelete(null);
+
+      // Refresh gyms list
+      await fetchGyms();
+
+      // If the deleted gym was currently selected in editor, reset it
+      if (selectedGymId === deletedId) {
+        setSelectedGymId(null);
+        setActiveTab('list');
+      }
+    } catch (err) {
+      console.error('Failed to permanently delete gym:', err);
+      showToast(err.response?.data?.message || err.message || 'Failed to permanently delete gym', 'danger');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1041,6 +1081,26 @@ export const GymManagementScreen = () => {
                                   </>
                                 )}
                               </Button>
+
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={isDeleting && gymToDelete?.id === gym.id}
+                                onClick={() => handleOpenDeleteModal(gym)}
+                                title="Permanently delete this gym and all its records"
+                                style={{
+                                  fontSize: '0.825rem',
+                                  padding: '6px 12px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  background: 'var(--color-danger, #DC2626)',
+                                  color: '#ffffff'
+                                }}
+                              >
+                                <Trash2 size={13} />
+                                <span>Delete</span>
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -1466,6 +1526,64 @@ export const GymManagementScreen = () => {
                   </div>
                 </div>
               </form>
+
+              {/* Danger Zone: Permanently Delete Gym */}
+              <div style={{
+                marginTop: 32,
+                padding: '20px 24px',
+                borderRadius: 16,
+                background: 'rgba(239, 68, 68, 0.04)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 16
+              }}>
+                <div>
+                  <h4 style={{
+                    fontSize: '0.975rem',
+                    fontWeight: 700,
+                    color: 'var(--color-danger, #DC2626)',
+                    margin: '0 0 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}>
+                    <AlertTriangle size={18} />
+                    <span>Danger Zone: Permanently Delete Gym</span>
+                  </h4>
+                  <p style={{
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                    margin: 0
+                  }}>
+                    Permanently delete <strong>{formData.name || 'this gym'}</strong>, including its owner account, all members, subscriptions, attendance records, and receipts.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => {
+                    const currentGym = gyms.find((g) => g.id === selectedGymId) || { id: selectedGymId, name: formData.name, slug: formData.slug };
+                    handleOpenDeleteModal(currentGym);
+                  }}
+                  disabled={isDeleting}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'var(--color-danger, #DC2626)',
+                    color: '#ffffff',
+                    padding: '8px 16px',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  <Trash2 size={15} />
+                  <span>Permanently Delete Gym</span>
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -1727,6 +1845,139 @@ export const GymManagementScreen = () => {
             </Button>
             <Button onClick={handleSaveConfirmed} disabled={isSaving}>
               {isSaving ? 'Updating...' : 'Yes, Save to Supabase'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* PERMANENT DELETE GYM CONFIRMATION MODAL */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setIsDeleteModalOpen(false);
+            setGymToDelete(null);
+          }
+        }}
+        title="Permanently Delete Gym"
+      >
+        <div style={{ padding: '8px 0' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16,
+            marginBottom: 20
+          }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: 'var(--color-danger-light, #FEE2E2)',
+              color: 'var(--color-danger, #DC2626)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Trash2 size={24} />
+            </div>
+            <div>
+              <h3 style={{
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                margin: '0 0 6px'
+              }}>
+                Delete "{gymToDelete?.name}"?
+              </h3>
+              <p style={{
+                fontSize: '0.875rem',
+                color: 'var(--text-secondary)',
+                margin: 0,
+                lineHeight: 1.5
+              }}>
+                Are you sure you want to permanently delete this gym? This action is <strong style={{ color: 'var(--color-danger, #DC2626)' }}>irreversible and permanent</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-surface-elevated, #F8FAFC)',
+            border: '1px solid var(--border-subtle, #E2E8F0)',
+            borderRadius: 12,
+            padding: '16px',
+            marginBottom: 20
+          }}>
+            <h4 style={{
+              fontSize: '0.825rem',
+              fontWeight: 700,
+              color: 'var(--color-danger, #DC2626)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              margin: '0 0 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6
+            }}>
+              <AlertTriangle size={15} />
+              <span>The following data will be permanently wiped:</span>
+            </h4>
+            <ul style={{
+              margin: 0,
+              paddingLeft: 20,
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.7
+            }}>
+              <li>Gym profile, logo, branding, and dedicated public portal (<code style={{ color: 'var(--brand-primary)' }}>/gym/{gymToDelete?.slug || gymToDelete?.id}</code>)</li>
+              <li>Gym Owner account and authentication credentials</li>
+              <li>All registered gym members and active memberships</li>
+              <li>Attendance check-in history, invoices, and transaction receipts</li>
+            </ul>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 12
+          }}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setGymToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleConfirmDeleteGym}
+              disabled={isDeleting}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'var(--color-danger, #DC2626)',
+                borderColor: 'var(--color-danger, #DC2626)',
+                color: '#FFFFFF'
+              }}
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Deleting Gym...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 size={15} />
+                  <span>Permanently Delete Gym</span>
+                </>
+              )}
             </Button>
           </div>
         </div>

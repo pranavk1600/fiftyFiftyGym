@@ -524,7 +524,7 @@ export const MemberManagementScreen = () => {
         border: '1px solid var(--border-subtle)',
         boxShadow: 'var(--shadow-sm)'
       }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 'min(100%, 220px)' }}>
           <input
             type="text"
             className="input-control"
@@ -638,7 +638,7 @@ export const MemberManagementScreen = () => {
           </div>
 
           {/* Form Row 1: Full Name & Phone Number */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16 }}>
             <Input
               label="Full Name"
               name="name"
@@ -660,7 +660,7 @@ export const MemberManagementScreen = () => {
           </div>
 
           {/* Form Row 2: Email & Membership Plan */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16 }}>
             <Input
               label="Email Address"
               name="email"
@@ -714,7 +714,7 @@ export const MemberManagementScreen = () => {
           </div>
 
           {/* Form Row 3: Joining Date & Membership End Date (Auto-calculated, read-only) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16 }}>
             <div className="input-group">
               <label className="input-label" htmlFor="new-member-join-date">
                 Joining Date <span style={{ color: 'var(--color-danger, #DC2626)', marginLeft: '2px' }}>*</span>
@@ -825,7 +825,7 @@ export const MemberManagementScreen = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 14 }}>
               <div style={{ padding: 12, background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Contact Phone</div>
                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{selectedMember.phone}</div>

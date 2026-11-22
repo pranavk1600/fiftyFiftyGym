@@ -7,9 +7,11 @@ import { Modal } from '../../../shared/components/Modal/Modal';
 import { Input } from '../../../shared/components/Input/Input';
 import { formatCurrency, formatDate } from '../../../shared/utils/formatters';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
 import { apiClient } from '../../../shared/services/apiClient';
 
 export const PaymentManagementScreen = () => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
@@ -183,7 +185,7 @@ export const PaymentManagementScreen = () => {
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: 20, marginBottom: 28 }}>
         <div style={{
           background: 'var(--bg-surface)',
           padding: 24,
@@ -236,7 +238,7 @@ export const PaymentManagementScreen = () => {
         border: '1px solid var(--border-subtle)',
         boxShadow: 'var(--shadow-sm)'
       }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 'min(100%, 220px)' }}>
           <input
             type="text"
             className="input-control"
@@ -372,7 +374,9 @@ export const PaymentManagementScreen = () => {
             background: 'var(--bg-surface-elevated)'
           }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: '1.35rem', color: 'var(--text-primary)' }}>FiftyFifty Gym</h2>
+              <h2 style={{ fontSize: '1.35rem', color: 'var(--text-primary)' }}>
+                {(user?.gymName || user?.gym?.name || 'GYM').toUpperCase()}
+              </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Official Payment Acknowledgment & Tax Invoice</p>
             </div>
 
