@@ -267,14 +267,9 @@ export const EditMemberModal = ({
 
           <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 14 }}>
             <div className="input-group">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label className="input-label" htmlFor="edit-member-id" style={{ marginBottom: 0 }}>
-                  ID
-                </label>
-                <span className="auto-calc-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Lock size={10} /> Fixed
-                </span>
-              </div>
+              <label className="input-label" htmlFor="edit-member-id">
+                ID
+              </label>
               <input
                 id="edit-member-id"
                 type="text"
@@ -287,7 +282,7 @@ export const EditMemberModal = ({
                   fontWeight: 700,
                   backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
                   color: 'var(--text-primary)',
-                  cursor: 'not-allowed'
+                  cursor: 'default'
                 }}
               />
             </div>
@@ -542,40 +537,23 @@ export const EditMemberModal = ({
             </div>
 
             <div className="input-group">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label className="input-label" htmlFor="edit-member-receipt-no" style={{ marginBottom: 0 }}>
-                  Receipt Number
-                </label>
-                <span className="auto-calc-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Lock size={10} /> Same as ID
-                </span>
-              </div>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="edit-member-receipt-no"
-                  type="text"
-                  className="input-control"
-                  value={form.customMemberId}
-                  readOnly
-                  disabled
-                  style={{
-                    fontWeight: 700,
-                    backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
-                    color: 'var(--text-primary)',
-                    cursor: 'not-allowed'
-                  }}
-                />
-                <Lock
-                  size={14}
-                  style={{
-                    position: 'absolute',
-                    right: 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)'
-                  }}
-                />
-              </div>
+              <label className="input-label" htmlFor="edit-member-receipt-no">
+                Receipt Number
+              </label>
+              <input
+                id="edit-member-receipt-no"
+                type="text"
+                className="input-control"
+                value={form.customMemberId}
+                readOnly
+                disabled
+                style={{
+                  fontWeight: 700,
+                  backgroundColor: 'var(--bg-surface-elevated, #F8FAFC)',
+                  color: 'var(--text-primary)',
+                  cursor: 'default'
+                }}
+              />
             </div>
           </div>
         </div>
