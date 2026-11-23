@@ -1,6 +1,54 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const PRODUCTION_API_URL = 'https://fiftyfiftygym.onrender.com/api';
+
+/**
+ * Resolves the backend API base URL safely across environments.
+ *
+ * Rules:
+ * 1. Default production API Base URL is 'https://fiftyfiftygym.onrender.com/api'.
+ * 2. In production builds or when hosted on a remote domain (e.g. Vercel):
+ *    - Guard against missing, localhost, or invalid frontend URLs in VITE_API_URL.
+ *    - Strictly use PRODUCTION_API_URL.
+ * 3. In local development on localhost:
+ *    - Allows explicit local dev overrides if VITE_API_URL is provided (e.g. http://localhost:5000/api).
+ *    - Otherwise safely falls back to PRODUCTION_API_URL.
+ * 4. Normalizes URLs by removing trailing slashes and ensuring '/api' path.
+ */
+export const getApiBaseUrl = () => {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim();
+  const isProdBuild = Boolean(import.meta.env.PROD);
+  const isBrowser = typeof window !== 'undefined' && Boolean(window.location?.hostname);
+  const isLocalHost = isBrowser
+    ? ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
+    : !isProdBuild;
+
+  // In production builds or when running on production domains
+  if (isProdBuild || (!isLocalHost && isBrowser)) {
+    // If VITE_API_URL is missing, points to localhost, or is accidentally set to the frontend URL
+    if (
+      !envUrl ||
+      envUrl.includes('localhost') ||
+      envUrl.includes('127.0.0.1') ||
+      envUrl.includes('vercel.app')
+    ) {
+      return PRODUCTION_API_URL;
+    }
+  }
+
+  // If a valid custom environment URL is supplied, normalize it
+  if (envUrl) {
+    let cleanUrl = envUrl.replace(/\/+$/, '');
+    if (!cleanUrl.endsWith('/api')) {
+      cleanUrl = `${cleanUrl}/api`;
+    }
+    return cleanUrl;
+  }
+
+  return PRODUCTION_API_URL;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
