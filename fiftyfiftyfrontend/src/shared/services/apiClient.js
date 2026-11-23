@@ -117,11 +117,8 @@ apiClient.interceptors.response.use(
         if (path.startsWith('/admin') || path.startsWith('/superadmin')) {
           window.location.href = '/superadmin/login';
         } else if (path.startsWith('/owner')) {
-          if (lastGymSlug) {
-            window.location.href = `/gym/${lastGymSlug}/login`;
-          } else {
-            window.location.href = '/admin/login';
-          }
+          localStorage.removeItem('fiftyfifty_last_gym_slug');
+          window.location.href = '/?signin=true';
         } else {
           window.location.href = '/admin/login';
         }

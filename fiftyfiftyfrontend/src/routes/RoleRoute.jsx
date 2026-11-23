@@ -14,7 +14,7 @@ export const RoleRoute = ({ allowedRoles = [] }) => {
     if (isSuperAdmin) return <Navigate to="/admin/dashboard" replace />;
     if (role === 'GYM_OWNER') return <Navigate to="/owner/dashboard" replace />;
     if (role === 'MEMBER') return <Navigate to="/member/dashboard" replace />;
-    return <Navigate to="/admin/login" replace />;
+    return <Navigate to="/?signin=true" replace state={{ openSignIn: true }} />;
   }
 
   return <Outlet />;

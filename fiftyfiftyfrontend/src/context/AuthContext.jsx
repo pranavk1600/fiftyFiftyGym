@@ -106,6 +106,12 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('fiftyfifty_member_token');
       localStorage.removeItem('fiftyfifty_member_user');
     }
+    // Also remove role-specific tokens and cached gym slug if they exist
+    if (localStorage.getItem('fiftyfifty_owner_token')) {
+      localStorage.removeItem('fiftyfifty_owner_token');
+      localStorage.removeItem('fiftyfifty_owner_user');
+    }
+    localStorage.removeItem('fiftyfifty_last_gym_slug');
     setUser(null);
     setToken(null);
     localStorage.removeItem('fiftyfifty_token');

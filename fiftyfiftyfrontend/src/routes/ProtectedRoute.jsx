@@ -15,16 +15,12 @@ export const ProtectedRoute = () => {
     if (location.pathname.startsWith('/admin') || location.pathname.startsWith('/superadmin')) {
       return <Navigate to="/superadmin/login" replace />;
     }
-    // If attempting to access Gym Owner protected paths, direct to gym-specific login or platform login
+    // If attempting to access Gym Owner protected paths, redirect to homepage with Sign In modal
     if (location.pathname.startsWith('/owner')) {
-      const lastGymSlug = localStorage.getItem('fiftyfifty_last_gym_slug');
-      if (lastGymSlug) {
-        return <Navigate to={`/gym/${lastGymSlug}/login`} replace />;
-      }
-      return <Navigate to="/admin/login" replace />;
+      return <Navigate to="/?signin=true" replace state={{ openSignIn: true }} />;
     }
-    // Default safe redirect to Gym Admin login
-    return <Navigate to="/admin/login" replace />;
+    // Default safe redirect to homepage with Sign In modal
+    return <Navigate to="/?signin=true" replace state={{ openSignIn: true }} />;
   }
 
   return <Outlet />;
