@@ -171,46 +171,6 @@
   gap: 10px;
 }
 
-.btn-gym-nav-owner {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-elevated, #F1F5F9);
-  color: var(--text-primary);
-  font-size: 0.825rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.15s ease;
-}
-
-.btn-gym-nav-owner:hover {
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-}
-
-.btn-gym-nav-member {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface, #FFFFFF);
-  color: var(--navy-primary, #101828);
-  font-size: 0.825rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-gym-nav-member:hover {
-  background: var(--bg-surface-elevated);
-  transform: translateY(-1px);
-}
 
 .btn-gym-nav-join {
   display: inline-flex;
@@ -879,9 +839,6 @@
     display: none;
   }
 
-  .gym-nav-btn-group .btn-gym-nav-owner span {
-    display: none;
-  }
 }
 
 @media (max-width: 640px) {

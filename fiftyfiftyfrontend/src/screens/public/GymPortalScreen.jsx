@@ -214,28 +214,6 @@ export const GymPortalScreen = () => {
               </Button>
             ) : (
               <div className="gym-nav-btn-group">
-                <Link
-                  to={`/gym/${slug}/login`}
-                  className="btn-gym-nav-owner"
-                  title="Gym Owner Admin Access"
-                >
-                  <Shield size={14} />
-                  <span>Owner Login</span>
-                </Link>
-
-                <button
-                  type="button"
-                  className="btn-gym-nav-member"
-                  onClick={() => {
-                    setLoginInitialRole('MEMBER');
-                    setIsLoginModalOpen(true);
-                  }}
-                  title="Member Sign In"
-                >
-                  <User size={14} />
-                  <span>Member Login</span>
-                </button>
-
                 <button
                   type="button"
                   className="btn-gym-nav-join"
