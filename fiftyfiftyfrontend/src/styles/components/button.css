@@ -16,6 +16,22 @@
   text-decoration: none;
 }
 
+.btn:active:not(:disabled) {
+  transform: scale(0.98) !important;
+}
+
+.btn-navy {
+  background: var(--navy-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.15);
+}
+
+.btn-navy:hover:not(:disabled) {
+  background: var(--navy-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.25);
+}
+
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

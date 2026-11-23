@@ -9,11 +9,40 @@
 .member-table-container {
   width: 100%;
   overflow-x: auto;
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg, 16px);
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   -webkit-overflow-scrolling: touch;
+}
+
+.member-table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.member-table-container::-webkit-scrollbar-track {
+  background: var(--bg-surface-elevated, #F1F5F9);
+  border-radius: 4px;
+}
+
+.member-table-container::-webkit-scrollbar-thumb {
+  background: var(--border-medium, #CBD5E1);
+  border-radius: 4px;
+}
+
+.member-table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-primary);
+}
+
+.member-table-container .btn-sm {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.member-table-container .btn-sm:hover {
+  transform: translateY(-1px);
 }
 
 /* Ensure table header & data are centered and in ONE line */
