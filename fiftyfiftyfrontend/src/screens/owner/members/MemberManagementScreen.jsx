@@ -18,13 +18,15 @@ import {
   FileText,
   Download,
   ExternalLink,
-  Receipt
+  Receipt,
+  Upload
 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { Modal } from '../../../shared/components/Modal/Modal';
 import { Input } from '../../../shared/components/Input/Input';
+import { ImportMembersModal } from './ImportMembersModal';
 import { formatDate } from '../../../shared/utils/formatters';
 import { calculateMembershipEndDate } from '../../../shared/utils/dateUtils';
 import { useToast } from '../../../context/ToastContext';
@@ -43,6 +45,7 @@ export const MemberManagementScreen = () => {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -506,10 +509,21 @@ export const MemberManagementScreen = () => {
           <h1 style={{ fontSize: '1.85rem', marginBottom: 4, color: 'var(--text-primary)' }}>Member Management</h1>
           <p style={{ color: 'var(--text-secondary)' }}>View, add, search, renew, and invite members to their personal portal</p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <UserPlus size={18} />
-          <span>Add New Member</span>
-        </Button>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setIsImportModalOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <Upload size={18} />
+            <span>Import Members</span>
+          </button>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            <UserPlus size={18} />
+            <span>Add New Member</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters Bar */}
@@ -1276,6 +1290,15 @@ export const MemberManagementScreen = () => {
           </div>
         )}
       </Modal>
+
+      {/* Bulk Member Import Modal */}
+      <ImportMembersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          fetchMembers();
+        }}
+      />
     </div>
   );
 };
