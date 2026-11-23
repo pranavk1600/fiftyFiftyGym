@@ -255,3 +255,23 @@ CREATE INDEX IF NOT EXISTS idx_receipts_gym_id ON membership_receipts(gym_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_member_id ON membership_receipts(member_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_receipt_number ON membership_receipts(receipt_number);
 CREATE INDEX IF NOT EXISTS idx_receipts_payment_status ON membership_receipts(payment_status);
+
+-- 13. PASSWORD RESET OTPS TABLE (Secure 6-Digit Single-Use Hashed OTP System)
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(50) NOT NULL,
+  user_type VARCHAR(50) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  otp_hash VARCHAR(255) NOT NULL,
+  attempts INTEGER DEFAULT 0,
+  max_attempts INTEGER DEFAULT 5,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  verified_at TIMESTAMP WITH TIME ZONE,
+  reset_token_hash VARCHAR(255),
+  used_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_reset_otps_email ON password_reset_otps(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_reset_otps_user_id ON password_reset_otps(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_otps_reset_token ON password_reset_otps(reset_token_hash);

@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
+import { CommonLoginModal } from '../../../shared/components/CommonLoginModal/CommonLoginModal';
 import '../../../styles/screens/auth/dynamicGymLogin.css';
 
 export const DynamicMemberLoginScreen = () => {
@@ -37,13 +38,7 @@ export const DynamicMemberLoginScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [logoFailed, setLogoFailed] = useState(false);
-
-  // Forgot password modal state
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingForgot, setIsSendingForgot] = useState(false);
-  const [forgotSubmitted, setForgotSubmitted] = useState(false);
-  const [forgotError, setForgotError] = useState('');
 
   const DEFAULT_FALLBACK_GYM_BG = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1920&q=80';
 
@@ -140,37 +135,6 @@ export const DynamicMemberLoginScreen = () => {
       showToast(msg, 'danger');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Handle Forgot Password
-  const handleForgotSubmit = async (e) => {
-    e.preventDefault();
-    setForgotError('');
-
-    if (!forgotEmail.trim()) {
-      setForgotError('Please enter your registered email address');
-      return;
-    }
-
-    setIsSendingForgot(true);
-
-    try {
-      await apiClient.post('/auth/member/forgot-password', {
-        email: forgotEmail.trim(),
-        gymSlug,
-        memberSlug
-      });
-      setForgotSubmitted(true);
-      showToast('Password reset link sent! Check your inbox.', 'success');
-    } catch (err) {
-      if (err.response?.status === 429) {
-        setForgotError(err.response?.data?.message || 'Too many reset attempts. Please wait 15 minutes.');
-      } else {
-        setForgotSubmitted(true);
-      }
-    } finally {
-      setIsSendingForgot(false);
     }
   };
 
@@ -323,11 +287,7 @@ export const DynamicMemberLoginScreen = () => {
                   </label>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsForgotModalOpen(true);
-                      setForgotSubmitted(false);
-                      setForgotError('');
-                    }}
+                    onClick={() => setIsForgotModalOpen(true)}
                     className="dynamic-gym-forgot-link"
                   >
                     Forgot Password?
@@ -395,103 +355,14 @@ export const DynamicMemberLoginScreen = () => {
         )}
       </div>
 
-      {/* Forgot Password Modal */}
-      {isForgotModalOpen && (
-        <div className="dynamic-gym-modal-overlay" onClick={() => setIsForgotModalOpen(false)}>
-          <div
-            className="dynamic-gym-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-labelledby="forgot-modal-title"
-          >
-            <div className="dynamic-gym-modal-header">
-              <div className="dynamic-gym-modal-icon-badge">
-                <KeyRound size={22} />
-              </div>
-              <div>
-                <h3 id="forgot-modal-title" className="dynamic-gym-modal-title">
-                  Reset Member Password
-                </h3>
-                <p className="dynamic-gym-modal-subtitle">
-                  We'll send a secure password reset link to your registered member email.
-                </p>
-              </div>
-            </div>
-
-            {forgotSubmitted ? (
-              <div className="dynamic-gym-modal-success">
-                <CheckCircle2 size={36} className="dynamic-gym-modal-success-icon" />
-                <h4 className="dynamic-gym-modal-success-title">Check Your Inbox</h4>
-                <p className="dynamic-gym-modal-success-text">
-                  If an active account exists for <strong>{forgotEmail}</strong> at {gym?.name || 'this gym'}, a secure password reset link has been dispatched.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setIsForgotModalOpen(false)}
-                  className="dynamic-gym-submit-btn"
-                  style={{ marginTop: 16 }}
-                >
-                  Return to Member Sign In
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotSubmit} className="dynamic-gym-form">
-                {forgotError && (
-                  <div className="dynamic-gym-alert error">
-                    <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span>{forgotError}</span>
-                  </div>
-                )}
-
-                <div className="dynamic-gym-field">
-                  <label className="dynamic-gym-label" htmlFor="forgot-email">
-                    Member Email Address
-                  </label>
-                  <div className="dynamic-gym-input-wrapper">
-                    <Mail size={18} className="dynamic-gym-input-icon" />
-                    <input
-                      id="forgot-email"
-                      type="email"
-                      required
-                      placeholder="e.g. member@example.com"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                      className="dynamic-gym-input"
-                      disabled={isSendingForgot}
-                    />
-                  </div>
-                </div>
-
-                <div className="dynamic-gym-modal-actions">
-                  <button
-                    type="button"
-                    onClick={() => setIsForgotModalOpen(false)}
-                    className="dynamic-gym-btn-secondary"
-                    disabled={isSendingForgot}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="dynamic-gym-submit-btn"
-                    disabled={isSendingForgot}
-                    style={{ flex: 1 }}
-                  >
-                    {isSendingForgot ? (
-                      <>
-                        <RefreshCw size={16} className="dynamic-gym-spin" />
-                        <span>Sending...</span>
-                      </>
-                    ) : (
-                      <span>Send Reset Link</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Forgot Password OTP Modal */}
+      <CommonLoginModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        startInForgot={true}
+        initialEmail={email}
+        initialRole="MEMBER"
+      />
     </div>
   );
 };

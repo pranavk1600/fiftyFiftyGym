@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test:otp": "node src/tests/otp_frontend.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
