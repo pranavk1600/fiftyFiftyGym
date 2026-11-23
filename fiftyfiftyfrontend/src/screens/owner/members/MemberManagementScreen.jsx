@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
+import { UserPlus, ChevronLeft, ChevronRight, Upload, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { ImportMembersModal } from './ImportMembersModal';
@@ -29,6 +29,10 @@ export const MemberManagementScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState(null);
+
+  // Selection & Bulk Actions state
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -430,20 +434,55 @@ export const MemberManagementScreen = () => {
     );
   };
 
-  // Table Columns Definition
-  const columns = useMemo(() => {
-    return getMemberColumns({
-      onSelectMember: (m) => setSelectedMember(m),
-      onOpenReceipt: handleOpenReceiptModal,
-      onResendInvitation: handleResendInvitation,
-      onEditMember: (m) => {
-        setMemberToEdit(m);
-        setIsEditModalOpen(true);
-      },
-      resendingId,
-      renderInvitationBadge
+  // Individual Delete Handlers
+  const handleRequestDeleteMember = (member) => {
+    showAlert({
+      type: 'danger',
+      title: 'Delete Member Confirmation',
+      message: 'Are you sure you want to delete this member?',
+      details: `Member: ${member.name} (ID: #${member.customMemberId || member.id})`,
+      confirmText: 'Yes, Delete Member',
+      cancelText: 'Cancel',
+      onConfirm: () => handleConfirmDeleteSingle(member)
     });
-  }, [resendingId]);
+  };
+
+  const handleConfirmDeleteSingle = async (member) => {
+    closeAlert();
+    setIsDeleting(true);
+    try {
+      await apiClient.delete(`/members/${member.id}`);
+      showToast(`Member "${member.name}" deleted successfully.`, 'info');
+      setSelectedMemberIds((prev) => {
+        const next = new Set(prev);
+        next.delete(member.id);
+        return next;
+      });
+      fetchMembers();
+    } catch (err) {
+      showAlert({
+        type: 'danger',
+        title: 'Deletion Failed',
+        message: err.response?.data?.message || err.message || 'Failed to delete member.',
+        confirmText: 'Close'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Bulk Selection Handlers
+  const handleToggleSelectRow = (id) => {
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Filtering
   const filteredMembers = useMemo(() => {
@@ -464,6 +503,98 @@ export const MemberManagementScreen = () => {
       return matchSearch && matchStatus;
     });
   }, [members, searchTerm, statusFilter]);
+
+  const isAllSelected = useMemo(() => {
+    if (filteredMembers.length === 0) return false;
+    return filteredMembers.every((m) => selectedMemberIds.has(m.id));
+  }, [filteredMembers, selectedMemberIds]);
+
+  const isIndeterminate = useMemo(() => {
+    if (filteredMembers.length === 0) return false;
+    const selectedCount = filteredMembers.filter((m) => selectedMemberIds.has(m.id)).length;
+    return selectedCount > 0 && selectedCount < filteredMembers.length;
+  }, [filteredMembers, selectedMemberIds]);
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      // Deselect visible filtered members
+      setSelectedMemberIds((prev) => {
+        const next = new Set(prev);
+        filteredMembers.forEach((m) => next.delete(m.id));
+        return next;
+      });
+    } else {
+      // Select visible filtered members
+      setSelectedMemberIds((prev) => {
+        const next = new Set(prev);
+        filteredMembers.forEach((m) => next.add(m.id));
+        return next;
+      });
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMemberIds(new Set());
+  };
+
+  // Bulk Delete Handlers
+  const handleRequestBulkDelete = () => {
+    const count = selectedMemberIds.size;
+    if (count === 0) return;
+
+    showAlert({
+      type: 'danger',
+      title: 'Bulk Delete Confirmation',
+      message: `Are you sure you want to delete ${count} selected member(s)?`,
+      details: `This action will permanently delete ${count} selected member profile(s). Payment records and financial history are safely preserved.`,
+      confirmText: `Yes, Delete ${count} Member${count > 1 ? 's' : ''}`,
+      cancelText: 'Cancel',
+      onConfirm: handleConfirmBulkDelete
+    });
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    closeAlert();
+    setIsDeleting(true);
+    try {
+      const memberIds = Array.from(selectedMemberIds);
+      const res = await apiClient.post('/members/bulk-delete', { memberIds });
+      const deletedCount = res.data?.data?.deletedCount || memberIds.length;
+      showToast(`Successfully deleted ${deletedCount} member(s).`, 'success');
+      setSelectedMemberIds(new Set());
+      fetchMembers();
+    } catch (err) {
+      showAlert({
+        type: 'danger',
+        title: 'Bulk Deletion Failed',
+        message: err.response?.data?.message || err.message || 'Failed to delete selected members.',
+        confirmText: 'Close'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Table Columns Definition
+  const columns = useMemo(() => {
+    return getMemberColumns({
+      onSelectMember: (m) => setSelectedMember(m),
+      onOpenReceipt: handleOpenReceiptModal,
+      onResendInvitation: handleResendInvitation,
+      onEditMember: (m) => {
+        setMemberToEdit(m);
+        setIsEditModalOpen(true);
+      },
+      onDeleteMember: handleRequestDeleteMember,
+      resendingId,
+      renderInvitationBadge,
+      selectedIds: selectedMemberIds,
+      onToggleSelectRow: handleToggleSelectRow,
+      onToggleSelectAll: handleToggleSelectAll,
+      isAllSelected,
+      isIndeterminate
+    });
+  }, [resendingId, selectedMemberIds, isAllSelected, isIndeterminate, filteredMembers]);
 
   return (
     <div className="member-management-wrapper">
@@ -534,6 +665,59 @@ export const MemberManagementScreen = () => {
           </select>
         </div>
       </div>
+
+      {/* Bulk Action Bar (when rows are selected) */}
+      {selectedMemberIds.size > 0 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 18px',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          borderRadius: 'var(--radius-lg, 12px)',
+          flexWrap: 'wrap',
+          gap: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.9rem' }}>
+            <span style={{ fontWeight: 700, color: 'var(--color-danger, #EF4444)' }}>
+              {selectedMemberIds.size} member{selectedMemberIds.size > 1 ? 's' : ''} selected
+            </span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              (from {filteredMembers.length} visible in current view)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleClearSelection}
+              disabled={isDeleting}
+            >
+              Deselect All
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={handleRequestBulkDelete}
+              disabled={isDeleting}
+              style={{
+                background: 'var(--color-danger, #EF4444)',
+                color: '#fff',
+                border: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontWeight: 600
+              }}
+            >
+              {isDeleting ? <RefreshCw size={14} className="spin" /> : <Trash2 size={14} />}
+              <span>Delete Selected ({selectedMemberIds.size})</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Members Table (Excel Layout with Horizontal Scroll) */}
       <div className="member-table-container">

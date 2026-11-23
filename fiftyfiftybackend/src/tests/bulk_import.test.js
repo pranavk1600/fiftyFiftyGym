@@ -162,4 +162,68 @@ describe('Bulk Member Import Service Tests', () => {
     // Parsing and mapping 2,000 records should complete within 500ms
     assert.ok(elapsed < 1000, `Parsing 2,000 rows took ${elapsed}ms, which should be under 1,000ms`);
   });
+
+  it('9. Balance calculation: preserve explicit zero vs calculate when missing or empty', () => {
+    // Row A: explicit zero balance
+    const rowA = {
+      'NAME': 'Member A',
+      'Total Am': '1500',
+      'Received Am': '1200',
+      'Bal. Am': '0' // Explicitly 0
+    };
+    const mappedA = mapCsvRowToMember(rowA, 0);
+    assert.strictEqual(mappedA.totalAmount, 1500);
+    assert.strictEqual(mappedA.receivedAmount, 1200);
+    assert.strictEqual(mappedA.balanceAmount, 0, 'Explicit 0 balance should be preserved');
+
+    // Row B: missing balance column (empty string)
+    const rowB = {
+      'NAME': 'Member B',
+      'Total Am': '1500',
+      'Received Am': '1000',
+      'Bal. Am': '' // Empty
+    };
+    const mappedB = mapCsvRowToMember(rowB, 1);
+    assert.strictEqual(mappedB.totalAmount, 1500);
+    assert.strictEqual(mappedB.receivedAmount, 1000);
+    assert.strictEqual(mappedB.balanceAmount, 500, 'Missing balance should be auto-calculated as Total - Received');
+
+    // Row C: explicit non-zero balance
+    const rowC = {
+      'NAME': 'Member C',
+      'Total Am': '3000',
+      'Received Am': '1000',
+      'Bal. Am': '2000'
+    };
+    const mappedC = mapCsvRowToMember(rowC, 2);
+    assert.strictEqual(mappedC.totalAmount, 3000);
+    assert.strictEqual(mappedC.receivedAmount, 1000);
+    assert.strictEqual(mappedC.balanceAmount, 2000);
+  });
+
+  it('10. Exact Excel import mapping matching Pranav Gym sample spreadsheet', () => {
+    const rawExcelRow = {
+      'ID': '2106',
+      'NAME': 'yasa jadha',
+      'Payment': '2024-01-10',
+      'Start D': '2024-01-10',
+      'End D': '2024-02-10',
+      'Duration': '1',
+      'M Type': 'Gym + cardio',
+      'Total Am': '1200',
+      'Received Am': '1200',
+      'Bal. Am': '0',
+      'Rc N': '4372'
+    };
+
+    const mapped = mapCsvRowToMember(rawExcelRow, 0);
+    assert.strictEqual(mapped.rawId, '2106');
+    assert.strictEqual(mapped.name, 'yasa jadha');
+    assert.strictEqual(mapped.durationMonths, 1);
+    assert.strictEqual(mapped.membershipType, 'Gym + cardio');
+    assert.strictEqual(mapped.totalAmount, 1200);
+    assert.strictEqual(mapped.receivedAmount, 1200);
+    assert.strictEqual(mapped.balanceAmount, 0);
+    assert.strictEqual(mapped.receiptNumber, '4372');
+  });
 });

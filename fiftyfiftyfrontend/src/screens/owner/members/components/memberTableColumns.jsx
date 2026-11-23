@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, FileText, Send, RefreshCw, Edit2 } from 'lucide-react';
+import { Eye, FileText, Send, RefreshCw, Edit2, Trash2 } from 'lucide-react';
 import { formatCurrency, formatExcelDate } from '../../../../shared/utils/formatters';
 import { Badge } from '../../../../shared/components/Badge/Badge';
 
@@ -14,10 +14,51 @@ export const getMemberColumns = ({
   onOpenReceipt,
   onResendInvitation,
   onEditMember,
+  onDeleteMember,
   resendingId,
-  renderInvitationBadge
+  renderInvitationBadge,
+  selectedIds,
+  onToggleSelectRow,
+  onToggleSelectAll,
+  isAllSelected,
+  isIndeterminate
 }) => {
   return [
+    // -------------------------------------------------------------
+    // SELECTION COLUMN
+    // -------------------------------------------------------------
+    {
+      header: (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <input
+            type="checkbox"
+            className="member-select-checkbox"
+            checked={Boolean(isAllSelected)}
+            ref={(el) => {
+              if (el) el.indeterminate = Boolean(isIndeterminate);
+            }}
+            onChange={onToggleSelectAll}
+            title={isAllSelected ? 'Deselect All' : 'Select All'}
+            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand-primary, #FF6B00)' }}
+          />
+        </div>
+      ),
+      key: 'select',
+      width: '45px',
+      render: (m) => (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <input
+            type="checkbox"
+            className="member-select-checkbox"
+            checked={selectedIds ? selectedIds.has(m.id) : false}
+            onChange={() => onToggleSelectRow && onToggleSelectRow(m.id)}
+            title={`Select ${m.name}`}
+            style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--brand-primary, #FF6B00)' }}
+          />
+        </div>
+      )
+    },
+
     // -------------------------------------------------------------
     // EXCEL SHEET COLUMNS (1 - 11)
     // -------------------------------------------------------------
@@ -192,7 +233,7 @@ export const getMemberColumns = ({
     {
       header: 'Actions',
       key: 'actions',
-      width: '210px',
+      width: '245px',
       render: (m) => (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}>
           <button
@@ -241,6 +282,15 @@ export const getMemberColumns = ({
             title="Edit Member / Renew"
           >
             <Edit2 size={13} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => onDeleteMember && onDeleteMember(m)}
+            title="Delete Member"
+            style={{ color: 'var(--color-danger, #EF4444)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+          >
+            <Trash2 size={13} />
           </button>
         </div>
       )
