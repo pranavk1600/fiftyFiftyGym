@@ -580,8 +580,8 @@ router.post('/', async (req, res, next) => {
       emailError
     }, normalizedEmail
       ? (emailStatus === 'sent'
-          ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
-          : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
+        ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
+        : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
       : 'Member registered and official receipt generated successfully!',
       201
     );

@@ -126,7 +126,7 @@ export const MemberManagementScreen = () => {
       if (Array.isArray(data) && data.length > 0) {
         setPlans(data);
       }
-    } catch (_e) {}
+    } catch (_e) { }
   };
 
   useEffect(() => {
@@ -544,8 +544,8 @@ export const MemberManagementScreen = () => {
             isLoading
               ? 'Loading members...'
               : members.length === 0
-              ? "No members registered yet. Click 'Add New Member' to register your first member."
-              : 'No members found matching your search.'
+                ? "No members registered yet. Click 'Add New Member' to register your first member."
+                : 'No members found matching your search.'
           }
         />
       </div>
