@@ -8,8 +8,6 @@ import {
   CheckCircle2,
   ArrowRight,
   ExternalLink,
-  Copy,
-  Check,
   Sparkles,
   Activity,
   Users,
@@ -18,8 +16,6 @@ import {
   MapPin,
   Phone,
   Mail,
-  FileText,
-  Code2,
   Lock,
   ChevronDown,
   Layers,
@@ -68,10 +64,6 @@ export const LandingScreen = () => {
     }
   };
 
-  // Interactive documentation state
-  const [activeDocsTab, setActiveDocsTab] = useState('quickstart');
-  const [copiedSnippet, setCopiedSnippet] = useState(null);
-
   // Live preview mockup tab
   const [activePreviewTab, setActivePreviewTab] = useState('owner');
 
@@ -98,14 +90,6 @@ export const LandingScreen = () => {
     fetchShowcaseGyms();
     return () => { isMounted = false; };
   }, []);
-
-  // Copy code helper
-  const handleCopyCode = (id, text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedSnippet(id);
-    showToast('Code snippet copied to clipboard!', 'success');
-    setTimeout(() => setCopiedSnippet(null), 2500);
-  };
 
   // Redirect to user dashboard based on role
   const handleGoToDashboard = () => {
@@ -141,7 +125,6 @@ export const LandingScreen = () => {
           <div className="landing-nav-links">
             <a href="#features" className="landing-nav-link">Features</a>
             <a href="#architecture" className="landing-nav-link">Architecture</a>
-            <a href="#docs" className="landing-nav-link">Documentation</a>
             <a href="#gyms" className="landing-nav-link">Gym Showcase</a>
             <a href="#pricing" className="landing-nav-link">Plans</a>
           </div>
@@ -238,10 +221,6 @@ export const LandingScreen = () => {
             <a href="#gyms" className="btn-hero-primary">
               <Building2 size={18} />
               <span>Explore Gym Showcase</span>
-            </a>
-            <a href="#docs" className="btn-hero-secondary">
-              <FileText size={18} />
-              <span>Interactive Documentation</span>
             </a>
             <button
               type="button"
@@ -517,194 +496,6 @@ export const LandingScreen = () => {
       </section>
 
       {/* ====================================================================
-          INTERACTIVE DOCUMENTATION SECTION ("DOCS FIRST")
-          ==================================================================== */}
-      <section id="docs" className="landing-section" style={{ background: 'var(--bg-surface-elevated)', borderRadius: 28, margin: '20px auto 80px', padding: '60px 24px' }}>
-        <div className="section-header">
-          <span className="section-tag">Documentation & Guides</span>
-          <h2 className="section-title">Developer & Operator Documentation</h2>
-          <p className="section-subtitle">
-            Explore the multi-tenant architecture, operator workflows, and member portal mechanics
-            before logging into your workspace.
-          </p>
-        </div>
-
-        <div className="docs-wrapper">
-          {/* Docs Sidebar */}
-          <div className="docs-sidebar">
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 14px' }}>
-              Guides & Reference
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setActiveDocsTab('quickstart')}
-              className={`docs-tab-item ${activeDocsTab === 'quickstart' ? 'active' : ''}`}
-            >
-              <Zap size={16} />
-              <span>Platform Quickstart</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveDocsTab('owner')}
-              className={`docs-tab-item ${activeDocsTab === 'owner' ? 'active' : ''}`}
-            >
-              <Dumbbell size={16} />
-              <span>Gym Owner Guide</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveDocsTab('member')}
-              className={`docs-tab-item ${activeDocsTab === 'member' ? 'active' : ''}`}
-            >
-              <User size={16} />
-              <span>Member Dedicated Portal</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveDocsTab('api')}
-              className={`docs-tab-item ${activeDocsTab === 'api' ? 'active' : ''}`}
-            >
-              <Code2 size={16} />
-              <span>API & Multi-Tenant Specs</span>
-            </button>
-          </div>
-
-          {/* Docs Main Content */}
-          <div className="docs-main-content">
-            {activeDocsTab === 'quickstart' && (
-              <div>
-                <h3 className="docs-title">Platform Quickstart & Architecture</h3>
-                <p className="docs-lead">
-                  LeopardxGyms operates on a modern multi-tenant schema where individual fitness centers
-                  enjoy an independent identity, personalized web link, and separate operational records.
-                </p>
-
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '20px 0 10px' }}>1. Provisioning Flow</h4>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  A Platform Super Admin creates a new gym in the console. The system auto-generates a
-                  unique slug (e.g. <code>/gym/powerhouse-fitness</code>), provisions the Gym Owner's
-                  account, and dispatches temporary credentials.
-                </p>
-
-                <div className="docs-code-block">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyCode('quickstart_code', `// Auto-generated Gym Tenant URL Schema\nconst gymUrl = "https://leopardxgyms.com/gym/" + gym.slug;\n// Sample: https://leopardxgyms.com/gym/fiftyfifty-downtown-fitness`)}
-                    className="docs-copy-btn"
-                  >
-                    {copiedSnippet === 'quickstart_code' ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedSnippet === 'quickstart_code' ? 'Copied' : 'Copy'}</span>
-                  </button>
-                  <code>{`// Auto-generated Gym Tenant URL Schema\nconst gymUrl = "https://leopardxgyms.com/gym/" + gym.slug;\n// Sample: https://leopardxgyms.com/gym/fiftyfifty-downtown-fitness`}</code>
-                </div>
-
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '20px 0 10px' }}>2. Role Segregation Matrix</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 12 }}>
-                  <div style={{ padding: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Super Admin</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Manages all gym accounts, system health, and logo uploads.</div>
-                  </div>
-                  <div style={{ padding: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Gym Owner</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configures plans, admits members, logs attendance, monitors revenue.</div>
-                  </div>
-                  <div style={{ padding: 12, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Member</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Checks attendance history, active subscription validity, receipts.</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeDocsTab === 'owner' && (
-              <div>
-                <h3 className="docs-title">Gym Owner & Administrator Workflow</h3>
-                <p className="docs-lead">
-                  Once your gym is provisioned, you can access your Owner Operations Dashboard at <code>/admin/login</code> or directly from your gym's dedicated page.
-                </p>
-
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '20px 0 10px' }}>Key Daily Tasks</h4>
-                <ul style={{ paddingLeft: 20, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.8 }}>
-                  <li><strong>Setup Plans:</strong> Create membership tiers with custom durations, prices, and feature checklists.</li>
-                  <li><strong>Member Check-in:</strong> Use the real-time attendance screen to quickly check in members via search or QR code.</li>
-                  <li><strong>Manage Renewals:</strong> Receive instant notification flags for members whose plans are expiring in the next 7 days.</li>
-                  <li><strong>Revenue Reports:</strong> View daily, monthly, and yearly cashflow charts on your dashboard.</li>
-                </ul>
-
-                <div className="docs-code-block">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyCode('owner_code', `// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "your_secure_password",\n  "portal": "GYM_ADMIN"\n}`)}
-                    className="docs-copy-btn"
-                  >
-                    {copiedSnippet === 'owner_code' ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedSnippet === 'owner_code' ? 'Copied' : 'Copy'}</span>
-                  </button>
-                  <code>{`// Gym Owner Authentication\nPOST /api/auth/admin/login\n{\n  "email": "owner@yourgym.com",\n  "password": "your_secure_password",\n  "portal": "GYM_ADMIN"\n}`}</code>
-                </div>
-              </div>
-            )}
-
-            {activeDocsTab === 'member' && (
-              <div>
-                <h3 className="docs-title">Gym Member Experience & Dedicated URLs</h3>
-                <p className="docs-lead">
-                  Every gym on LeopardxGyms provides its members with a dedicated portal (e.g. <code>/gym/:slug</code>).
-                  Members can review plans, verify gym operational hours, and log in to track their fitness milestones.
-                </p>
-
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '20px 0 10px' }}>What Members Can Do</h4>
-                <ul style={{ paddingLeft: 20, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.8 }}>
-                  <li><strong>Dedicated Gym Hub:</strong> Direct access to their gym's location, facilities, and contact info.</li>
-                  <li><strong>Personal Attendance History:</strong> Detailed calendar breakdown of workout check-ins and streaks.</li>
-                  <li><strong>Payment & Invoices:</strong> Download receipts and verify remaining days on active membership plans.</li>
-                  <li><strong>Profile Settings:</strong> Update personal contact information and change password securely.</li>
-                </ul>
-
-                <div className="docs-code-block">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyCode('member_code', `// Visiting a Dedicated Gym URL\nGET /gym/fiftyfifty-downtown-fitness\n// Automatically loads the gym's specific logo, address, and membership options.`)}
-                    className="docs-copy-btn"
-                  >
-                    {copiedSnippet === 'member_code' ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedSnippet === 'member_code' ? 'Copied' : 'Copy'}</span>
-                  </button>
-                  <code>{`// Visiting a Dedicated Gym URL\nGET /gym/fiftyfifty-downtown-fitness\n// Automatically loads the gym's specific logo, address, and membership options.`}</code>
-                </div>
-              </div>
-            )}
-
-            {activeDocsTab === 'api' && (
-              <div>
-                <h3 className="docs-title">API & Multi-Tenant Routing Specs</h3>
-                <p className="docs-lead">
-                  The LeopardxGyms platform uses tenant context resolution via HTTP headers and route slugs
-                  to safely partition tenant data across all API requests.
-                </p>
-
-                <div className="docs-code-block">
-                  <button
-                    type="button"
-                    onClick={() => handleCopyCode('api_code', `// Public Gym Profile Endpoint\nGET /api/public/gyms/:slug\nResponse 200 OK:\n{\n  "success": true,\n  "data": {\n    "gym": {\n      "id": "gym_1793194259833_26bcef",\n      "slug": "fiftyfifty-downtown-fitness",\n      "name": "FiftyFifty Downtown Fitness",\n      "city": "Mumbai",\n      "opening_hours": "06:00 AM - 10:00 PM"\n    },\n    "plans": [ ... ]\n  }\n}`)}
-                    className="docs-copy-btn"
-                  >
-                    {copiedSnippet === 'api_code' ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedSnippet === 'api_code' ? 'Copied' : 'Copy'}</span>
-                  </button>
-                  <code>{`// Public Gym Profile Endpoint\nGET /api/public/gyms/:slug\nResponse 200 OK:\n{\n  "success": true,\n  "data": {\n    "gym": {\n      "id": "gym_1793194259833_26bcef",\n      "slug": "fiftyfifty-downtown-fitness",\n      "name": "FiftyFifty Downtown Fitness",\n      "city": "Mumbai",\n      "opening_hours": "06:00 AM - 10:00 PM"\n    },\n    "plans": [ ... ]\n  }\n}`}</code>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ====================================================================
           LIVE GYM DIRECTORY / SHOWCASE SECTION
           ==================================================================== */}
       <section id="gyms" className="landing-section">
@@ -868,8 +659,8 @@ export const LandingScreen = () => {
           <div className="footer-links">
             <a href="#features" className="footer-link">Features</a>
             <a href="#architecture" className="footer-link">Architecture</a>
-            <a href="#docs" className="footer-link">Docs</a>
             <a href="#gyms" className="footer-link">Gym Showcase</a>
+            <a href="#pricing" className="footer-link">Plans</a>
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
