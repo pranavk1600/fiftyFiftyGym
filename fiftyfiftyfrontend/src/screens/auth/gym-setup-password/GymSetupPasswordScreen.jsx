@@ -111,8 +111,23 @@ export const GymSetupPasswordScreen = () => {
 
       const data = response.data?.data || response.data || response;
       if (data?.success) {
+        // Explicitly clear any tokens so user is NEVER auto-logged in
+        try {
+          localStorage.removeItem('fiftyfifty_token');
+          localStorage.removeItem('fiftyfifty_user');
+          localStorage.removeItem('fiftyfifty_owner_token');
+          localStorage.removeItem('fiftyfifty_owner_user');
+          localStorage.removeItem('fiftyfifty_last_gym_slug');
+          sessionStorage.clear();
+        } catch (_e) {}
+
         setIsSuccess(true);
-        showToast('Password setup complete! You can now sign in.', 'success');
+        showToast('Password Setup Complete! You Can Now Sign In.', 'success');
+
+        // Automatically redirect to homepage with global Sign In modal
+        setTimeout(() => {
+          navigate('/?signin=true', { replace: true, state: { openSignIn: true } });
+        }, 1500);
       } else {
         throw new Error('Password setup could not be completed.');
       }
@@ -177,11 +192,11 @@ export const GymSetupPasswordScreen = () => {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <Link
-                to={loginUrl}
+                to="/?signin=true"
                 className="dynamic-gym-submit-btn"
                 style={{ textDecoration: 'none', display: 'inline-flex' }}
               >
-                <span>Go to Gym Sign In</span>
+                <span>Go to Sign In</span>
                 <ArrowRight size={16} />
               </Link>
               <Link to="/" className="dynamic-gym-portal-link" style={{ marginTop: 8 }}>
@@ -216,15 +231,18 @@ export const GymSetupPasswordScreen = () => {
                 <h2 className="dynamic-gym-title" style={{ fontSize: '1.45rem', marginBottom: 8 }}>
                   Password Setup Complete!
                 </h2>
-                <p className="dynamic-gym-subtitle" style={{ marginBottom: 24, lineHeight: 1.5 }}>
-                  Your password has been configured successfully. You can now sign in to your branded gym owner portal.
+                <p className="dynamic-gym-subtitle" style={{ marginBottom: 12, lineHeight: 1.5, fontWeight: 600, color: '#22C55E' }}>
+                  You Can Now Sign In.
+                </p>
+                <p className="dynamic-gym-subtitle" style={{ marginBottom: 24, lineHeight: 1.5, fontSize: '0.875rem' }}>
+                  Your password has been configured successfully. Redirecting you to the Sign In portal...
                 </p>
                 <button
                   type="button"
                   className="dynamic-gym-submit-btn"
-                  onClick={() => navigate(loginUrl)}
+                  onClick={() => navigate('/?signin=true', { replace: true, state: { openSignIn: true } })}
                 >
-                  <span>Proceed to Gym Sign In</span>
+                  <span>Proceed to Sign In</span>
                   <ArrowRight size={18} />
                 </button>
               </div>

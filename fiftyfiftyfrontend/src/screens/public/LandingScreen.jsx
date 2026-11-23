@@ -42,8 +42,15 @@ export const LandingScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Modal login state for seamless on-page sign in
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  // Modal login state for seamless on-page sign in (initializes to true if ?signin=true is in URL on page refresh/direct hit)
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const search = window.location.search || '';
+      const params = new URLSearchParams(search);
+      return params.get('signin') === 'true' || params.get('login') === 'true';
+    }
+    return false;
+  });
 
   // Auto-open Sign In modal if navigated with ?signin=true or state.openSignIn (e.g. after Gym Owner logout)
   useEffect(() => {
