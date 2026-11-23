@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, Clock, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Check, Clock, Edit3, Trash2, Users, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Badge } from '../../../shared/components/Badge/Badge';
 import { Modal } from '../../../shared/components/Modal/Modal';
@@ -7,6 +7,9 @@ import { Input } from '../../../shared/components/Input/Input';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
+
+// Styles
+import './styles/planManagement.css';
 
 export const PlanManagementScreen = () => {
   const { showToast } = useToast();
@@ -107,12 +110,14 @@ export const PlanManagementScreen = () => {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="plans-screen-wrapper">
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: '1.85rem', marginBottom: 4, color: 'var(--text-primary)' }}>Membership Plans</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 4, color: 'var(--text-primary)' }}>
+            Membership Plans
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
             Configure gym packages, pricing tiers, durations, and member subscriptions
           </p>
         </div>
@@ -124,15 +129,10 @@ export const PlanManagementScreen = () => {
 
       {/* Plan Cards Grid or Empty State */}
       {plans.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '60px 24px',
-          background: 'var(--bg-surface)',
-          border: '1px dashed var(--border-subtle)',
-          borderRadius: 'var(--radius-xl)',
-          color: 'var(--text-secondary)'
-        }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: 'var(--text-primary)' }}>No Membership Plans Configured</h3>
+        <div className="plans-empty-state">
+          <h3 style={{ fontSize: '1.25rem', marginBottom: 8, color: 'var(--text-primary)' }}>
+            No Membership Plans Configured
+          </h3>
           <p style={{ maxWidth: 440, margin: '0 auto 20px', fontSize: '0.9rem', lineHeight: 1.5 }}>
             No membership plans have been created yet for your gym. Create your first pricing package to start enrolling members.
           </p>
@@ -142,84 +142,61 @@ export const PlanManagementScreen = () => {
           </Button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24 }}>
+        <div className="plans-cards-grid">
           {plans.map((plan) => {
             const features = Array.isArray(plan.features) ? plan.features : [];
 
             return (
               <div
                 key={plan.id}
-                style={{
-                  background: 'var(--bg-surface)',
-                  border: plan.isPopular ? '2px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-xl)',
-                  padding: 28,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  boxShadow: plan.isPopular ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-                }}
+                className={`plan-card-premium ${plan.isPopular ? 'plan-card-popular' : ''}`}
               >
                 {plan.isPopular && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -12,
-                    left: 28,
-                    background: 'var(--brand-primary)',
-                    color: '#ffffff',
-                    padding: '3px 12px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase'
-                  }}>
+                  <div className="popular-ribbon">
                     Most Popular
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                {/* Card Top / Header */}
+                <div className="plan-header">
                   <div>
-                    <h3 style={{ fontSize: '1.3rem', marginBottom: 6, color: 'var(--text-primary)' }}>{plan.name}</h3>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <Clock size={15} color="var(--brand-primary)" /> {plan.duration || `${plan.durationDays || 30} Days`} Validity
+                    <h3 className="plan-title">{plan.name}</h3>
+                    <span className="plan-duration-pill">
+                      <Clock size={13} color="var(--brand-primary)" />
+                      <span>{plan.duration || `${plan.durationDays || 30} Days`} Validity</span>
                     </span>
                   </div>
                   <Badge status={plan.status || 'active'} />
                 </div>
 
-                <div style={{ margin: '12px 0 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--brand-primary)', fontFamily: 'var(--font-display)' }}>
+                {/* Price Box */}
+                <div className="plan-price-box">
+                  <div className="plan-price-wrapper">
+                    <span className="plan-price-amount">
                       {formatCurrency(plan.price)}
                     </span>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/ cycle</span>
+                    <span className="plan-price-cycle">/ cycle</span>
                   </div>
                 </div>
 
-                <div style={{ flex: 1, margin: '16px 0', borderTop: '1px solid var(--border-subtle)', paddingTop: 16 }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                    INCLUDED PACKAGE BENEFITS:
+                {/* Benefits List */}
+                <div className="plan-features-section">
+                  <div className="plan-features-header">
+                    Included Package Benefits:
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="plan-features-list">
                     {features.length === 0 ? (
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Full gym facility access</span>
+                      <div className="plan-feature-item">
+                        <div className="plan-check-icon">
+                          <Check size={11} strokeWidth={2.5} />
+                        </div>
+                        <span>Full gym facility access</span>
+                      </div>
                     ) : (
                       features.map((feature, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                          <div style={{
-                            marginTop: 2,
-                            width: 18,
-                            height: 18,
-                            borderRadius: 'var(--radius-full)',
-                            background: 'var(--color-success-bg)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}>
-                            <Check size={12} color="var(--brand-accent)" />
+                        <div key={idx} className="plan-feature-item">
+                          <div className="plan-check-icon">
+                            <Check size={11} strokeWidth={2.5} />
                           </div>
                           <span>{feature}</span>
                         </div>
@@ -228,25 +205,29 @@ export const PlanManagementScreen = () => {
                   </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <strong>{plan.activeSubscribers || 0}</strong> active members
+                {/* Card Bottom / Actions */}
+                <div className="plan-footer">
+                  <span className="plan-subscribers-badge" title="Active member subscriptions">
+                    <Users size={13} color="var(--text-muted)" />
+                    <span><strong>{plan.activeSubscribers || 0}</strong> active</span>
                   </span>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div className="plan-actions-group">
                     <button
-                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      className="plan-action-btn"
                       onClick={() => setEditingPlan({ ...plan })}
+                      title="Edit this plan"
                     >
-                      <Edit3 size={14} />
+                      <Edit3 size={13} />
                       <span>Edit</span>
                     </button>
                     <button
-                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      className="plan-action-btn plan-action-btn-danger"
                       onClick={() => handleDeletePlan(plan.id, plan.name)}
-                      style={{ color: 'var(--color-danger)' }}
                       title="Delete Plan"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -261,8 +242,9 @@ export const PlanManagementScreen = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title="Create New Membership Plan"
+        maxWidth={540}
         footer={
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
             <Button variant="secondary" onClick={() => setIsCreateModalOpen(false)}>
               Cancel
             </Button>
@@ -272,7 +254,7 @@ export const PlanManagementScreen = () => {
           </div>
         }
       >
-        <form onSubmit={handleCreatePlan}>
+        <form onSubmit={handleCreatePlan} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Input
             label="Plan Title *"
             placeholder="e.g. Monthly Standard"
@@ -280,10 +262,11 @@ export const PlanManagementScreen = () => {
             onChange={(e) => setNewPlanForm({ ...newPlanForm, name: e.target.value })}
             required
           />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <Input
               label="Duration (in Days) *"
               type="number"
+              min="1"
               placeholder="e.g. 30"
               value={newPlanForm.durationDays}
               onChange={(e) => setNewPlanForm({ ...newPlanForm, durationDays: e.target.value })}
@@ -292,29 +275,34 @@ export const PlanManagementScreen = () => {
             <Input
               label="Price (INR ₹) *"
               type="number"
+              min="0"
               placeholder="e.g. 2000"
               value={newPlanForm.price}
               onChange={(e) => setNewPlanForm({ ...newPlanForm, price: e.target.value })}
               required
             />
           </div>
-          <div style={{ marginTop: 12 }}>
-            <label className="input-label" style={{ display: 'block', marginBottom: 8 }}>Included Benefits</label>
-            <Input
-              placeholder="Feature 1 (e.g. Full gym floor access)"
-              value={newPlanForm.feature1}
-              onChange={(e) => setNewPlanForm({ ...newPlanForm, feature1: e.target.value })}
-            />
-            <Input
-              placeholder="Feature 2 (e.g. Locker room & showers)"
-              value={newPlanForm.feature2}
-              onChange={(e) => setNewPlanForm({ ...newPlanForm, feature2: e.target.value })}
-            />
-            <Input
-              placeholder="Feature 3 (e.g. Nutrition assessment)"
-              value={newPlanForm.feature3}
-              onChange={(e) => setNewPlanForm({ ...newPlanForm, feature3: e.target.value })}
-            />
+          <div>
+            <label className="input-label" style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
+              Included Benefits
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Input
+                placeholder="Feature 1 (e.g. Full gym floor access)"
+                value={newPlanForm.feature1}
+                onChange={(e) => setNewPlanForm({ ...newPlanForm, feature1: e.target.value })}
+              />
+              <Input
+                placeholder="Feature 2 (e.g. Locker room & showers)"
+                value={newPlanForm.feature2}
+                onChange={(e) => setNewPlanForm({ ...newPlanForm, feature2: e.target.value })}
+              />
+              <Input
+                placeholder="Feature 3 (e.g. Personal trainer consultation)"
+                value={newPlanForm.feature3}
+                onChange={(e) => setNewPlanForm({ ...newPlanForm, feature3: e.target.value })}
+              />
+            </div>
           </div>
         </form>
       </Modal>
@@ -324,8 +312,9 @@ export const PlanManagementScreen = () => {
         isOpen={Boolean(editingPlan)}
         onClose={() => setEditingPlan(null)}
         title="Edit Membership Plan"
+        maxWidth={540}
         footer={
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
             <Button variant="secondary" onClick={() => setEditingPlan(null)}>
               Cancel
             </Button>
@@ -336,35 +325,41 @@ export const PlanManagementScreen = () => {
         }
       >
         {editingPlan && (
-          <form onSubmit={handleUpdatePlan}>
+          <form onSubmit={handleUpdatePlan} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Input
-              label="Plan Title"
+              label="Plan Title *"
               value={editingPlan.name}
               onChange={(e) => setEditingPlan({ ...editingPlan, name: e.target.value })}
               required
             />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <Input
-                label="Duration (in Days)"
+                label="Duration (in Days) *"
                 type="number"
+                min="1"
                 value={editingPlan.durationDays || 30}
                 onChange={(e) => setEditingPlan({ ...editingPlan, durationDays: Number(e.target.value) })}
                 required
               />
               <Input
-                label="Price (INR ₹)"
+                label="Price (INR ₹) *"
                 type="number"
+                min="0"
                 value={editingPlan.price}
                 onChange={(e) => setEditingPlan({ ...editingPlan, price: Number(e.target.value) })}
                 required
               />
             </div>
-            <div className="input-group" style={{ marginTop: 12 }}>
-              <label className="input-label">Status</label>
+            <div className="input-group">
+              <label className="input-label" htmlFor="edit-plan-status" style={{ fontWeight: 600 }}>
+                Status
+              </label>
               <select
+                id="edit-plan-status"
                 className="input-control"
                 value={editingPlan.status || 'active'}
                 onChange={(e) => setEditingPlan({ ...editingPlan, status: e.target.value })}
+                style={{ height: '42px', fontSize: '0.9rem', cursor: 'pointer' }}
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
