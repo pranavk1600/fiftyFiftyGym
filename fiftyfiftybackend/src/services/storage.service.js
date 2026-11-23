@@ -2,132 +2,61 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const storageRoot = path.resolve(__dirname, '../../uploads/receipts');
 
-// Initialize Supabase Storage Client if credentials exist
-let supabaseClient = null;
-const supabaseUrl = process.env.SUPABASE_URL || 'https://dntnzfxcoyopsmrifdbq.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
-
-if (supabaseUrl && supabaseKey) {
-  try {
-    supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false }
-    });
-    console.log('[Storage Service] Supabase Storage client initialized for URL:', supabaseUrl);
-  } catch (err) {
-    console.warn('[Storage Service] Supabase client init warning:', err.message);
-  }
-}
-
 const BUCKET_NAME = 'membership-receipts';
 
 /**
- * Uploads a generated PDF to Supabase Storage and maintains a reliable local copy.
- * Path format: membership-receipts/{gymId}/{memberId}/{receiptNumber}.pdf
+ * Pure in-memory receipt upload handler.
+ * Zero files are written to local disk or cloud bucket.
+ * Generated PDF buffers are retained strictly in-memory during request lifecycle.
  *
  * @param {Object} params
  * @param {string} params.gymId
  * @param {string} params.memberId
  * @param {string} params.receiptNumber
- * @param {Buffer} params.pdfBuffer
- * @returns {Promise<{ storagePath: string, bucket: string, localPath: string }>}
+ * @param {Buffer} [params.pdfBuffer]
+ * @returns {Promise<{ storagePath: string, bucket: null, localPath: null }>}
  */
-export const uploadReceiptPdf = async ({ gymId, memberId, receiptNumber, pdfBuffer }) => {
-  if (!gymId || !memberId || !receiptNumber || !pdfBuffer) {
-    throw new Error('Missing parameters for receipt PDF upload');
-  }
-
-  const relativeObjectPath = `${gymId}/${memberId}/${receiptNumber}.pdf`;
-  const storagePath = `membership-receipts/${relativeObjectPath}`;
-
-  // 1. Maintain private local copy for guaranteed instant access & Brevo attachments
-  const gymDir = path.join(storageRoot, gymId, memberId);
-  fs.mkdirSync(gymDir, { recursive: true });
-  const localFilePath = path.join(gymDir, `${receiptNumber}.pdf`);
-  fs.writeFileSync(localFilePath, pdfBuffer);
-
-  // 2. Upload to Supabase Storage if client is configured
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient.storage
-        .from(BUCKET_NAME)
-        .upload(relativeObjectPath, pdfBuffer, {
-          contentType: 'application/pdf',
-          upsert: true
-        });
-
-      if (error) {
-        console.warn('[Storage Service Notice] Supabase storage upload warning:', error.message);
-      } else {
-        console.log(`[Storage Service] Uploaded ${receiptNumber}.pdf to Supabase Storage (${data?.path || relativeObjectPath})`);
-      }
-    } catch (sbErr) {
-      console.warn('[Storage Service] Supabase Storage upload exception:', sbErr.message);
-    }
-  }
-
+export const uploadReceiptPdf = async ({ gymId, memberId, receiptNumber }) => {
+  const storagePath = `ephemeral:${gymId}/${memberId}/${receiptNumber}.pdf`;
   return {
     storagePath,
-    bucket: BUCKET_NAME,
-    localPath: localFilePath
+    bucket: null,
+    localPath: null
   };
 };
 
 /**
  * Retrieves the stored PDF binary buffer for email attachments or streaming.
- * Checks local cache first, then falls back to Supabase Storage.
+ * Checks local cache only if a legacy file exists on disk.
  *
- * @param {string} storagePath - e.g. "membership-receipts/{gymId}/{memberId}/{receiptNumber}.pdf"
- * @returns {Promise<Buffer>}
+ * @param {string} storagePath
+ * @returns {Promise<Buffer|null>}
  */
 export const getReceiptPdfBuffer = async (storagePath) => {
   if (!storagePath) {
-    throw new Error('storagePath is required to retrieve receipt PDF');
+    return null;
   }
 
-  // Strip bucket prefix if present
+  // Strip prefix if present
   const relativePath = storagePath.startsWith(`${BUCKET_NAME}/`)
     ? storagePath.slice(BUCKET_NAME.length + 1)
-    : storagePath;
+    : storagePath.replace(/^ephemeral:/, '');
 
-  // 1. Check local file copy
   const localFilePath = path.join(storageRoot, relativePath);
   if (fs.existsSync(localFilePath)) {
-    return fs.readFileSync(localFilePath);
-  }
-
-  // 2. Fall back to Supabase Storage download
-  if (supabaseClient) {
     try {
-      const { data, error } = await supabaseClient.storage
-        .from(BUCKET_NAME)
-        .download(relativePath);
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        const arrayBuf = await data.arrayBuffer();
-        const buffer = Buffer.from(arrayBuf);
-        // Cache locally for subsequent fast reads
-        try {
-          fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
-          fs.writeFileSync(localFilePath, buffer);
-        } catch (_e) {}
-        return buffer;
-      }
-    } catch (err) {
-      console.error('[Storage Service] Supabase download error:', err.message);
+      return fs.readFileSync(localFilePath);
+    } catch (_e) {
+      return null;
     }
   }
 
-  throw new Error(`Receipt PDF not found in storage at path: ${storagePath}`);
+  return null;
 };
 
 /**
@@ -186,13 +115,11 @@ export const verifySignedDownloadToken = (receiptId, token) => {
 };
 
 /**
- * Generates a signed URL for preview or download.
- * If Supabase Storage is configured, attempts to create a native Supabase signed URL;
- * otherwise provides an authenticated backend signed endpoint URL.
+ * Generates a signed URL for preview or download streaming endpoints.
  *
  * @param {Object} params
  * @param {string} params.receiptId
- * @param {string} params.storagePath
+ * @param {string} [params.storagePath]
  * @param {number} [params.expiresInSeconds=900]
  * @returns {Promise<{ previewUrl: string, downloadUrl: string }>}
  */
@@ -201,30 +128,6 @@ export const generateReceiptSignedUrls = async ({ receiptId, storagePath, expire
 
   const previewUrl = `/api/receipts/${receiptId}/preview?token=${token}`;
   const downloadUrl = `/api/receipts/${receiptId}/download?token=${token}`;
-
-  // If Supabase Storage is live and key exists, check if native signed URL is possible
-  if (supabaseClient) {
-    try {
-      const relativePath = storagePath.startsWith(`${BUCKET_NAME}/`)
-        ? storagePath.slice(BUCKET_NAME.length + 1)
-        : storagePath;
-
-      const { data, error } = await supabaseClient.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(relativePath, expiresInSeconds);
-
-      if (!error && data?.signedUrl) {
-        return {
-          previewUrl: data.signedUrl,
-          downloadUrl: `${data.signedUrl}&download=true`,
-          backendPreviewUrl: previewUrl,
-          backendDownloadUrl: downloadUrl
-        };
-      }
-    } catch (_e) {
-      // Fallback cleanly to backend authenticated signed streaming URLs
-    }
-  }
 
   return {
     previewUrl,

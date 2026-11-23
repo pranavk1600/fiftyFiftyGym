@@ -3,14 +3,14 @@ import { Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import './themeToggle.css';
 
-export const ThemeToggle = ({ showLabel = true, className = '' }) => {
+export const ThemeToggle = ({ showLabel = false, className = '' }) => {
   const { toggleTheme, isDark } = useTheme();
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className={`theme-toggle-btn ${isDark ? 'dark-active' : 'light-active'} ${className}`.trim()}
+      className={`theme-toggle-btn ${!showLabel ? 'icon-only' : ''} ${isDark ? 'dark-active' : 'light-active'} ${className}`.trim()}
       title={isDark ? 'Switch to Day Mode (White Theme)' : 'Switch to Dark Mode (Black Theme)'}
       aria-label={isDark ? 'Switch to Day Mode (White Theme)' : 'Switch to Dark Mode (Black Theme)'}
     >

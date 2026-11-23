@@ -21,7 +21,7 @@ export const LoginScreen = ({ defaultRole }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !email.trim()) {
-      showToast('Please enter your email address or mobile number', 'warning');
+      showToast('Please enter your email address', 'warning');
       return;
     }
     if (!password) {
@@ -68,14 +68,14 @@ export const LoginScreen = ({ defaultRole }) => {
   return (
     <>
       <form onSubmit={handleLogin}>
-        {/* Email Address or Mobile Number Input */}
+        {/* Email Address Input */}
         <Input
-          label="Email Address or Mobile Number"
+          label="Email Address"
           name="email"
-          type="text"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@company.com or 9876543210"
+          placeholder="name@company.com"
           required
         />
 
