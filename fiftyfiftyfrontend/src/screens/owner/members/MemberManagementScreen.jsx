@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, ChevronLeft, ChevronRight, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { UserPlus, ChevronLeft, ChevronRight, Upload, Trash2, RefreshCw, Search, X } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { ImportMembersModal } from './ImportMembersModal';
@@ -613,15 +613,33 @@ export const MemberManagementScreen = () => {
             type="button"
             className="btn btn-secondary"
             onClick={() => setIsImportModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              fontWeight: 600,
+              boxShadow: 'var(--shadow-xs)'
+            }}
           >
-            <Upload size={18} />
+            <Upload size={17} color="var(--brand-primary)" />
             <span>Import Members</span>
           </button>
-          <Button onClick={() => setIsAddModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <UserPlus size={18} />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setIsAddModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 20px',
+              fontWeight: 700
+            }}
+          >
+            <UserPlus size={17} />
             <span>Add New Member</span>
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -634,35 +652,83 @@ export const MemberManagementScreen = () => {
           justifyContent: 'space-between',
           background: 'var(--bg-surface)',
           padding: '16px 20px',
-          borderRadius: 'var(--radius-lg)',
+          borderRadius: 'var(--radius-lg, 16px)',
           border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--shadow-xs)',
           flexWrap: 'wrap'
         }}
       >
-        <div style={{ flex: '1 1 280px', maxWidth: '480px' }}>
+        <div style={{ flex: '1 1 320px', maxWidth: '520px', position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: 14, pointerEvents: 'none' }} />
           <input
             type="text"
             className="input-control"
             placeholder="Search member by name, ID, phone, receipt #, or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', height: '42px' }}
+            style={{
+              width: '100%',
+              height: '42px',
+              paddingLeft: '40px',
+              paddingRight: searchTerm ? '36px' : '14px',
+              borderRadius: 'var(--radius-md, 10px)'
+            }}
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              style={{
+                position: 'absolute',
+                right: 12,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 4
+              }}
+              title="Clear search"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
-          <select
-            className="input-control"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: '160px', height: '42px', cursor: 'pointer' }}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="EXPIRING_SOON">Expiring Soon</option>
-            <option value="EXPIRED">Expired</option>
-          </select>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
+            <select
+              className="input-control"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                width: '150px',
+                height: '42px',
+                cursor: 'pointer',
+                borderRadius: 'var(--radius-md, 10px)'
+              }}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="EXPIRING_SOON">Expiring Soon</option>
+              <option value="EXPIRED">Expired</option>
+            </select>
+          </div>
+
+          <span style={{
+            fontSize: '0.8rem',
+            color: 'var(--text-secondary)',
+            background: 'var(--bg-surface-elevated)',
+            padding: '6px 12px',
+            borderRadius: '20px',
+            border: '1px solid var(--border-subtle)',
+            fontWeight: 600
+          }}>
+            Showing {filteredMembers.length} {filteredMembers.length === 1 ? 'member' : 'members'}
+          </span>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Dumbbell,
@@ -14,21 +14,29 @@ import {
   CreditCard,
   Clock,
   MapPin,
-  Phone,
-  Mail,
   Lock,
   ChevronDown,
-  Layers,
+  ChevronUp,
   Zap,
   Star,
   LogOut,
-  CalendarCheck
+  CalendarCheck,
+  Receipt,
+  BarChart3,
+  Upload,
+  Check,
+  HelpCircle,
+  Menu,
+  X,
+  Smartphone,
+  Server,
+  Layers,
+  ArrowUpRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { apiClient } from '../../shared/services/apiClient';
 import { ThemeToggle } from '../../shared/components/ThemeToggle/ThemeToggle';
-import { Button } from '../../shared/components/Button/Button';
 import { CommonLoginModal } from '../../shared/components/CommonLoginModal/CommonLoginModal';
 import '../../styles/screens/public/landingScreen.css';
 
@@ -37,6 +45,12 @@ export const LandingScreen = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Mobile navigation drawer toggle
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // FAQ Accordion toggle state (index of currently open FAQ, or null)
+  const [openFaqIndex, setOpenFaqIndex] = useState(0);
 
   // Modal login state for seamless on-page sign in (initializes to true if ?signin=true is in URL on page refresh/direct hit)
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => {
@@ -64,8 +78,8 @@ export const LandingScreen = () => {
     }
   };
 
-  // Live preview mockup tab
-  const [activePreviewTab, setActivePreviewTab] = useState('owner');
+  // Switchable demo preview tabs
+  const [activePreviewTab, setActivePreviewTab] = useState('dashboard');
 
   // Live gym showcase data
   const [gyms, setGyms] = useState([]);
@@ -103,38 +117,73 @@ export const LandingScreen = () => {
     }
   };
 
+  const toggleFaq = (idx) => {
+    setOpenFaqIndex((prev) => (prev === idx ? null : idx));
+  };
+
+  const closeMobileNav = () => {
+    setIsMobileNavOpen(false);
+  };
+
+  // FAQ data
+  const faqList = [
+    {
+      q: "Can I import our existing members from our Excel spreadsheet?",
+      a: "Yes! LeopardxGyms includes an intelligent Bulk Import engine. Simply save your Excel spreadsheet as a .csv file and upload it. The system automatically preserves member names, custom IDs, payment dates, membership duration, total/received/balance amounts, and receipt numbers."
+    },
+    {
+      q: "Does our gym get its own dedicated web address and branding?",
+      a: "Absolutely. Every registered gym receives an isolated URL (e.g. leopardxgyms.vercel.app/gym/pranav-gym), complete with your custom gym logo, facility photos, operating hours, and dedicated member login portal."
+    },
+    {
+      q: "How does daily attendance tracking work?",
+      a: "Gym owners can check in members in under 2 seconds using real-time instant search by name, member ID, or phone number. The platform automatically blocks duplicate check-ins on the same day and tracks hourly traffic patterns."
+    },
+    {
+      q: "How are automated payment receipts sent?",
+      a: "Whenever a payment is recorded or renewed, a PDF receipt is auto-generated with custom receipt numbering and payment breakdown. Receipts can be downloaded immediately or sent via automated email powered by Brevo."
+    },
+    {
+      q: "Is our gym data completely isolated and secure?",
+      a: "Yes. LeopardxGyms utilizes an enterprise-grade multi-tenant architecture with tenant isolation. Gym Owners and Admins only have access to their own facility's members, payments, and metrics."
+    }
+  ];
+
   return (
     <div className="landing-container">
       {/* ====================================================================
-          STICKY TOP NAVBAR WITH LOGO & DIRECT SIGN IN BUTTON
+          STICKY TOP NAVBAR WITH BACKDROP BLUR & MOBILE DRAWER
           ==================================================================== */}
       <nav className="landing-navbar" aria-label="Main Navigation">
         <div className="landing-nav-inner">
-          {/* Left: Brand Logo & Title */}
+          {/* Brand Logo & Title */}
           <Link to="/" className="landing-brand">
             <div className="landing-logo-badge">
-              <Dumbbell size={22} />
+              <Dumbbell size={20} strokeWidth={2.5} />
             </div>
             <div className="landing-brand-text">
-              <span className="landing-brand-title">LeopardxGyms</span>
+              <span className="landing-brand-title">Leopardx<span className="brand-accent">Gyms</span></span>
               <span className="landing-brand-tagline">Multi-Tenant Gym OS</span>
             </div>
           </Link>
 
-          {/* Center: Navigation Links */}
+          {/* Desktop Navigation Links */}
           <div className="landing-nav-links">
             <a href="#features" className="landing-nav-link">Features</a>
-            <a href="#architecture" className="landing-nav-link">Architecture</a>
+            <a href="#preview" className="landing-nav-link">Platform Preview</a>
+            <a href="#why-us" className="landing-nav-link">Why Leopardx</a>
+            <a href="#how-it-works" className="landing-nav-link">How It Works</a>
             <a href="#gyms" className="landing-nav-link">Gym Showcase</a>
             <a href="#pricing" className="landing-nav-link">Plans</a>
+            <a href="#faq" className="landing-nav-link">FAQ</a>
           </div>
 
-          {/* Right: Theme Toggle & Direct Sign In Option */}
+          {/* Desktop Actions */}
           <div className="landing-nav-actions">
             <ThemeToggle showLabel={false} />
 
             {isAuthenticated ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="nav-auth-group">
                 <button
                   type="button"
                   id="landing-navbar-dashboard-btn"
@@ -150,21 +199,10 @@ export const LandingScreen = () => {
                 <button
                   type="button"
                   onClick={() => { logout(); showToast('Signed out successfully', 'info'); }}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 20,
-                    padding: '6px 12px',
-                    fontSize: '0.785rem',
-                    color: 'var(--color-danger, #DC2626)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4
-                  }}
+                  className="nav-logout-btn"
                   title="Sign Out"
                 >
-                  <LogOut size={13} />
+                  <LogOut size={14} />
                   <span>Logout</span>
                 </button>
               </div>
@@ -173,26 +211,53 @@ export const LandingScreen = () => {
                 type="button"
                 id="landing-navbar-signin-btn"
                 onClick={() => setIsLoginModalOpen(true)}
-                className="btn-hero-primary"
-                style={{
-                  padding: '8px 22px',
-                  borderRadius: '40px',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  boxShadow: '0 4px 14px rgba(255, 107, 0, 0.25)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
+                className="btn-nav-signin"
                 title="Sign In to LeopardxGyms"
               >
                 <User size={15} />
                 <span>Sign In</span>
               </button>
             )}
+
+            {/* Mobile Menu Hamburger */}
+            <button
+              type="button"
+              className="landing-hamburger-btn"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              aria-label={isMobileNavOpen ? 'Close Navigation' : 'Open Navigation'}
+            >
+              {isMobileNavOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {isMobileNavOpen && (
+          <div className="landing-mobile-drawer animate-fade-in">
+            <div className="landing-mobile-links">
+              <a href="#features" className="mobile-nav-link" onClick={closeMobileNav}>Features</a>
+              <a href="#preview" className="mobile-nav-link" onClick={closeMobileNav}>Platform Preview</a>
+              <a href="#why-us" className="mobile-nav-link" onClick={closeMobileNav}>Why Leopardx</a>
+              <a href="#how-it-works" className="mobile-nav-link" onClick={closeMobileNav}>How It Works</a>
+              <a href="#gyms" className="mobile-nav-link" onClick={closeMobileNav}>Gym Showcase</a>
+              <a href="#pricing" className="mobile-nav-link" onClick={closeMobileNav}>Plans</a>
+              <a href="#faq" className="mobile-nav-link" onClick={closeMobileNav}>FAQ</a>
+            </div>
+            <div className="mobile-drawer-footer">
+              {!isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => { closeMobileNav(); setIsLoginModalOpen(true); }}
+                  className="btn-hero-primary w-full"
+                  style={{ justifyContent: 'center' }}
+                >
+                  <User size={16} />
+                  <span>Sign In to Your Workspace</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ====================================================================
@@ -200,21 +265,21 @@ export const LandingScreen = () => {
           ==================================================================== */}
       <header className="landing-hero">
         <div className="landing-hero-backdrop" />
-        <div className="landing-hero-content">
+        <div className="landing-hero-glow" />
+
+        <div className="landing-hero-content animate-fade-in-up">
           <div className="hero-pill-badge">
-            <Sparkles size={15} />
-            <span>Next-Generation Multi-Tenant Gym Management OS</span>
+            <Sparkles size={14} className="badge-sparkle" />
+            <span>The Enterprise OS for Independent & Multi-Branch Fitness Centers</span>
           </div>
 
           <h1 className="hero-title">
-            Empower Every Gym With Its <br />
-            <span className="hero-title-highlight">Own Dedicated Digital Platform.</span>
+            Run Your Gym. <br />
+            <span className="hero-title-highlight">Own Your Growth.</span>
           </h1>
 
           <p className="hero-subtitle">
-            LeopardxGyms is the modern multi-tenant operating system that equips fitness centers with
-            individual branded portals, automated member subscriptions, instant QR check-ins, and
-            deep operational revenue analytics.
+            One powerful platform to manage members, memberships, attendance, payments and gym operations — all in one place.
           </p>
 
           <div className="hero-actions">
@@ -228,183 +293,240 @@ export const LandingScreen = () => {
               onClick={() => setIsLoginModalOpen(true)}
               className="btn-hero-secondary"
             >
-              <Zap size={18} color="var(--brand-primary)" />
-              <span>Launch Sign In</span>
+              <span>Get Started / Sign In</span>
+              <ArrowRight size={18} />
             </button>
           </div>
 
           {/* Stats Ticker */}
           <div className="landing-stats-grid">
             <div className="landing-stat-card">
-              <div className="landing-stat-value">99.98%</div>
+              <div className="landing-stat-value">99.9%</div>
               <div className="landing-stat-label">Cloud Platform Uptime</div>
             </div>
             <div className="landing-stat-card">
               <div className="landing-stat-value">100%</div>
-              <div className="landing-stat-label">Isolated Gym Tenants</div>
+              <div className="landing-stat-label">Isolated Multi-Tenant Security</div>
             </div>
             <div className="landing-stat-card">
               <div className="landing-stat-value">&lt; 150ms</div>
-              <div className="landing-stat-label">QR Attendance Verification</div>
+              <div className="landing-stat-label">Instant Check-In Speed</div>
             </div>
             <div className="landing-stat-card">
-              <div className="landing-stat-value">Automated</div>
-              <div className="landing-stat-label">Email & Credential Onboarding</div>
+              <div className="landing-stat-value">2,000+</div>
+              <div className="landing-stat-label">Members Imported in One Click</div>
             </div>
           </div>
         </div>
 
         {/* ====================================================================
-            INTERACTIVE SYSTEM PREVIEW DECK
+            DASHBOARD PREVIEW SECTION (ACTUAL GYM OWNER DEMO)
             ==================================================================== */}
-        <div className="preview-mockup-wrapper">
+        <div id="preview" className="preview-mockup-wrapper animate-fade-in">
           <div className="preview-mockup-bar">
             <div className="browser-dots">
-              <div className="browser-dot" style={{ background: '#EF4444' }} />
-              <div className="browser-dot" style={{ background: '#F59E0B' }} />
-              <div className="browser-dot" style={{ background: '#10B981' }} />
+              <div className="browser-dot dot-red" />
+              <div className="browser-dot dot-amber" />
+              <div className="browser-dot dot-green" />
             </div>
 
             <div className="browser-url-pill">
-              <Lock size={12} color="#10B981" />
-              <span>
-                {activePreviewTab === 'owner'
-                  ? 'leopardxgyms.com/owner/dashboard'
-                  : activePreviewTab === 'member'
-                  ? 'leopardxgyms.com/gym/downtown-fitness'
-                  : 'leopardxgyms.com/admin/gyms'}
+              <Lock size={12} color="#16A34A" />
+              <span className="browser-url-text">
+                {activePreviewTab === 'dashboard' && 'leopardxgyms.vercel.app/owner/dashboard'}
+                {activePreviewTab === 'members' && 'leopardxgyms.vercel.app/owner/members'}
+                {activePreviewTab === 'attendance' && 'leopardxgyms.vercel.app/owner/attendance'}
               </span>
             </div>
 
             <div className="preview-tabs">
               <button
                 type="button"
-                onClick={() => setActivePreviewTab('owner')}
-                className={`preview-tab-btn ${activePreviewTab === 'owner' ? 'active' : ''}`}
+                onClick={() => setActivePreviewTab('dashboard')}
+                className={`preview-tab-btn ${activePreviewTab === 'dashboard' ? 'active' : ''}`}
               >
-                Owner Portal
+                Owner Dashboard
               </button>
               <button
                 type="button"
-                onClick={() => setActivePreviewTab('member')}
-                className={`preview-tab-btn ${activePreviewTab === 'member' ? 'active' : ''}`}
+                onClick={() => setActivePreviewTab('members')}
+                className={`preview-tab-btn ${activePreviewTab === 'members' ? 'active' : ''}`}
               >
-                Gym Dedicated URL
+                Member Management
               </button>
               <button
                 type="button"
-                onClick={() => setActivePreviewTab('superadmin')}
-                className={`preview-tab-btn ${activePreviewTab === 'superadmin' ? 'active' : ''}`}
+                onClick={() => setActivePreviewTab('attendance')}
+                className={`preview-tab-btn ${activePreviewTab === 'attendance' ? 'active' : ''}`}
               >
-                Super Admin
+                Attendance Ledger
               </button>
             </div>
           </div>
 
           <div className="preview-mockup-body">
-            {activePreviewTab === 'owner' && (
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            {/* Demo Notice Banner */}
+            <div className="preview-demo-badge">
+              <span className="demo-dot" />
+              <span>Interactive Live Preview • Pranav Gym Operational Workspace (Demo)</span>
+            </div>
+
+            {activePreviewTab === 'dashboard' && (
+              <div className="preview-content-fade">
+                <div className="preview-header-row">
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>FiftyFifty Downtown Fitness</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                      Owner Operations Dashboard • Tenant ID: gym_alpha_1
+                    <h3 className="preview-gym-title">Pranav Gym & Fitness Center</h3>
+                    <p className="preview-gym-subtitle">
+                      Owner Operations Dashboard • Tenant Slug: <code>/gym/pranav-gym</code>
                     </p>
                   </div>
-                  <span style={{
-                    padding: '6px 12px',
-                    borderRadius: 20,
-                    background: 'var(--color-success-bg)',
-                    color: 'var(--color-success)',
-                    fontSize: '0.8rem',
-                    fontWeight: 700
-                  }}>
-                    ● Live Operations
+                  <span className="status-live-pill">
+                    ● Real-Time System Active
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-                  <div style={{ padding: 16, background: 'var(--bg-surface-elevated)', borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Active Members</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4 }}>248</div>
+                <div className="preview-kpi-grid">
+                  <div className="preview-kpi-card">
+                    <div className="kpi-label">Total Registered Members</div>
+                    <div className="kpi-value">2,116</div>
+                    <div className="kpi-sub">1,840 Active • 276 Inactive</div>
                   </div>
-                  <div style={{ padding: 16, background: 'var(--bg-surface-elevated)', borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Today Attendance</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand-primary)', marginTop: 4 }}>74 Check-ins</div>
+                  <div className="preview-kpi-card highlight-orange">
+                    <div className="kpi-label">Today's Attendance</div>
+                    <div className="kpi-value">84 Check-ins</div>
+                    <div className="kpi-sub">Peak hours: 6:00 AM - 9:30 AM</div>
                   </div>
-                  <div style={{ padding: 16, background: 'var(--bg-surface-elevated)', borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Monthly Revenue</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4 }}>₹ 4,82,000</div>
+                  <div className="preview-kpi-card">
+                    <div className="kpi-label">Monthly Collections</div>
+                    <div className="kpi-value">₹ 3,48,000</div>
+                    <div className="kpi-sub">100% Cash/UPI reconciliations</div>
                   </div>
-                  <div style={{ padding: 16, background: 'var(--bg-surface-elevated)', borderRadius: 12 }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Plan Renewals Pending</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#D97706', marginTop: 4 }}>12 Members</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activePreviewTab === 'member' && (
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--brand-primary)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                    FF
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>FiftyFifty Downtown Fitness</h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--brand-primary)', margin: 0 }}>
-                      URL: /gym/fiftyfifty-downtown-fitness
-                    </p>
+                  <div className="preview-kpi-card">
+                    <div className="kpi-label">Expiring Within 7 Days</div>
+                    <div className="kpi-value warning-text">14 Members</div>
+                    <div className="kpi-sub">Automated renewal notices queued</div>
                   </div>
                 </div>
 
-                <div style={{ padding: 16, background: 'var(--bg-surface-elevated)', borderRadius: 12, marginBottom: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Quarterly Pro Transformation Plan</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Valid through: 15 Dec 2026 • 48 Days Remaining</div>
+                {/* Mini Live Ledger Demo */}
+                <div className="preview-mini-ledger">
+                  <div className="ledger-header">
+                    <span>Recent Daily Check-Ins</span>
+                    <span className="ledger-badge">Live Feed</span>
+                  </div>
+                  <div className="ledger-row">
+                    <div className="ledger-member">
+                      <div className="member-avatar">YJ</div>
+                      <div>
+                        <strong>Yash Jadhav</strong>
+                        <div className="member-meta">Member ID #2106 • Gym + Cardio</div>
+                      </div>
                     </div>
-                    <span style={{ padding: '4px 10px', background: 'var(--color-success-bg)', color: 'var(--color-success)', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700 }}>
-                      ACTIVE
-                    </span>
+                    <span className="time-pill">07:15 AM</span>
                   </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <Button variant="primary" size="small" onClick={() => navigate('/gym/fiftyfifty-downtown-fitness')}>
-                    Visit Full Gym Portal Page
-                  </Button>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Each gym gets separate branding and membership options</span>
+                  <div className="ledger-row">
+                    <div className="ledger-member">
+                      <div className="member-avatar">AP</div>
+                      <div>
+                        <strong>Ashwini Patil</strong>
+                        <div className="member-meta">Member ID #2107 • Annual Fitness</div>
+                      </div>
+                    </div>
+                    <span className="time-pill">07:22 AM</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {activePreviewTab === 'superadmin' && (
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            {activePreviewTab === 'members' && (
+              <div className="preview-content-fade">
+                <div className="preview-header-row">
                   <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>Platform Tenant Registry</h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                      Super Admin Multi-Tenant Gym Provisioning Console
+                    <h3 className="preview-gym-title">Member Directory & Excel Alignment</h3>
+                    <p className="preview-gym-subtitle">
+                      2,000+ Records synced with Excel CSV import fields
                     </p>
                   </div>
-                  <span style={{ padding: '4px 10px', background: 'var(--brand-primary-soft)', color: 'var(--brand-primary)', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700 }}>
-                    Auto-Slug Enabled
-                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span className="badge-preview-tag"><Upload size={12} /> Excel CSV Compatible</span>
+                  </div>
                 </div>
 
-                <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', padding: '10px 14px', background: 'var(--bg-surface-elevated)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    <span>GYM NAME</span>
-                    <span>DEDICATED URL (SLUG)</span>
-                    <span>LOCATION</span>
-                    <span>STATUS</span>
+                <div className="preview-table-wrapper">
+                  <table className="preview-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>NAME</th>
+                        <th>M TYPE</th>
+                        <th>TOTAL AM</th>
+                        <th>RECEIVED AM</th>
+                        <th>BAL. AM</th>
+                        <th>RC N</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><span className="pill-mono">#2106</span></td>
+                        <td><strong>Yash Jadhav</strong></td>
+                        <td><span className="badge-plan">Gym + Cardio</span></td>
+                        <td>₹1,200</td>
+                        <td>₹1,200</td>
+                        <td><span className="balance-cleared">₹0</span></td>
+                        <td><span className="pill-mono">#4372</span></td>
+                        <td><span className="pill-active">Active</span></td>
+                      </tr>
+                      <tr>
+                        <td><span className="pill-mono">#2110</span></td>
+                        <td><strong>Yash Sorak</strong></td>
+                        <td><span className="badge-plan">Gym + Cardio</span></td>
+                        <td>₹3,000</td>
+                        <td>₹1,000</td>
+                        <td><span className="balance-due">₹2,000</span></td>
+                        <td><span className="pill-mono">#4379</span></td>
+                        <td><span className="pill-active">Active</span></td>
+                      </tr>
+                      <tr>
+                        <td><span className="pill-mono">#2114</span></td>
+                        <td><strong>Aditya Verma</strong></td>
+                        <td><span className="badge-plan">Annual Pro</span></td>
+                        <td>₹6,000</td>
+                        <td>₹4,000</td>
+                        <td><span className="balance-due">₹2,000</span></td>
+                        <td><span className="pill-mono">#4387</span></td>
+                        <td><span className="pill-active">Active</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activePreviewTab === 'attendance' && (
+              <div className="preview-content-fade">
+                <div className="preview-header-row">
+                  <div>
+                    <h3 className="preview-gym-title">Smart Attendance System</h3>
+                    <p className="preview-gym-subtitle">
+                      Instant single-click check-ins with anti-duplicate validation
+                    </p>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.8rem', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600 }}>FiftyFifty Downtown Fitness</span>
-                    <span style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>/gym/fiftyfifty-downtown-fitness</span>
-                    <span>Mumbai</span>
-                    <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>Active</span>
+                </div>
+
+                <div className="preview-attendance-deck">
+                  <div className="attendance-search-box">
+                    <input
+                      type="text"
+                      readOnly
+                      value="Search Yash Jadhav (#2106)..."
+                      className="attendance-fake-input"
+                    />
+                    <button type="button" className="btn-attendance-mark">Check In</button>
+                  </div>
+                  <div className="attendance-verified-banner">
+                    <CheckCircle2 size={18} color="#16A34A" />
+                    <span>Member Yash Jadhav (#2106) Checked In at 07:15 AM • Plan Active</span>
                   </div>
                 </div>
               </div>
@@ -414,82 +536,175 @@ export const LandingScreen = () => {
       </header>
 
       {/* ====================================================================
-          CORE FEATURES GRID
+          PRODUCT HIGHLIGHTS - 6 CORE ENTERPRISE FEATURE CARDS
           ==================================================================== */}
       <section id="features" className="landing-section">
         <div className="section-header">
           <span className="section-tag">Enterprise Capabilities</span>
           <h2 className="section-title">Built For Gyms of Any Scale</h2>
           <p className="section-subtitle">
-            From single boutique studios to multi-city fitness chains, LeopardxGyms provides the exact
-            operating modules needed to streamline gym management.
+            From single boutique studios to multi-city fitness chains, LeopardxGyms provides the exact operating modules needed to streamline gym management.
           </p>
         </div>
 
         <div className="features-grid">
+          {/* 1. Member Management */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <Building2 size={26} />
+              <Users size={24} />
             </div>
-            <h3 className="feature-title">Multi-Tenant Gym Isolation</h3>
+            <h3 className="feature-title">Member Management</h3>
             <p className="feature-desc">
-              Every gym registered on the platform gets its own dedicated URL (`/gym/:slug`), custom
-              logo, operating hours, and fully isolated member database.
+              Comprehensive member profiles, Excel CSV bulk import for 2,000+ members, photo records, and renewal histories.
             </p>
           </div>
 
+          {/* 2. Membership Management */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <CalendarCheck size={26} />
+              <Layers size={24} />
             </div>
-            <h3 className="feature-title">QR & Digital Attendance</h3>
+            <h3 className="feature-title">Membership Management</h3>
             <p className="feature-desc">
-              Instant attendance logging with automatic duplicate check-in prevention, live daily logs,
-              and hourly traffic distribution graphs.
+              Flexible membership tiers (Monthly, Quarterly, Annual), automated expiry calculations, and renewal reminders.
             </p>
           </div>
 
+          {/* 3. Smart Attendance */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <CreditCard size={26} />
+              <CalendarCheck size={24} />
             </div>
-            <h3 className="feature-title">Automated Membership Billing</h3>
+            <h3 className="feature-title">Smart Attendance</h3>
             <p className="feature-desc">
-              Configure flexible membership plans (Monthly, Quarterly, Annual), monitor expiry countdowns,
-              and track payment records with instant status badges.
+              Sub-second daily check-ins, automatic duplicate check-in prevention, and hourly traffic distribution logs.
             </p>
           </div>
 
+          {/* 4. Payment Tracking */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <Mail size={26} />
+              <CreditCard size={24} />
             </div>
-            <h3 className="feature-title">Automated Email Onboarding</h3>
+            <h3 className="feature-title">Payment Tracking</h3>
             <p className="feature-desc">
-              Integrated with Brevo SMTP to immediately email generated temporary credentials and
-              password-setup tokens to newly created gym owners and members.
+              Complete tracking of total amounts, received payments, and pending balances with instant status badges.
             </p>
           </div>
 
+          {/* 5. Digital Receipts */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <Shield size={26} />
+              <Receipt size={24} />
             </div>
-            <h3 className="feature-title">Strict Role-Based Security</h3>
+            <h3 className="feature-title">Digital Receipts</h3>
             <p className="feature-desc">
-              Three segregated tiers: Platform Super Admins, Gym Owners & Admins, and Gym Members,
-              enforced at the database and JWT middleware levels.
+              Instant automated PDF receipts, Brevo email dispatches, and member portal self-service download links.
             </p>
           </div>
 
+          {/* 6. Business Analytics */}
           <div className="feature-card">
             <div className="feature-icon-wrapper">
-              <Activity size={26} />
+              <BarChart3 size={24} />
             </div>
-            <h3 className="feature-title">Live Revenue & Member Analytics</h3>
+            <h3 className="feature-title">Business Analytics</h3>
             <p className="feature-desc">
-              Instant financial rollups, monthly revenue comparisons, active versus inactive retention ratios,
-              and operational audit feeds.
+              Actionable cashflow graphs, active-to-inactive retention curves, and daily attendance throughput trends.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          WHY CHOOSE LEOPARDXGYMS
+          ==================================================================== */}
+      <section id="why-us" className="landing-section" style={{ background: 'var(--bg-surface-elevated)', borderRadius: 28, padding: '70px 24px', margin: '20px auto 80px' }}>
+        <div className="section-header">
+          <span className="section-tag">The Leopardx Advantage</span>
+          <h2 className="section-title">Why Fitness Leaders Choose LeopardxGyms</h2>
+          <p className="section-subtitle">
+            Traditional gym tools are clunky, desktop-bound, or charge huge percentages. LeopardxGyms gives you total ownership.
+          </p>
+        </div>
+
+        <div className="why-grid">
+          <div className="why-card">
+            <div className="why-icon-box">
+              <Building2 size={24} />
+            </div>
+            <h3 className="why-title">Dedicated Gym Subdomains & Branding</h3>
+            <p className="why-desc">
+              Your gym gets its own dedicated web address (e.g. <code>/gym/pranav-gym</code>) featuring your custom logo and plans. No generic shared interface.
+            </p>
+          </div>
+
+          <div className="why-card">
+            <div className="why-icon-box">
+              <Shield size={24} />
+            </div>
+            <h3 className="why-title">Strict Multi-Tenant Isolation</h3>
+            <p className="why-desc">
+              Your member data, financial numbers, and operational records are securely partitioned at the database and JWT middleware levels.
+            </p>
+          </div>
+
+          <div className="why-card">
+            <div className="why-icon-box">
+              <Smartphone size={24} />
+            </div>
+            <h3 className="why-title">Zero Proprietary Hardware Needed</h3>
+            <p className="why-desc">
+              Operates effortlessly on any phone, tablet, laptop, or desktop. No expensive proprietary biometric terminals or maintenance fees.
+            </p>
+          </div>
+
+          <div className="why-card">
+            <div className="why-icon-box">
+              <Zap size={24} />
+            </div>
+            <h3 className="why-title">Brevo Automated Email Invoicing</h3>
+            <p className="why-desc">
+              Dispatches member welcome credentials, password setups, and digital PDF payment receipts automatically with zero manual effort.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          HOW IT WORKS (3-STEP TIMELINE)
+          ==================================================================== */}
+      <section id="how-it-works" className="landing-section">
+        <div className="section-header">
+          <span className="section-tag">Quick Onboarding</span>
+          <h2 className="section-title">Get Running In Less Than 5 Minutes</h2>
+          <p className="section-subtitle">
+            Transitioning from paper or Excel to LeopardxGyms is fast, smooth, and painless.
+          </p>
+        </div>
+
+        <div className="steps-grid">
+          <div className="step-card">
+            <div className="step-number">01</div>
+            <h3 className="step-title">Provision Your Gym Workspace</h3>
+            <p className="step-desc">
+              Your gym tenant is provisioned with a custom slug (e.g. <code>/gym/your-gym</code>). Upload your logo, specify opening hours, and set contact details.
+            </p>
+          </div>
+
+          <div className="step-card">
+            <div className="step-number">02</div>
+            <h3 className="step-title">Import Members & Setup Plans</h3>
+            <p className="step-desc">
+              Upload your existing member spreadsheet directly via CSV bulk import. Define your monthly, quarterly, or annual membership tiers.
+            </p>
+          </div>
+
+          <div className="step-card">
+            <div className="step-number">03</div>
+            <h3 className="step-title">Automate Daily Operations</h3>
+            <p className="step-desc">
+              Record rapid attendance check-ins, log payments with auto-calculated dues, and let the system handle expiry notifications and receipts.
             </p>
           </div>
         </div>
@@ -503,8 +718,7 @@ export const LandingScreen = () => {
           <span className="section-tag">Tenant Ecosystem</span>
           <h2 className="section-title">Explore Active Gym Portals</h2>
           <p className="section-subtitle">
-            Every gym below has its own dedicated portal URL with custom branding, membership plans,
-            and member login. Click any gym to see its distinct public page!
+            Every fitness center registered on LeopardxGyms has its own dedicated portal URL with custom branding, membership plans, and member access.
           </p>
         </div>
 
@@ -534,7 +748,7 @@ export const LandingScreen = () => {
                   <div className="gym-card-body">
                     <h3 className="gym-card-title">{gym.name}</h3>
                     <div className="gym-card-url-pill">
-                      <span>fiftyfiftygym.com/gym/{gymSlug}</span>
+                      <span>leopardxgyms.vercel.app/gym/{gymSlug}</span>
                     </div>
 
                     <p className="gym-card-desc">
@@ -567,12 +781,12 @@ export const LandingScreen = () => {
       {/* ====================================================================
           PRICING & TIERS SECTION
           ==================================================================== */}
-      <section id="pricing" className="landing-section" style={{ background: 'var(--bg-surface-elevated)', borderRadius: 28, padding: '60px 24px', margin: '20px auto 80px' }}>
+      <section id="pricing" className="landing-section" style={{ background: 'var(--bg-surface-elevated)', borderRadius: 28, padding: '70px 24px', margin: '20px auto 80px' }}>
         <div className="section-header">
-          <span className="section-tag">Flexible Subscriptions</span>
-          <h2 className="section-title">Transparent Platform Pricing</h2>
+          <span className="section-tag">Transparent Subscriptions</span>
+          <h2 className="section-title">Straightforward Platform Pricing</h2>
           <p className="section-subtitle">
-            Scale your gym without hidden fees. Pick the tier that matches your facility size.
+            Scale your gym without hidden percentage cuts or device lock-ins. Pick the tier that matches your facility size.
           </p>
         </div>
 
@@ -589,7 +803,7 @@ export const LandingScreen = () => {
             <ul className="pricing-feature-list">
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Dedicated Gym URL (/gym/:slug)</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Up to 150 Active Members</li>
-              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> QR-Based Attendance Tracking</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Smart Attendance Logging</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Membership Expiry Alerts</li>
             </ul>
             <button type="button" onClick={() => setIsLoginModalOpen(true)} className="btn-visit-gym">
@@ -611,8 +825,9 @@ export const LandingScreen = () => {
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Everything in Starter</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Unlimited Active Members</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Custom Logo & Branding</li>
-              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Brevo Automated Email Credentials</li>
-              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Advanced Financial Analytics</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Excel/CSV Bulk Import (2,000+ members)</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Automated Brevo Email Receipts</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--brand-primary)" /> Financial & Revenue Analytics</li>
             </ul>
             <button type="button" onClick={() => setIsLoginModalOpen(true)} className="btn-visit-gym">
               Start Free 14-Day Trial
@@ -622,15 +837,15 @@ export const LandingScreen = () => {
           {/* Enterprise */}
           <div className="pricing-card">
             <h3 className="pricing-plan-name">Multi-Branch Enterprise</h3>
-            <p className="pricing-plan-desc">For gym chains with multi-branch governance.</p>
+            <p className="pricing-plan-desc">For fitness chains with multi-location management.</p>
             <div className="pricing-price-box">
               <span className="pricing-currency">₹</span>
               <span className="pricing-amount">8,999</span>
               <span className="pricing-period">/ month</span>
             </div>
             <ul className="pricing-feature-list">
-              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Unlimited Gym Tenants</li>
-              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Super Admin Governance Dashboard</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Multiple Gym Tenant Portals</li>
+              <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Super Admin Centralized Governance</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> Dedicated Cloud Database Instance</li>
               <li className="pricing-feature-item"><CheckCircle2 size={16} color="var(--color-success)" /> 24/7 Priority SLA Support</li>
             </ul>
@@ -642,43 +857,77 @@ export const LandingScreen = () => {
       </section>
 
       {/* ====================================================================
+          FAQ SECTION
+          ==================================================================== */}
+      <section id="faq" className="landing-section">
+        <div className="section-header">
+          <span className="section-tag">Frequently Asked Questions</span>
+          <h2 className="section-title">Got Questions? We've Got Answers.</h2>
+          <p className="section-subtitle">
+            Learn more about how LeopardxGyms manages multi-tenant gyms, CSV imports, and automated operations.
+          </p>
+        </div>
+
+        <div className="faq-grid">
+          {faqList.map((item, idx) => (
+            <div
+              key={idx}
+              className={`faq-card ${openFaqIndex === idx ? 'open' : ''}`}
+              onClick={() => toggleFaq(idx)}
+            >
+              <div className="faq-question-row">
+                <span className="faq-question-text">{item.q}</span>
+                <button
+                  type="button"
+                  className="faq-toggle-btn"
+                  aria-label={openFaqIndex === idx ? 'Collapse answer' : 'Expand answer'}
+                >
+                  {openFaqIndex === idx ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
+              </div>
+              {openFaqIndex === idx && (
+                <div className="faq-answer-text animate-fade-in">
+                  {item.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ====================================================================
           FOOTER
           ==================================================================== */}
       <footer className="landing-footer">
         <div className="footer-inner">
           <div className="footer-brand-side">
-            <div className="landing-logo-badge" style={{ width: 34, height: 34 }}>
-              <Dumbbell size={18} />
+            <div className="landing-logo-badge" style={{ width: 36, height: 36 }}>
+              <Dumbbell size={20} strokeWidth={2.5} />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem' }}>LeopardxGyms</div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#FFFFFF' }}>LeopardxGyms</div>
               <div className="footer-copy">© 2026 LeopardxGyms Multi-Tenant Platform. All rights reserved.</div>
             </div>
           </div>
 
           <div className="footer-links">
             <a href="#features" className="footer-link">Features</a>
-            <a href="#architecture" className="footer-link">Architecture</a>
+            <a href="#preview" className="footer-link">Platform Preview</a>
+            <a href="#why-us" className="footer-link">Why Us</a>
             <a href="#gyms" className="footer-link">Gym Showcase</a>
             <a href="#pricing" className="footer-link">Plans</a>
+            <a href="#faq" className="footer-link">FAQ</a>
             <button
               type="button"
               onClick={() => setIsLoginModalOpen(true)}
-              className="footer-link"
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 0,
-                color: 'var(--brand-primary)',
-                fontWeight: 700
-              }}
+              className="footer-link footer-signin-link"
             >
               Sign In
             </button>
           </div>
         </div>
       </footer>
+
       {/* On-Page Universal Login Modal */}
       <CommonLoginModal
         isOpen={isLoginModalOpen}
