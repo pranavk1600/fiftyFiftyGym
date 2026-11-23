@@ -1173,6 +1173,151 @@ export const sendPasswordResetOtpEmail = async ({
   });
 };
 
+/**
+ * Generates responsive branded HTML email for Password Change OTP Verification.
+ * Contains NO password reset links or URLs.
+ */
+export const renderPasswordChangeOtpHtml = ({
+  otp,
+  recipientName = 'User',
+  gymName = 'LeopardxGyms',
+  expiryMinutes = 5
+}) => {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Change Verification Code – ${gymName}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #080B12; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #F8FAFC;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #080B12; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background-color: #111827; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          <!-- Top Accent Bar -->
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #FF6B00 0%, #FF8533 100%);"></td>
+          </tr>
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 36px 16px; text-align: left;">
+              <div style="font-size: 22px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em; margin-bottom: 8px;">
+                <span style="color: #FF6B00;">LEOPARDX</span>GYMS
+              </div>
+              <div style="display: inline-block; background: rgba(255, 107, 0, 0.12); color: #FF6B00; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 10px; border-radius: 20px; margin-bottom: 14px;">
+                SECURITY VERIFICATION
+              </div>
+              <h1 style="margin: 0 0 10px; font-size: 20px; font-weight: 700; color: #FFFFFF;">
+                Password Change Verification Code
+              </h1>
+              <p style="margin: 0; font-size: 14px; color: #94A3B8; line-height: 1.6;">
+                Hello <strong style="color: #F8FAFC;">${recipientName}</strong>, a request was made to change the password for your <strong>${gymName}</strong> account.
+              </p>
+            </td>
+          </tr>
+
+          <!-- OTP Box -->
+          <tr>
+            <td style="padding: 12px 36px 24px; text-align: center;">
+              <div style="background-color: #1A2234; border: 1px solid rgba(255, 107, 0, 0.3); border-radius: 12px; padding: 24px; margin: 8px 0 16px;">
+                <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 12px;">
+                  Your 6-Digit Verification Code
+                </div>
+                <div style="font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #FF6B00; font-family: monospace; line-height: 1.2;">
+                  ${otp}
+                </div>
+                <div style="font-size: 12px; color: #FED7AA; margin-top: 14px; font-weight: 500;">
+                  ⏳ This code expires in <strong>${expiryMinutes} minutes</strong>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Security Notice -->
+          <tr>
+            <td style="padding: 0 36px 28px;">
+              <div style="background-color: rgba(255, 255, 255, 0.02); border-left: 3px solid #FF6B00; padding: 12px 16px; border-radius: 0 6px 6px 0;">
+                <p style="margin: 0; font-size: 12px; color: #94A3B8; line-height: 1.5;">
+                  <strong>Security Reminder:</strong> Never share this code with anyone. If you did not initiate this password change request, please contact platform security immediately.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #0D1322; padding: 16px 36px; border-top: 1px solid rgba(255, 255, 255, 0.04); font-size: 11px; color: #64748B; text-align: center;">
+              &copy; 2026 LeopardxGyms Multi-Tenant Platform &bull; Automated Security Service
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
+/**
+ * Generates plain-text fallback email for Password Change OTP.
+ */
+export const renderPasswordChangeOtpText = ({
+  otp,
+  recipientName = 'User',
+  gymName = 'LeopardxGyms',
+  expiryMinutes = 5
+}) => {
+  return `LEOPARDXGYMS — PASSWORD CHANGE VERIFICATION CODE
+
+Hello ${recipientName},
+
+A request was made to change the password for your ${gymName} account.
+
+YOUR 6-DIGIT VERIFICATION CODE:
+${otp}
+
+This code is valid for ${expiryMinutes} minutes and can only be used once.
+
+SECURITY NOTICE:
+Never share this code with anyone. If you did not initiate this password change request, please contact platform security immediately.
+
+© 2026 LeopardxGyms Multi-Tenant Platform`;
+};
+
+/**
+ * Sends a 6-digit Password Change OTP verification email via Brevo.
+ */
+export const sendPasswordChangeOtpEmail = async ({
+  to,
+  otp,
+  recipientName = 'User',
+  gymName = 'LeopardxGyms',
+  expiryMinutes = 5
+}) => {
+  const subject = `Your LeopardxGyms Password Change Code: ${otp}`;
+  const htmlContent = renderPasswordChangeOtpHtml({
+    otp,
+    recipientName,
+    gymName,
+    expiryMinutes
+  });
+  const textContent = renderPasswordChangeOtpText({
+    otp,
+    recipientName,
+    gymName,
+    expiryMinutes
+  });
+
+  return sendEmail({
+    to,
+    subject,
+    htmlContent,
+    textContent,
+    recipientName
+  });
+};
+
 export default {
   getBrevoClient,
   sendEmail,
@@ -1194,5 +1339,8 @@ export default {
   renderMemberPasswordResetText,
   sendPasswordResetOtpEmail,
   renderPasswordResetOtpHtml,
-  renderPasswordResetOtpText
+  renderPasswordResetOtpText,
+  sendPasswordChangeOtpEmail,
+  renderPasswordChangeOtpHtml,
+  renderPasswordChangeOtpText
 };
