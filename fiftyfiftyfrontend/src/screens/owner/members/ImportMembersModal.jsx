@@ -532,6 +532,7 @@ export const ImportMembersModal = ({ isOpen, onClose, onSuccess }) => {
                           <th style={{ padding: '8px 10px' }}>End Date</th>
                           <th style={{ padding: '8px 10px' }}>Total</th>
                           <th style={{ padding: '8px 10px' }}>Received</th>
+                          <th style={{ padding: '8px 10px' }}>Balance</th>
                           <th style={{ padding: '8px 10px' }}>Rc No</th>
                         </tr>
                       </thead>
@@ -558,6 +559,13 @@ export const ImportMembersModal = ({ isOpen, onClose, onSuccess }) => {
                             <td style={{ padding: '6px 10px' }}>₹{row.totalAmount || 0}</td>
                             <td style={{ padding: '6px 10px', color: '#10B981', fontWeight: 600 }}>
                               ₹{row.receivedAmount || 0}
+                            </td>
+                            <td style={{
+                              padding: '6px 10px',
+                              color: row.balanceAmount > 0 ? '#F59E0B' : 'var(--text-muted)',
+                              fontWeight: row.balanceAmount > 0 ? 600 : 400
+                            }}>
+                              ₹{row.balanceAmount || 0}
                             </td>
                             <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>
                               {row.receiptNumber || '—'}

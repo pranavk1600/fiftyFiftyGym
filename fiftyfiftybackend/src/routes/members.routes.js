@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
-import db from '../config/db.js';
+import db, { getClient } from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { optionalAuthenticate, authenticate } from '../middlewares/auth.middleware.js';
 import { enforceGymIsolation } from '../middlewares/rbac.middleware.js';
@@ -913,16 +913,101 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/members/:id
+// POST /api/members/bulk-delete - Bulk Member Delete
+router.post('/bulk-delete', async (req, res, next) => {
+  let client = null;
+  try {
+    const gymId = await resolveGymId(req);
+    const { memberIds } = req.body;
+
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
+      return ApiResponse.error(res, 'Please provide an array of member IDs to delete.', 400);
+    }
+
+    const sanitizedIds = [...new Set(memberIds.map((id) => String(id).trim()).filter(Boolean))];
+    if (sanitizedIds.length === 0) {
+      return ApiResponse.error(res, 'No valid member IDs provided.', 400);
+    }
+
+    try {
+      client = await getClient();
+      await client.query('BEGIN');
+
+      // 1. Verify which of these members belong to this gym
+      const verifiedRes = await client.query(
+        'SELECT id, full_name AS name FROM members WHERE id = ANY($1::text[]) AND gym_id = $2',
+        [sanitizedIds, gymId]
+      );
+
+      const targetIds = verifiedRes.rows.map((r) => r.id);
+      if (targetIds.length === 0) {
+        await client.query('ROLLBACK');
+        return ApiResponse.error(res, 'None of the selected members were found in your gym.', 404);
+      }
+
+      // 2. Remove associated password tokens
+      await client.query(
+        'DELETE FROM password_reset_tokens WHERE user_id = ANY($1::text[])',
+        [targetIds]
+      ).catch(() => {});
+
+      // 3. Delete members
+      const deleteRes = await client.query(
+        'DELETE FROM members WHERE id = ANY($1::text[]) AND gym_id = $2 RETURNING id',
+        [targetIds, gymId]
+      );
+
+      await client.query('COMMIT');
+
+      return ApiResponse.success(
+        res,
+        {
+          deletedCount: deleteRes.rowCount || deleteRes.rows.length,
+          deletedIds: targetIds
+        },
+        `Successfully deleted ${deleteRes.rowCount || deleteRes.rows.length} member(s).`
+      );
+    } catch (txErr) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    }
+  } catch (error) {
+    next(error);
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+// DELETE /api/members/:id - Individual Member Delete
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await db.query('DELETE FROM members WHERE id = $1 RETURNING id', [id]);
-    if (result.rows.length === 0) {
-      return ApiResponse.error(res, 'Member not found', 404);
+    const gymId = await resolveGymId(req);
+
+    // Verify member exists and belongs to this gym
+    const checkRes = await db.query(
+      'SELECT id, full_name AS name FROM members WHERE id = $1 AND gym_id = $2 LIMIT 1',
+      [id, gymId]
+    );
+
+    if (checkRes.rows.length === 0) {
+      return ApiResponse.error(res, 'Member not found or does not belong to your gym.', 404);
     }
 
-    return ApiResponse.success(res, { id }, 'Member deleted successfully');
+    const memberName = checkRes.rows[0].name;
+
+    // Delete password reset tokens first to prevent orphan tokens
+    await db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [id]).catch(() => {});
+
+    // Delete member record (cascades subscriptions, receipts; sets payments member_id null)
+    const result = await db.query(
+      'DELETE FROM members WHERE id = $1 AND gym_id = $2 RETURNING id',
+      [id, gymId]
+    );
+
+    return ApiResponse.success(res, { id, name: memberName }, `Member "${memberName}" has been successfully deleted.`);
   } catch (error) {
     next(error);
   }

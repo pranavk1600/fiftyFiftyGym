@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js';
 import { calculateMembershipEndDate } from '../utils/dateUtils.js';
+import { runExcelColumnsMigration } from '../database/create_excel_columns_migration.js';
 
 /**
  * Parses flexible date formats commonly found in Excel and CSV exports:
@@ -238,24 +239,38 @@ export const mapCsvRowToMember = (row, rowIndex = 0) => {
     return '';
   };
 
-  const rawId = getVal('ID', 'Member ID', 'id', 'MemberId', 'member_id');
+  const rawId = getVal('ID', 'Member ID', 'id', 'MemberId', 'member_id', 'custom_member_id');
   const name = getVal('NAME', 'Name', 'Member Name', 'full_name', 'MemberName');
   const paymentDateRaw = getVal('Payment', 'Payment Date', 'payment_date', 'Pay Date');
   const startDateRaw = getVal('Start D', 'Start Date', 'start_date', 'Start', 'StartDate', 'Join Date');
   const endDateRaw = getVal('End D', 'End Date', 'end_date', 'End', 'EndDate', 'Expiry Date');
   const durationRaw = getVal('Duration', 'duration', 'Months', 'Period');
-  const membershipType = getVal('M Type', 'Membership Type', 'Plan', 'plan_name', 'MType', 'Type') || 'General Membership';
-  const totalAmount = parseAmount(getVal('Total Am', 'Total Amount', 'total_amount', 'Total'));
-  const receivedAmount = parseAmount(getVal('Received Am', 'Received Amount', 'received_amount', 'Paid', 'Amount Paid'));
-  const balanceAmount = parseAmount(getVal('Bal. Am', 'Balance Amount', 'balance_amount', 'Balance', 'Bal'));
-  const receiptNumber = getVal('Rc N', 'Receipt Number', 'RcN', 'receipt_no', 'Receipt', 'ReceiptNo');
+  const membershipType = getVal('M Type', 'Membership Type', 'Plan', 'plan_name', 'MType', 'Type') || 'Gym + cardio';
+
+  const rawTotal = getVal('Total Am', 'Total Amount', 'total_amount', 'Total', 'TotalAm', 'Amount');
+  const rawReceived = getVal('Received Am', 'Received Amount', 'received_amount', 'Received', 'ReceivedAm', 'Paid', 'Amount Paid');
+  const rawBalance = getVal('Bal. Am', 'Bal Am', 'Balance Amount', 'balance_amount', 'Balance', 'BalAm', 'Bal');
+  const receiptNumber = getVal('Rc N', 'Rc No', 'Receipt Number', 'RcN', 'receipt_no', 'Receipt', 'ReceiptNo', 'rc_n');
   const phone = getVal('Phone', 'Mobile', 'Contact', 'phone_number', 'phone');
   const email = getVal('Email', 'Email Address', 'email', 'Mail');
+
+  const totalAmount = parseAmount(rawTotal);
+  const receivedAmount = parseAmount(rawReceived);
+
+  // If the CSV contains an explicit balance value, preserve and validate it.
+  // Calculate balance as Total Amount - Received Amount only when the balance column is missing or empty.
+  let balanceAmount;
+  if (rawBalance !== '') {
+    balanceAmount = parseAmount(rawBalance);
+  } else {
+    balanceAmount = Math.max(0, totalAmount - receivedAmount);
+  }
 
   const startDate = parseFlexibleDate(startDateRaw) || parseFlexibleDate(paymentDateRaw) || new Date().toISOString().split('T')[0];
   let endDate = parseFlexibleDate(endDateRaw);
 
   const durationDays = parseDurationDays(durationRaw, startDate, endDate);
+  const durationMonths = parseInt(durationRaw, 10) || Math.max(1, Math.round(durationDays / 30));
   if (!endDate) {
     endDate = calculateMembershipEndDate(startDate, durationDays);
   }
@@ -272,10 +287,11 @@ export const mapCsvRowToMember = (row, rowIndex = 0) => {
     endDate,
     paymentDate,
     durationDays,
+    durationMonths,
     membershipType,
     totalAmount,
     receivedAmount,
-    balanceAmount: balanceAmount || Math.max(0, totalAmount - receivedAmount),
+    balanceAmount,
     receiptNumber: receiptNumber || null
   };
 };
@@ -422,6 +438,11 @@ export const executeBulkMemberImport = async (gymId, records, options = {}) => {
     throw new Error('Gym branch not found.');
   }
 
+  // Ensure Excel alignment columns exist on the database
+  try {
+    await runExcelColumnsMigration();
+  } catch (_migErr) {}
+
   const plansRes = await db.query(
     'SELECT id, name, duration_days FROM membership_plans WHERE gym_id = $1',
     [gymId]
@@ -500,7 +521,7 @@ export const executeBulkMemberImport = async (gymId, records, options = {}) => {
 
         // Plan resolution
         let planId = null;
-        let planName = item.membershipType ? item.membershipType.trim() : 'General Membership';
+        let planName = item.membershipType ? item.membershipType.trim() : 'Gym + cardio';
         const matchedPlan = planMap.get(planName.toLowerCase());
         if (matchedPlan) {
           planId = matchedPlan.id;
@@ -513,36 +534,106 @@ export const executeBulkMemberImport = async (gymId, records, options = {}) => {
         const memberStatus = isExpired ? 'expired' : 'active';
         const phone = item.phone && item.phone.trim() ? item.phone.trim() : '0000000000';
 
-        // 1. Insert Member Record
-        const insertMemberSql = `
-          INSERT INTO members (
-            id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
-            join_date, expiry_date, status, slug, password_hash, must_change_password,
-            invitation_status, invitation_sent_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, 'imported', NULL)
-          RETURNING id, full_name AS name, phone, email, current_plan_name AS plan,
-                    TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
-                    TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
-                    status, slug;
-        `;
+        // Excel alignment fields
+        const durationMonths = item.durationMonths || (item.durationDays ? Math.max(1, Math.round(item.durationDays / 30)) : 1);
+        const totalAmount = parseFloat(item.totalAmount) || 0;
+        const paidAmount = parseFloat(item.receivedAmount) || 0;
+        const balanceAmount = item.balanceAmount !== undefined && item.balanceAmount !== null
+          ? parseFloat(item.balanceAmount)
+          : Math.max(0, totalAmount - paidAmount);
+        const customMemberId = item.rawId ? String(item.rawId).trim() : memberId;
+        const receiptNo = item.receiptNumber ? String(item.receiptNumber).trim() : customMemberId;
+        const paymentDate = item.paymentDate || joinDate;
+        const membershipType = item.membershipType ? item.membershipType.trim() : planName;
 
-        const memberRes = await db.query(insertMemberSql, [
-          memberId,
-          gymId,
-          memberName,
-          phone,
-          cleanEmail,
-          planId,
-          planName,
-          joinDate,
-          expiryDate,
-          memberStatus,
-          memberSlug,
-          placeholderHash
-        ]);
+        // 1. Insert Member Record with Excel Alignment Columns
+        let created;
+        try {
+          const insertMemberSql = `
+            INSERT INTO members (
+              id, custom_member_id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
+              payment_date, join_date, expiry_date, duration_months, membership_type,
+              total_amount, paid_amount, balance_amount, receipt_number,
+              status, slug, password_hash, must_change_password,
+              invitation_status, invitation_sent_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, false, 'imported', NULL)
+            RETURNING id, custom_member_id AS "customMemberId", full_name AS name, phone, email, current_plan_name AS plan,
+                      TO_CHAR(payment_date, 'YYYY-MM-DD') AS "paymentDate",
+                      TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+                      TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+                      duration_months AS "durationMonths",
+                      membership_type AS "membershipType",
+                      total_amount AS "totalAmount",
+                      paid_amount AS "paidAmount",
+                      balance_amount AS "balanceAmount",
+                      receipt_number AS "receiptNumber",
+                      status, slug;
+          `;
 
-        const created = memberRes.rows[0];
+          const memberRes = await db.query(insertMemberSql, [
+            memberId,
+            customMemberId,
+            gymId,
+            memberName,
+            phone,
+            cleanEmail,
+            planId,
+            planName,
+            paymentDate,
+            joinDate,
+            expiryDate,
+            durationMonths,
+            membershipType,
+            totalAmount,
+            paidAmount,
+            balanceAmount,
+            receiptNo,
+            memberStatus,
+            memberSlug,
+            placeholderHash
+          ]);
+          created = memberRes.rows[0];
+        } catch (_colErr) {
+          // Fallback if unmigrated database schema
+          const basicSql = `
+            INSERT INTO members (
+              id, gym_id, full_name, phone, email, current_plan_id, current_plan_name,
+              join_date, expiry_date, status, slug, password_hash, must_change_password,
+              invitation_status, invitation_sent_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false, 'imported', NULL)
+            RETURNING id, full_name AS name, phone, email, current_plan_name AS plan,
+                      TO_CHAR(join_date, 'YYYY-MM-DD') AS "joinDate",
+                      TO_CHAR(expiry_date, 'YYYY-MM-DD') AS "expiryDate",
+                      status, slug;
+          `;
+          const memberRes = await db.query(basicSql, [
+            memberId,
+            gymId,
+            memberName,
+            phone,
+            cleanEmail,
+            planId,
+            planName,
+            joinDate,
+            expiryDate,
+            memberStatus,
+            memberSlug,
+            placeholderHash
+          ]);
+          created = {
+            ...memberRes.rows[0],
+            customMemberId,
+            paymentDate,
+            durationMonths,
+            membershipType,
+            totalAmount,
+            paidAmount,
+            balanceAmount,
+            receiptNumber: receiptNo
+          };
+        }
 
         // 2. Insert Subscription Record
         let subscriptionId = null;
