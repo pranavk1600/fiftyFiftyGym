@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserPlus, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
+import { ImportMembersModal } from './ImportMembersModal';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
 
@@ -31,6 +32,7 @@ export const MemberManagementScreen = () => {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState(null);
@@ -124,7 +126,7 @@ export const MemberManagementScreen = () => {
       if (Array.isArray(data) && data.length > 0) {
         setPlans(data);
       }
-    } catch (_e) {}
+    } catch (_e) { }
   };
 
   useEffect(() => {
@@ -475,10 +477,21 @@ export const MemberManagementScreen = () => {
             View, add, search, renew, and invite members to their personal portal.
           </p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <UserPlus size={18} />
-          <span>Add New Member</span>
-        </Button>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setIsImportModalOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <Upload size={18} />
+            <span>Import Members</span>
+          </button>
+          <Button onClick={() => setIsAddModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <UserPlus size={18} />
+            <span>Add New Member</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -531,8 +544,8 @@ export const MemberManagementScreen = () => {
             isLoading
               ? 'Loading members...'
               : members.length === 0
-              ? "No members registered yet. Click 'Add New Member' to register your first member."
-              : 'No members found matching your search.'
+                ? "No members registered yet. Click 'Add New Member' to register your first member."
+                : 'No members found matching your search.'
           }
         />
       </div>
@@ -622,6 +635,15 @@ export const MemberManagementScreen = () => {
         cancelText={alertModal.cancelText}
         onConfirm={alertModal.onConfirm || closeAlert}
         onCancel={closeAlert}
+      />
+
+      {/* 6. Bulk Member Import Modal */}
+      <ImportMembersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          fetchMembers();
+        }}
       />
     </div>
   );

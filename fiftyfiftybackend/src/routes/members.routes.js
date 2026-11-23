@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import db from '../config/db.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 import { optionalAuthenticate, authenticate } from '../middlewares/auth.middleware.js';
@@ -12,6 +13,13 @@ import { uploadReceiptPdf, generateReceiptSignedUrls } from '../services/storage
 import { getFrontendUrl, getMemberFrontendUrl } from '../config/frontend.config.js';
 import { ROLES } from '../constants/roles.constant.js';
 import {
+  parseCsvText,
+  mapCsvRowToMember,
+  validateMemberRecords,
+  executeBulkMemberImport,
+  generateSampleCsv
+} from '../services/memberImport.service.js';
+import {
   calculateEndDate,
   getNextCustomMemberId,
   getNextReceiptNumber,
@@ -19,6 +27,23 @@ import {
 } from '../services/member.service.js';
 
 const router = Router();
+
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+}).single('file');
+
+const handleCsvUpload = (req, res, next) => {
+  csvUpload(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return ApiResponse.error(res, 'File size exceeds 10 MB limit', 400);
+      }
+      return ApiResponse.error(res, err.message || 'CSV file upload error', 400);
+    }
+    next();
+  });
+};
 
 router.use(optionalAuthenticate, enforceGymIsolation);
 
@@ -555,10 +580,94 @@ router.post('/', async (req, res, next) => {
       emailError
     }, normalizedEmail
       ? (emailStatus === 'sent'
-          ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
-          : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
+        ? `Member registered, official receipt generated, and invitation email sent to ${normalizedEmail}!`
+        : `Member registered and receipt generated! Email delivery notice: ${emailError || 'Pending dispatch'}. You can resend the invitation at any time.`)
       : 'Member registered and official receipt generated successfully!',
       201
+    );
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/members/sample-csv - Download template CSV
+router.get('/sample-csv', (req, res) => {
+  const csvData = generateSampleCsv();
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="members_sample_template.csv"');
+  return res.status(200).send(csvData);
+});
+
+// POST /api/members/import-preview - Parse and validate CSV data before import
+router.post('/import-preview', handleCsvUpload, async (req, res, next) => {
+  try {
+    const gymId = await resolveGymId(req);
+
+    let csvContent = '';
+    if (req.file && req.file.buffer) {
+      csvContent = req.file.buffer.toString('utf-8');
+    } else if (req.body && req.body.csvText) {
+      csvContent = req.body.csvText;
+    } else {
+      return ApiResponse.error(res, 'No CSV file or CSV text provided.', 400);
+    }
+
+    const parsedRows = parseCsvText(csvContent);
+    if (!parsedRows || parsedRows.length === 0) {
+      return ApiResponse.error(res, 'CSV file is empty or does not contain valid data rows.', 400);
+    }
+
+    const mapped = parsedRows.map((row, idx) => mapCsvRowToMember(row, idx));
+    const validationResult = await validateMemberRecords(gymId, mapped);
+
+    return ApiResponse.success(res, validationResult, 'CSV parsed and validated successfully.');
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/members/bulk-import - Perform bulk member import
+router.post('/bulk-import', handleCsvUpload, async (req, res, next) => {
+  try {
+    const gymId = await resolveGymId(req);
+
+    let membersToImport = [];
+
+    // Support both pre-validated JSON records and raw CSV upload
+    if (Array.isArray(req.body?.members) && req.body.members.length > 0) {
+      membersToImport = req.body.members;
+    } else {
+      let csvContent = '';
+      if (req.file && req.file.buffer) {
+        csvContent = req.file.buffer.toString('utf-8');
+      } else if (req.body && req.body.csvText) {
+        csvContent = req.body.csvText;
+      }
+
+      if (!csvContent) {
+        return ApiResponse.error(res, 'No member records or CSV file provided for import.', 400);
+      }
+
+      const parsedRows = parseCsvText(csvContent);
+      if (!parsedRows || parsedRows.length === 0) {
+        return ApiResponse.error(res, 'CSV file contains no records to import.', 400);
+      }
+
+      const mapped = parsedRows.map((row, idx) => mapCsvRowToMember(row, idx));
+      const validation = await validateMemberRecords(gymId, mapped);
+      membersToImport = validation.validRecords;
+    }
+
+    if (membersToImport.length === 0) {
+      return ApiResponse.error(res, 'No valid member records found to import.', 400);
+    }
+
+    const importResult = await executeBulkMemberImport(gymId, membersToImport);
+
+    return ApiResponse.success(
+      res,
+      importResult,
+      `Bulk import completed: ${importResult.importedCount} members imported successfully.`
     );
   } catch (error) {
     next(error);
