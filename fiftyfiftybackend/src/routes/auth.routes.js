@@ -9,7 +9,7 @@ import { ROLES } from '../constants/roles.constant.js';
 import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail } from '../services/email.service.js';
 import { getFrontendUrl, getMemberFrontendUrl } from '../config/frontend.config.js';
 import { validateInMemoryToken, consumeInMemoryToken, findInMemoryGym, findInMemoryOwner } from '../services/devGymStore.js';
-import { sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtpToken } from '../services/otp.service.js';
+import { sendPasswordResetOtp, sendPasswordChangeOtp, verifyPasswordResetOtp, resetPasswordWithOtpToken } from '../services/otp.service.js';
 
 const router = Router();
 
@@ -357,6 +357,9 @@ const executeMemberLogin = async (req, res, next) => {
 
     const secret = process.env.JWT_SECRET || 'fiftyfifty_jwt_super_secret_key_2026';
     const normalizedEmail = email.toLowerCase().trim();
+    const rawIdentifier = (email || '').trim();
+    const digitsOnly = rawIdentifier.replace(/\D/g, '');
+    const last10Digits = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
 
     // If gym context is provided, resolve and verify the gym
     let targetGym = null;
@@ -820,14 +823,55 @@ const handleResetPasswordWithOtp = async (req, res, next) => {
 };
 
 /**
+ * Helper handler for sending Password Change OTP.
+ */
+const handleSendPasswordChangeOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email || !email.trim()) {
+      return ApiResponse.error(res, 'Email address is required', 400);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return ApiResponse.error(res, 'Please provide a valid email address', 400);
+    }
+
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const result = await sendPasswordChangeOtp({ email: normalizedEmail, clientIp });
+
+    if (!result.success && result.rateLimited) {
+      return ApiResponse.error(res, result.message, 429, { remainingSeconds: result.remainingSeconds });
+    }
+
+    return ApiResponse.success(res, {
+      message: result.message
+    }, result.message);
+  } catch (error) {
+    if (error.statusCode) {
+      return ApiResponse.error(res, error.message, error.statusCode, error.data);
+    }
+    next(error);
+  }
+};
+
+/**
  * POST /api/auth/otp/send & aliases (/send-otp, /forgot-password, /gym/forgot-password, /member/forgot-password)
- * Step 1: Request 6-digit OTP code sent via Brevo.
+ * Step 1: Request 6-digit OTP code sent via Brevo for Forgot Password.
  * Replaces old reset link flow completely: NO password reset URLs or tokens are sent in emails.
  */
 router.post('/otp/send', handleSendOtp);
 router.post('/send-otp', handleSendOtp);
 router.post('/forgot-password', handleSendOtp);
 router.post('/gym/forgot-password', handleSendOtp);
+
+/**
+ * POST /api/auth/otp/send-password-change & /api/auth/send-password-change-otp
+ * Request 6-digit OTP code sent via Brevo specifically for Password Change requests.
+ */
+router.post('/otp/send-password-change', handleSendPasswordChangeOtp);
+router.post('/send-password-change-otp', handleSendPasswordChangeOtp);
 
 /**
  * POST /api/auth/otp/verify & /api/auth/verify-otp

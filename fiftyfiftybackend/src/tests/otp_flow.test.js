@@ -6,14 +6,19 @@ import {
   generateSecureOtp,
   checkRateLimit,
   sendPasswordResetOtp,
+  sendPasswordChangeOtp,
   verifyPasswordResetOtp,
   resetPasswordWithOtpToken,
   _resetOtpMemoryForTest
 } from '../services/otp.service.js';
-import {
+import emailService, {
   setEmailDispatcherForTest,
   renderPasswordResetOtpHtml,
-  renderPasswordResetOtpText
+  renderPasswordResetOtpText,
+  renderPasswordChangeOtpHtml,
+  renderPasswordChangeOtpText,
+  sendPasswordResetOtpEmail,
+  sendPasswordChangeOtpEmail
 } from '../services/email.service.js';
 import { addInMemoryGym } from '../services/devGymStore.js';
 
@@ -242,6 +247,69 @@ const runOtpSuite = async () => {
       const lateCorrectRes = await verifyPasswordResetOtp({ email: testEmail, otp: correctOtp });
       assert.strictEqual(lateCorrectRes.success, false);
       assert.strictEqual(lateCorrectRes.locked, true);
+    });
+
+    // -------------------------------------------------------------
+    // 6. Password Change OTP & Module Export Syntax Tests
+    // -------------------------------------------------------------
+    await test('emailService exports both named and default functions with valid syntax', () => {
+      assert.strictEqual(typeof emailService.sendPasswordResetOtpEmail, 'function');
+      assert.strictEqual(typeof emailService.renderPasswordResetOtpHtml, 'function');
+      assert.strictEqual(typeof emailService.renderPasswordResetOtpText, 'function');
+      assert.strictEqual(typeof emailService.sendPasswordChangeOtpEmail, 'function');
+      assert.strictEqual(typeof emailService.renderPasswordChangeOtpHtml, 'function');
+      assert.strictEqual(typeof emailService.renderPasswordChangeOtpText, 'function');
+      assert.strictEqual(typeof sendPasswordResetOtpEmail, 'function');
+      assert.strictEqual(typeof sendPasswordChangeOtpEmail, 'function');
+    });
+
+    await test('renderPasswordChangeOtpHtml contains 6-digit OTP and NO reset URLs or tokens', () => {
+      const otp = '736291';
+      const html = renderPasswordChangeOtpHtml({
+        otp,
+        recipientName: 'Gym Member',
+        gymName: 'Pranav GYM',
+        expiryMinutes: 5
+      });
+      const text = renderPasswordChangeOtpText({
+        otp,
+        recipientName: 'Gym Member',
+        gymName: 'Pranav GYM',
+        expiryMinutes: 5
+      });
+
+      assert.ok(html.includes(otp), 'HTML must contain the 6-digit OTP');
+      assert.ok(text.includes(otp), 'Text must contain the 6-digit OTP');
+      assert.ok(html.includes('Password Change'), 'HTML must indicate Password Change');
+      assert.ok(html.includes('5 minutes'), 'HTML must state 5 minutes expiry');
+      assert.strictEqual(html.includes('token='), false, 'HTML must NOT contain token= parameter');
+      assert.strictEqual(html.includes('/reset-password'), false, 'HTML must NOT contain reset-password URL');
+    });
+
+    await test('sendPasswordChangeOtp dispatches via Brevo using change password template', async () => {
+      let dispatched = null;
+      setEmailDispatcherForTest(async (mail) => {
+        dispatched = mail;
+        return { success: true, messageId: 'mock-change-msg-id' };
+      });
+
+      const changeEmail = 'change_test_owner@pranavfitness.com';
+      addInMemoryGym(
+        { id: 'gym_change_test', name: 'Pranav Change Test', slug: 'pranav-change-test' },
+        { id: 'owner_change_test', email: changeEmail, fullName: 'Change Test Owner', gymId: 'gym_change_test', password_hash: '$2a$10$abcdef' }
+      );
+
+      const changeRes = await sendPasswordChangeOtp({
+        email: changeEmail,
+        clientIp: '127.0.0.1'
+      });
+
+      assert.strictEqual(changeRes.success, true);
+      assert.strictEqual(changeRes.userFound, true);
+      assert.ok(dispatched, 'Email should be dispatched');
+      assert.ok(dispatched.subject.includes('Password Change Code'));
+      assert.ok(dispatched.htmlContent.includes('Password Change Verification Code'));
+      assert.strictEqual(dispatched.htmlContent.includes('token='), false);
     });
 
   } finally {

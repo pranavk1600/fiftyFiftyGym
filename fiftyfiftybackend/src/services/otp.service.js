@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js';
-import { sendPasswordResetOtpEmail } from './email.service.js';
+import { sendPasswordResetOtpEmail, sendPasswordChangeOtpEmail } from './email.service.js';
 import { findInMemoryOwner } from './devGymStore.js';
 
 // In-memory OTP cache for offline/test resilience and fast lookups
@@ -286,6 +286,103 @@ export const sendPasswordResetOtp = async ({ email, clientIp = 'unknown', gymSlu
 
   // 7. Dispatch OTP transactional email via Brevo
   await sendPasswordResetOtpEmail({
+    to: account.email,
+    otp: rawOtp,
+    recipientName: account.fullName,
+    gymName: account.gymName,
+    expiryMinutes: 5
+  });
+
+  return {
+    success: true,
+    userFound: true,
+    message: 'If an account exists with that email address, a 6-digit verification code has been sent.'
+  };
+};
+
+/**
+ * Sends a 6-digit OTP verification code specifically for Password Change requests via Brevo.
+ */
+export const sendPasswordChangeOtp = async ({ email, clientIp = 'unknown' }) => {
+  const normalizedEmail = (email || '').toLowerCase().trim();
+
+  if (!normalizedEmail) {
+    const error = new Error('Email address is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 1. Enforce cooldown and rate limits
+  const rateCheck = checkRateLimit(normalizedEmail, clientIp);
+  if (!rateCheck.allowed) {
+    const error = new Error(rateCheck.message);
+    error.statusCode = 429;
+    error.data = { remainingSeconds: rateCheck.remainingSeconds };
+    throw error;
+  }
+
+  // 2. Locate account across all user tables
+  const account = await findAccountByEmail(normalizedEmail);
+
+  if (!account) {
+    sendCooldowns.set(normalizedEmail, Date.now());
+    return {
+      success: true,
+      userFound: false,
+      message: 'If an account exists with that email address, a 6-digit verification code has been sent.'
+    };
+  }
+
+  // 3. Generate 6-digit OTP
+  const rawOtp = generateSecureOtp();
+  const otpHash = hashOtp(normalizedEmail, rawOtp);
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+  // 4. Invalidate previous in-memory OTPs for this email
+  for (const [key, item] of memoryOtps.entries()) {
+    if (item.email === normalizedEmail) {
+      memoryOtps.delete(key);
+    }
+  }
+
+  // 5. Store in memory
+  const memoryKey = `change_${normalizedEmail}_${Date.now()}`;
+  const memoryRecord = {
+    id: memoryKey,
+    userId: account.userId,
+    userType: account.userType,
+    email: normalizedEmail,
+    otpHash,
+    attempts: 0,
+    maxAttempts: MAX_ATTEMPTS,
+    expiresAt,
+    verifiedAt: null,
+    resetTokenHash: null,
+    usedAt: null,
+    createdAt: new Date()
+  };
+  memoryOtps.set(memoryKey, memoryRecord);
+
+  // 6. Persist to DB table if available
+  try {
+    await ensureOtpTable();
+    await db.query(
+      'UPDATE password_reset_otps SET used_at = CURRENT_TIMESTAMP WHERE LOWER(email) = $1 AND used_at IS NULL',
+      [normalizedEmail]
+    );
+    await db.query(`
+      INSERT INTO password_reset_otps (user_id, user_type, email, otp_hash, expires_at)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [account.userId, account.userType, normalizedEmail, otpHash, expiresAt]);
+  } catch (err) {
+    console.warn('[OTP Service] DB store error (memory fallback active):', err.message);
+  }
+
+  // Record cooldown timestamp
+  sendCooldowns.set(normalizedEmail, Date.now());
+
+  // 7. Dispatch Password Change OTP transactional email via Brevo
+  await sendPasswordChangeOtpEmail({
     to: account.email,
     otp: rawOtp,
     recipientName: account.fullName,
