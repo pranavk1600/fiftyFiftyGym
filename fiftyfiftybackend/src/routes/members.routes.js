@@ -555,19 +555,23 @@ router.post('/', async (req, res, next) => {
           emailStatus = 'sent';
           await db.query("UPDATE members SET invitation_status = 'sent', invitation_sent_at = CURRENT_TIMESTAMP WHERE id = $1", [createdMember.id]);
           createdMember.invitationStatus = 'sent';
+          console.log(`[Member Creation Email Success] Welcome email dispatched to <${normalizedEmail}> for member "${createdMember.name}" (ID: ${createdMember.id}, MessageId: ${emailResult.messageId || 'sent'})`);
         } else {
           emailStatus = 'failed';
           emailError = emailResult.error || emailResult.message || 'Brevo delivery unconfigured';
           await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
           createdMember.invitationStatus = 'failed';
+          console.warn(`[Member Creation Email Notice] Welcome email for member "${createdMember.name}" (<${normalizedEmail}>) could not be dispatched: ${emailError}`);
         }
       } catch (err) {
-        console.error('[Member Invitation Email Exception]:', err.message);
+        console.error(`[Member Creation Email Exception] Error dispatching email to <${normalizedEmail}>:`, err.message);
         emailStatus = 'failed';
         emailError = err.message;
         await db.query("UPDATE members SET invitation_status = 'failed' WHERE id = $1", [createdMember.id]);
         createdMember.invitationStatus = 'failed';
       }
+    } else {
+      console.log(`[Member Creation Notice] Member "${createdMember.name}" (ID: ${createdMember.id}) registered without email; skipping email invitation.`);
     }
 
     return ApiResponse.success(res, {
@@ -722,8 +726,8 @@ router.post('/:id/resend-invitation', async (req, res, next) => {
     const frontendUrl = getMemberFrontendUrl();
     const gymSlug = member.gymSlug || member.gym_slug || '';
     const memberSlug = member.slug || 'member';
-    const loginUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/login`;
-    const activationUrl = `${memberBaseUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
+    const loginUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/login`;
+    const activationUrl = `${frontendUrl}/gym/${gymSlug}/${memberSlug}/setup-password?token=${rawActivationToken}`;
 
     const emailResult = await sendMemberInvitationEmail({
       to: member.email,
