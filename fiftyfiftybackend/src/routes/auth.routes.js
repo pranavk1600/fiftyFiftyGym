@@ -9,6 +9,7 @@ import { ROLES } from '../constants/roles.constant.js';
 import { sendPasswordResetEmail, sendGymOwnerPasswordResetEmail, sendMemberPasswordResetEmail } from '../services/email.service.js';
 import { getFrontendUrl, getMemberFrontendUrl } from '../config/frontend.config.js';
 import { validateInMemoryToken, consumeInMemoryToken, findInMemoryGym, findInMemoryOwner } from '../services/devGymStore.js';
+import { sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtpToken } from '../services/otp.service.js';
 
 const router = Router();
 
@@ -716,96 +717,14 @@ router.post('/setup-password', authenticate, async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/auth/forgot-password
- * Step A: Request password reset link for Super Admin.
- * Queries super_admins table.
- * Generates single-use cryptographic token, stores hash with 15-minute expiry, and sends Brevo email.
- * Always returns generic success response to avoid user enumeration.
- */
-router.post('/forgot-password', async (req, res, next) => {
-  try {
-    const { email } = req.body || {};
-
-    if (!email || !email.trim()) {
-      return ApiResponse.error(res, 'Email address is required', 400);
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return ApiResponse.error(res, 'Please provide a valid email address', 400);
-    }
-
-    // Rate limiting check by IP and email
-    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    if (isRateLimited(`forgot:${clientIp}`) || isRateLimited(`forgot:${normalizedEmail}`)) {
-      return ApiResponse.error(res, 'Too many password reset attempts. Please wait 15 minutes before trying again.', 429);
-    }
-
-    const genericSuccessMessage = 'If an account exists with that email address, password reset instructions have been sent.';
-
-    try {
-      // Query strictly against super_admins table
-      const saRes = await db.query(
-        'SELECT id, email, full_name, role, status FROM super_admins WHERE LOWER(email) = $1 LIMIT 1',
-        [normalizedEmail]
-      );
-
-      if (saRes.rows.length > 0) {
-        const superAdmin = saRes.rows[0];
-
-        if (superAdmin.status === 'active') {
-          // 1. Generate cryptographically secure 256-bit random token
-          const rawToken = crypto.randomBytes(32).toString('hex');
-          const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-          // 2. Set expiry to 15 minutes
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-          // 3. Invalidate any existing unused tokens for this super admin
-          await db.query(
-            'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
-            [superAdmin.id]
-          );
-
-          // 4. Store only token hash in database
-          await db.query(
-            'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-            [superAdmin.id, tokenHash, expiresAt]
-          );
-
-          // 5. Construct secure reset link using configured FRONTEND_URL
-          const frontendUrl = getFrontendUrl();
-          const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
-
-          // 6. Send transactional email via Brevo
-          await sendPasswordResetEmail({
-            to: superAdmin.email,
-            resetUrl,
-            recipientName: superAdmin.full_name || 'Super Admin'
-          });
-        }
-      }
-    } catch (err) {
-      console.error('[Forgot Password Error]:', err.message);
-      // Still return generic success to avoid leaking internal status
-    }
-
-    return ApiResponse.success(res, { message: genericSuccessMessage }, genericSuccessMessage);
-  } catch (error) {
-    next(error);
-  }
-});
+// =============================================================================
+// OTP-BASED FORGOT PASSWORD ENDPOINTS
+// =============================================================================
 
 /**
- * POST /api/auth/gym/forgot-password
- * Step A: Request password reset link for Gym Owner ONLY.
- * Queries gym_owners joined with gyms table.
- * Generates single-use cryptographic token, stores hash with 15-minute expiry in password_reset_tokens,
- * and sends branded Brevo email featuring the specific gym name.
- * Always returns generic success response to avoid user enumeration.
+ * Helper handler for sending OTP.
  */
-router.post('/gym/forgot-password', async (req, res, next) => {
+const handleSendOtp = async (req, res, next) => {
   try {
     const { email, gymSlug } = req.body || {};
 
@@ -818,105 +737,111 @@ router.post('/gym/forgot-password', async (req, res, next) => {
       return ApiResponse.error(res, 'Please provide a valid email address', 400);
     }
 
-    // Rate limiting check by IP and email
     const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    if (isRateLimited(`gym-forgot:${clientIp}`) || isRateLimited(`gym-forgot:${normalizedEmail}`)) {
-      return ApiResponse.error(res, 'Too many password reset attempts. Please wait 15 minutes before trying again.', 429);
+    const result = await sendPasswordResetOtp({ email: normalizedEmail, clientIp, gymSlug });
+
+    if (!result.success && result.rateLimited) {
+      return ApiResponse.error(res, result.message, 429, { remainingSeconds: result.remainingSeconds });
     }
 
-    const genericSuccessMessage = 'If an account exists with that email address, password reset instructions have been sent.';
-
-    try {
-      const normalizedSlug = (gymSlug || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-      let ownerRes = null;
-      if (normalizedSlug) {
-        ownerRes = await db.query(`
-          SELECT 
-            go.id, go.email, go.full_name, go.status,
-            g.id AS gym_id, g.name AS gym_name, g.slug AS gym_slug
-          FROM gym_owners go
-          JOIN gyms g ON g.id = go.gym_id
-          WHERE (
-              LOWER(go.email) = $1 
-              OR LOWER(COALESCE(go.phone, '')) = $1
-              OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2)
-              OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
-            )
-            AND go.status = 'active'
-            AND (
-              g.slug = $4 
-              OR LOWER(REPLACE(g.name, ' ', '-')) = $4
-              OR LOWER(g.name) = LOWER($5)
-            )
-          LIMIT 1;
-        `, [normalizedEmail, digitsOnly, last10Digits, normalizedSlug, (gymSlug || '').trim()]);
-      }
-
-      // If not found with gymSlug or if no gymSlug was provided, query by active owner email or mobile
-      if (!ownerRes || ownerRes.rows.length === 0) {
-        ownerRes = await db.query(`
-          SELECT 
-            go.id, go.email, go.full_name, go.status,
-            g.id AS gym_id, g.name AS gym_name, g.slug AS gym_slug
-          FROM gym_owners go
-          JOIN gyms g ON g.id = go.gym_id
-          WHERE (
-            LOWER(go.email) = $1 
-            OR LOWER(COALESCE(go.phone, '')) = $1
-            OR ($2 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') = $2)
-            OR ($3 <> '' AND REGEXP_REPLACE(COALESCE(go.phone, ''), '[^0-9]', '', 'g') LIKE '%' || $3)
-          ) AND go.status = 'active'
-          LIMIT 1;
-        `, [normalizedEmail, digitsOnly, last10Digits]);
-      }
-
-      if (ownerRes.rows.length > 0) {
-        const owner = ownerRes.rows[0];
-
-        // 1. Generate cryptographically secure 256-bit random token
-        const rawToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-        // 2. Set expiry to 15 minutes
-        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-        // 3. Invalidate any existing unused tokens for this gym owner
-        await db.query(
-          'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
-          [owner.id]
-        );
-
-        // 4. Store only token hash in database
-        await db.query(
-          'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-          [owner.id, tokenHash, expiresAt]
-        );
-
-        // 5. Construct secure gym-specific reset link using configured FRONTEND_URL
-        const frontendUrl = getFrontendUrl();
-        const targetSlug = owner.gym_slug || normalizedSlug || (owner.gym_name ? owner.gym_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 'portal');
-        const resetUrl = `${frontendUrl}/gym/${targetSlug}/reset-password?token=${rawToken}`;
-
-        // 6. Send transactional email via Brevo
-        await sendGymOwnerPasswordResetEmail({
-          to: owner.email,
-          resetUrl,
-          gymName: owner.gym_name || 'FiftyFifty Gym',
-          recipientName: owner.full_name || 'Gym Owner',
-          expiryMinutes: 15
-        });
-      }
-    } catch (err) {
-      console.error('[Gym Forgot Password Error]:', err.message);
-      // Still return generic success to avoid leaking internal status
-    }
-
-    return ApiResponse.success(res, { message: genericSuccessMessage }, genericSuccessMessage);
+    return ApiResponse.success(res, {
+      message: result.message
+    }, result.message);
   } catch (error) {
     next(error);
   }
-});
+};
+
+/**
+ * Helper handler for verifying OTP.
+ */
+const handleVerifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body || {};
+
+    if (!email || !email.trim()) {
+      return ApiResponse.error(res, 'Email address is required', 400);
+    }
+    if (!otp || !otp.toString().trim()) {
+      return ApiResponse.error(res, 'Verification code is required', 400);
+    }
+
+    const result = await verifyPasswordResetOtp({ email, otp });
+
+    if (!result.success) {
+      const statusCode = result.locked ? 429 : 400;
+      return ApiResponse.error(res, result.message, statusCode);
+    }
+
+    return ApiResponse.success(res, {
+      success: true,
+      resetToken: result.resetToken
+    }, 'Verification code confirmed successfully.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Helper handler for resetting password with verified OTP token.
+ */
+const handleResetPasswordWithOtp = async (req, res, next) => {
+  try {
+    const { email, resetToken, token, newPassword, password } = req.body || {};
+    const effectiveToken = resetToken || token;
+    const effectivePassword = newPassword || password;
+
+    if (!email || !email.trim()) {
+      return ApiResponse.error(res, 'Email address is required', 400);
+    }
+    if (!effectiveToken || !effectiveToken.trim()) {
+      return ApiResponse.error(res, 'Verification token is required. Please verify your OTP again.', 400);
+    }
+    if (!effectivePassword || effectivePassword.length < 8) {
+      return ApiResponse.error(res, 'New password must be at least 8 characters long', 400);
+    }
+
+    const result = await resetPasswordWithOtpToken({
+      email: email.trim(),
+      resetToken: effectiveToken.trim(),
+      newPassword: effectivePassword
+    });
+
+    if (!result.success) {
+      return ApiResponse.error(res, result.message, 400);
+    }
+
+    return ApiResponse.success(res, {
+      success: true
+    }, 'Password Reset Successfully!');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/otp/send & aliases (/send-otp, /forgot-password, /gym/forgot-password, /member/forgot-password)
+ * Step 1: Request 6-digit OTP code sent via Brevo.
+ * Replaces old reset link flow completely: NO password reset URLs or tokens are sent in emails.
+ */
+router.post('/otp/send', handleSendOtp);
+router.post('/send-otp', handleSendOtp);
+router.post('/forgot-password', handleSendOtp);
+router.post('/gym/forgot-password', handleSendOtp);
+
+/**
+ * POST /api/auth/otp/verify & /api/auth/verify-otp
+ * Step 2: Validate 6-digit OTP code and retrieve single-use resetToken.
+ */
+router.post('/otp/verify', handleVerifyOtp);
+router.post('/verify-otp', handleVerifyOtp);
+
+/**
+ * POST /api/auth/otp/reset-password & /api/auth/reset-password-otp
+ * Step 3: Set permanent new password using verified resetToken.
+ */
+router.post('/otp/reset-password', handleResetPasswordWithOtp);
+router.post('/reset-password-otp', handleResetPasswordWithOtp);
 
 /**
  * GET /api/auth/member/portal-details/:gymSlug/:memberSlug
@@ -1065,82 +990,9 @@ router.post('/member/setup-password', async (req, res, next) => {
 
 /**
  * POST /api/auth/member/forgot-password
- * Password reset request for Member.
+ * Password reset request for Member. Dispatches secure 6-digit OTP via Brevo.
  */
-router.post('/member/forgot-password', async (req, res, next) => {
-  try {
-    const { email, gymSlug } = req.body || {};
-
-    if (!email || !email.trim()) {
-      return ApiResponse.error(res, 'Email address is required', 400);
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return ApiResponse.error(res, 'Please provide a valid email address', 400);
-    }
-
-    const genericSuccessMessage = 'If an active member account with that email exists in this gym, a password reset link has been sent.';
-
-    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const rateLimitKey = `member_reset_${clientIp}_${normalizedEmail}`;
-    if (isRateLimited(rateLimitKey, 5, 15 * 60 * 1000)) {
-      return ApiResponse.error(res, 'Too many password reset requests. Please wait 15 minutes before trying again.', 429);
-    }
-
-    try {
-      const cleanGymSlug = (gymSlug || '').toLowerCase().trim();
-      const hyphenatedGymSlug = cleanGymSlug.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-      const memberQuery = await db.query(`
-        SELECT 
-          m.id, m.email, m.full_name, m.slug AS member_slug, m.status,
-          g.id AS gym_id, g.name AS gym_name, g.slug AS gym_slug
-        FROM members m
-        INNER JOIN gyms g ON g.id = m.gym_id
-        WHERE LOWER(m.email) = $1 AND (LOWER(g.slug) = $2 OR LOWER(g.slug) = $3 OR g.id = $2)
-        LIMIT 1;
-      `, [normalizedEmail, cleanGymSlug, hyphenatedGymSlug]);
-
-      if (memberQuery.rows.length > 0) {
-        const member = memberQuery.rows[0];
-
-        if (member.status === 'active') {
-          const rawToken = crypto.randomBytes(32).toString('hex');
-          const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-
-          await db.query(
-            'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
-            [member.id]
-          );
-
-          await db.query(
-            'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-            [member.id, tokenHash, expiresAt]
-          );
-
-          const frontendUrl = getMemberFrontendUrl();
-          const resetUrl = `${frontendUrl}/gym/${member.gym_slug}/${member.member_slug}/reset-password?token=${rawToken}`;
-
-          await sendMemberPasswordResetEmail({
-            to: member.email,
-            gymName: member.gym_name,
-            memberName: member.full_name || 'Member',
-            resetUrl,
-            expiryMinutes: 15
-          });
-        }
-      }
-    } catch (err) {
-      console.error('[Member Forgot Password Error]:', err.message);
-    }
-
-    return ApiResponse.success(res, { message: genericSuccessMessage }, genericSuccessMessage);
-  } catch (error) {
-    next(error);
-  }
-});
+router.post('/member/forgot-password', handleSendOtp);
 
 /**
  * POST /api/auth/member/reset-password

@@ -4,21 +4,16 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { Button } from '../../../shared/components/Button/Button';
 import { Input } from '../../../shared/components/Input/Input';
-import { Modal } from '../../../shared/components/Modal/Modal';
+import { CommonLoginModal } from '../../../shared/components/CommonLoginModal/CommonLoginModal';
 import { apiClient } from '../../../shared/services/apiClient';
-import { Shield, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Shield, ArrowRight } from 'lucide-react';
 import '../../../styles/screens/auth/login.css';
 
 export const SuperAdminLoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Forgot password modal state
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingReset, setIsSendingReset] = useState(false);
-  const [resetSentSuccess, setResetSentSuccess] = useState(false);
 
   const { login, isAuthenticated, role } = useAuth();
   const { showToast } = useToast();
@@ -62,31 +57,6 @@ export const SuperAdminLoginScreen = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleForgotPasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (!forgotEmail || !forgotEmail.trim()) {
-      showToast('Please enter your email address', 'warning');
-      return;
-    }
-
-    setIsSendingReset(true);
-    try {
-      await apiClient.post('/auth/forgot-password', { email: forgotEmail.trim() });
-      setResetSentSuccess(true);
-    } catch (err) {
-      console.error('Forgot password request failed:', err);
-      // Show generic success to protect user privacy
-      setResetSentSuccess(true);
-    } finally {
-      setIsSendingReset(false);
-    }
-  };
-
-  const closeForgotModal = () => {
-    setIsForgotModalOpen(false);
-    setResetSentSuccess(false);
   };
 
   return (
@@ -137,10 +107,7 @@ export const SuperAdminLoginScreen = () => {
           <button
             type="button"
             className="forgot-password-link"
-            onClick={() => {
-              setForgotEmail(email || '');
-              setIsForgotModalOpen(true);
-            }}
+            onClick={() => setIsForgotModalOpen(true)}
           >
             Forgot Password?
           </button>
@@ -196,67 +163,14 @@ export const SuperAdminLoginScreen = () => {
         </div>
       </form>
 
-      {/* Forgot Password Modal */}
-      <Modal
+      {/* Forgot Password OTP Modal */}
+      <CommonLoginModal
         isOpen={isForgotModalOpen}
-        onClose={closeForgotModal}
-        title="Reset Super Admin Password"
-      >
-        {!resetSentSuccess ? (
-          <form onSubmit={handleForgotPasswordSubmit} style={{ padding: '4px 0' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 20, lineHeight: 1.5 }}>
-              Enter your registered Super Admin email address. We will dispatch a secure single-use link to reset your password via <strong>Brevo</strong>.
-            </p>
-
-            <Input
-              label="Registered Email Address"
-              name="forgotEmail"
-              type="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              placeholder="name@company.com"
-              required
-            />
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-              <Button type="button" variant="secondary" onClick={closeForgotModal}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSendingReset}>
-                {isSendingReset ? 'Sending via Brevo...' : 'Send Reset Link'}
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '16px 8px' }}>
-            <div style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              background: 'var(--color-success-light, #DCFCE7)',
-              color: 'var(--color-success, #16A34A)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 16px'
-            }}>
-              <CheckCircle2 size={32} />
-            </div>
-
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-              Check Your Inbox
-            </h3>
-
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.55, marginBottom: 20 }}>
-              If an account with <strong>{forgotEmail}</strong> exists, password reset instructions have been dispatched via Brevo. The link will expire in <strong>15 minutes</strong>.
-            </p>
-
-            <Button onClick={closeForgotModal} className="w-full">
-              Back to Login
-            </Button>
-          </div>
-        )}
-      </Modal>
+        onClose={() => setIsForgotModalOpen(false)}
+        startInForgot={true}
+        initialEmail={email}
+        initialRole="SUPER_ADMIN"
+      />
     </>
   );
 };

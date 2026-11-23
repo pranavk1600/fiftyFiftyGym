@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { apiClient } from '../../../shared/services/apiClient';
+import { CommonLoginModal } from '../../../shared/components/CommonLoginModal/CommonLoginModal';
 import '../../../styles/screens/auth/dynamicGymLogin.css';
 
 export const DynamicGymLoginScreen = () => {
@@ -36,10 +37,6 @@ export const DynamicGymLoginScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingForgot, setIsSendingForgot] = useState(false);
-  const [forgotSubmitted, setForgotSubmitted] = useState(false);
-  const [forgotError, setForgotError] = useState('');
   const [logoFailed, setLogoFailed] = useState(false);
 
   // Default high-resolution gym atmosphere background image used ONLY when a gym has no configured image
@@ -185,47 +182,7 @@ export const DynamicGymLoginScreen = () => {
   };
 
   const handleOpenForgotModal = () => {
-    setForgotEmail(email || '');
-    setForgotSubmitted(false);
-    setForgotError('');
     setIsForgotModalOpen(true);
-  };
-
-  const handleForgotSubmit = async (e) => {
-    e.preventDefault();
-    setForgotError('');
-
-    if (!forgotEmail || !forgotEmail.trim()) {
-      setForgotError('Please enter your registered gym owner email address.');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(forgotEmail.trim())) {
-      setForgotError('Please provide a valid email address.');
-      return;
-    }
-
-    setIsSendingForgot(true);
-
-    try {
-      await apiClient.post('/auth/gym/forgot-password', {
-        email: forgotEmail.trim(),
-        identifier: forgotEmail.trim(),
-        gymSlug: slug
-      });
-      setForgotSubmitted(true);
-      showToast('Password reset link sent! Check your inbox.', 'success');
-    } catch (err) {
-      if (err.response?.status === 429) {
-        setForgotError(err.response?.data?.message || 'Too many reset attempts. Please wait 15 minutes.');
-      } else {
-        // Generic success to prevent email enumeration
-        setForgotSubmitted(true);
-      }
-    } finally {
-      setIsSendingForgot(false);
-    }
   };
 
   const configuredBg = gym?.cover_url || gym?.banner_url || gym?.background_url || gym?.gym_image || gym?.logo_url;
@@ -441,183 +398,16 @@ export const DynamicGymLoginScreen = () => {
             </div>
           </div>
         )}
-
-        {/* Forgot Password Modal */}
-        {isForgotModalOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              zIndex: 100,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 16
-            }}
-            onClick={() => setIsForgotModalOpen(false)}
-          >
-            <div
-              className="dynamic-gym-card"
-              style={{
-                maxWidth: 440,
-                width: '100%',
-                margin: '0 auto',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 107, 0, 0.2)'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {!forgotSubmitted ? (
-                <>
-                  <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div
-                      style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: '50%',
-                        background: 'rgba(255, 107, 0, 0.15)',
-                        border: '1px solid rgba(255, 107, 0, 0.3)',
-                        color: '#FF6B00',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 12px'
-                      }}
-                    >
-                      <KeyRound size={26} />
-                    </div>
-                    <h3 style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 6px', color: '#FFFFFF' }}>
-                      Forgot Password?
-                    </h3>
-                    <p style={{ fontSize: '0.875rem', color: '#94A3B8', margin: 0, lineHeight: 1.5 }}>
-                      Enter your registered Gym Owner email to receive a secure password reset link for <strong style={{ color: '#F8FAFC' }}>{gym?.name || 'your gym'}</strong>.
-                    </p>
-                  </div>
-
-                  {forgotError && (
-                    <div className="dynamic-gym-alert error" style={{ marginBottom: 16 }}>
-                      <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-                      <span>{forgotError}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleForgotSubmit} className="dynamic-gym-form" noValidate>
-                    <div className="dynamic-gym-field">
-                      <label className="dynamic-gym-label" htmlFor="forgot-owner-email">
-                        Owner Email Address
-                      </label>
-                      <div className="dynamic-gym-input-wrapper">
-                        <Mail size={18} className="dynamic-gym-input-icon" />
-                        <input
-                          id="forgot-owner-email"
-                          type="email"
-                          required
-                          placeholder="e.g. owner@pranavfitness.com"
-                          value={forgotEmail}
-                          onChange={(e) => setForgotEmail(e.target.value)}
-                          className="dynamic-gym-input"
-                          disabled={isSendingForgot}
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="dynamic-gym-submit-btn"
-                      disabled={isSendingForgot}
-                    >
-                      {isSendingForgot ? (
-                        <>
-                          <RefreshCw size={18} className="animate-spin" />
-                          <span>Sending Reset Link...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Send Reset Link</span>
-                          <ArrowRight size={18} />
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#94A3B8',
-                        fontSize: '0.875rem',
-                        padding: '10px 0 4px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6
-                      }}
-                      onClick={() => setIsForgotModalOpen(false)}
-                      disabled={isSendingForgot}
-                    >
-                      <ArrowLeft size={14} />
-                      <span>Back to Sign In</span>
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: '50%',
-                      background: 'rgba(34, 197, 94, 0.15)',
-                      border: '1.5px solid rgba(34, 197, 94, 0.4)',
-                      color: '#22C55E',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 16px'
-                    }}
-                  >
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <h3 style={{ fontSize: '1.3rem', fontWeight: 700, margin: '0 0 8px', color: '#FFFFFF' }}>
-                    Reset Link Dispatched
-                  </h3>
-                  <p style={{ fontSize: '0.9rem', color: '#94A3B8', lineHeight: 1.55, margin: '0 0 20px' }}>
-                    If an active gym owner account exists for <strong style={{ color: '#F8FAFC' }}>{forgotEmail}</strong>, we've sent instructions with a secure link to reset your password.
-                  </p>
-                  <div
-                    style={{
-                      backgroundColor: 'rgba(255, 107, 0, 0.1)',
-                      borderLeft: '4px solid #FF6B00',
-                      padding: '12px 14px',
-                      borderRadius: 6,
-                      marginBottom: 24,
-                      textAlign: 'left'
-                    }}
-                  >
-                    <p style={{ fontSize: '0.8rem', color: '#FED7AA', margin: 0, lineHeight: 1.45 }}>
-                      ⚠️ The reset link expires in <strong>15 minutes</strong> and can only be used once. Please check your spam folder if it doesn't appear shortly.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="dynamic-gym-submit-btn"
-                    onClick={() => {
-                      setIsForgotModalOpen(false);
-                      setForgotSubmitted(false);
-                    }}
-                  >
-                    <span>Back to Sign In</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Forgot Password OTP Modal */}
+      <CommonLoginModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        startInForgot={true}
+        initialEmail={email}
+        initialRole="GYM_OWNER"
+      />
     </div>
   );
 };
