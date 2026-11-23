@@ -8,9 +8,51 @@ import {
   generateReceiptSignedUrls,
   verifySignedDownloadToken
 } from '../services/storage.service.js';
+import { generateMembershipReceiptPdf } from '../services/pdf.service.js';
 import { sendMemberReceiptEmail } from '../services/email.service.js';
 
 const router = Router();
+
+/**
+ * Generates official receipt PDF dynamically on-the-fly directly from DB record.
+ * Zero files are written or read from storage disk or cloud.
+ */
+const generateReceiptPdfFromRecord = async (receipt) => {
+  return generateMembershipReceiptPdf({
+    gym: {
+      name: receipt.gymName || 'FiftyFifty Gym',
+      address: receipt.gymAddress,
+      city: receipt.gymCity,
+      state: receipt.gymState,
+      postal_code: receipt.gymPostalCode,
+      phone: receipt.gymPhone,
+      email: receipt.gymEmail,
+      logo_url: receipt.gymLogoUrl
+    },
+    member: {
+      id: receipt.memberId,
+      name: receipt.memberName,
+      email: receipt.memberEmail,
+      phone: receipt.memberPhone,
+      slug: receipt.memberSlug
+    },
+    plan: {
+      name: receipt.planName || 'Standard Membership',
+      price: receipt.amount
+    },
+    receipt: {
+      receiptNumber: receipt.receiptNumber,
+      issuedDate: receipt.issuedDate,
+      joinDate: receipt.joinDate,
+      expiryDate: receipt.expiryDate,
+      amount: receipt.amount,
+      paymentStatus: receipt.paymentStatus,
+      receiptType: receipt.receiptType,
+      paymentReference: receipt.paymentReference,
+      paymentMode: receipt.paymentMode
+    }
+  });
+};
 
 /**
  * Helper to verify tenant ownership for receipt access.
@@ -27,9 +69,12 @@ const verifyReceiptAccess = async (req, receiptId) => {
       r.payment_reference AS "paymentReference", r.payment_mode AS "paymentMode",
       r.created_at AS "createdAt",
       m.full_name AS "memberName", m.email AS "memberEmail", m.phone AS "memberPhone",
+      m.slug AS "memberSlug",
       TO_CHAR(m.join_date, 'YYYY-MM-DD') AS "joinDate",
       TO_CHAR(m.expiry_date, 'YYYY-MM-DD') AS "expiryDate",
-      g.name AS "gymName", g.logo_url AS "gymLogoUrl", g.slug AS "gymSlug"
+      g.name AS "gymName", g.logo_url AS "gymLogoUrl", g.slug AS "gymSlug",
+      g.address AS "gymAddress", g.city AS "gymCity", g.state AS "gymState", g.postal_code AS "gymPostalCode",
+      g.phone AS "gymPhone", g.email AS "gymEmail"
     FROM membership_receipts r
     JOIN members m ON m.id = r.member_id
     JOIN gyms g ON g.id = r.gym_id
@@ -53,14 +98,14 @@ const verifyReceiptAccess = async (req, receiptId) => {
     }
 
     if (userRole === ROLES.GYM_OWNER) {
-      if (req.user.gymId !== receipt.gymId) {
+      if (String(req.user.gymId) !== String(receipt.gymId)) {
         return { receipt: null, error: 'Forbidden: Access denied to receipt of another gym tenant', status: 403 };
       }
       return { receipt };
     }
 
     if (userRole === ROLES.MEMBER) {
-      if (req.user.memberId !== receipt.memberId && req.user.id !== receipt.memberId) {
+      if (String(req.user.memberId) !== String(receipt.memberId) && String(req.user.id) !== String(receipt.memberId)) {
         return { receipt: null, error: 'Forbidden: You can only access your own receipts', status: 403 };
       }
       return { receipt };
@@ -191,19 +236,23 @@ router.get('/:receiptId/preview', optionalAuthenticate, async (req, res, next) =
       return ApiResponse.error(res, error || 'Receipt not found', status || 404);
     }
 
+    // Check if token signature is valid
+    const isSignedTokenValid = Boolean(
+      token && (verifySignedDownloadToken(receipt.id, token) || verifySignedDownloadToken(receipt.receiptNumber, token))
+    );
+
     // If not authenticated via JWT, verify signed token
-    if (!req.user) {
-      if (!token || !verifySignedDownloadToken(receipt.id, token)) {
-        return ApiResponse.error(res, 'Invalid or expired preview token. Please refresh your session.', 401);
-      }
+    if (!req.user && !isSignedTokenValid) {
+      return ApiResponse.error(res, 'Invalid or expired preview token. Please refresh your session.', 401);
     }
 
-    const pdfBuffer = await getReceiptPdfBuffer(receipt.storagePath);
+    // Generate official PDF dynamically on-the-fly (zero storage)
+    const pdfBuffer = await generateReceiptPdfFromRecord(receipt);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${receipt.receiptNumber}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
-    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
     return res.end(pdfBuffer);
   } catch (error) {
@@ -226,19 +275,23 @@ router.get('/:receiptId/download', optionalAuthenticate, async (req, res, next) 
       return ApiResponse.error(res, error || 'Receipt not found', status || 404);
     }
 
+    // Check if token signature is valid
+    const isSignedTokenValid = Boolean(
+      token && (verifySignedDownloadToken(receipt.id, token) || verifySignedDownloadToken(receipt.receiptNumber, token))
+    );
+
     // If not authenticated via JWT, verify signed token
-    if (!req.user) {
-      if (!token || !verifySignedDownloadToken(receipt.id, token)) {
-        return ApiResponse.error(res, 'Invalid or expired download token. Please refresh your session.', 401);
-      }
+    if (!req.user && !isSignedTokenValid) {
+      return ApiResponse.error(res, 'Invalid or expired download token. Please refresh your session.', 401);
     }
 
-    const pdfBuffer = await getReceiptPdfBuffer(receipt.storagePath);
+    // Generate official PDF dynamically on-the-fly (zero storage)
+    const pdfBuffer = await generateReceiptPdfFromRecord(receipt);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.length);
-    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Cache-Control', 'private, no-cache, no-store');
 
     return res.end(pdfBuffer);
   } catch (error) {
@@ -264,8 +317,8 @@ router.post('/:receiptId/resend', authenticate, async (req, res, next) => {
       return ApiResponse.error(res, 'Member does not have a registered email address to receive receipts', 400);
     }
 
-    // 1. Retrieve the stored PDF buffer (reusing existing PDF without duplicating)
-    const pdfBuffer = await getReceiptPdfBuffer(receipt.storagePath);
+    // 1. Generate official PDF dynamically on-the-fly (zero storage)
+    const pdfBuffer = await generateReceiptPdfFromRecord(receipt);
 
     // 2. Dispatch email via Brevo
     const emailResult = await sendMemberReceiptEmail({

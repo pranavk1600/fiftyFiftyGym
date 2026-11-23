@@ -16,6 +16,16 @@
   user-select: none;
 }
 
+.theme-toggle-btn.icon-only {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-full, 9999px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .theme-toggle-btn:hover {
   background: var(--bg-surface);
   border-color: var(--brand-primary);

@@ -7,7 +7,7 @@ export const StatCard = ({ title, value, subtitle, icon: Icon }) => {
         <span className="stat-card-title">{title}</span>
         {Icon && (
           <div className="stat-card-icon" aria-hidden="true">
-            <Icon size={18} />
+            <Icon size={15} />
           </div>
         )}
       </div>
