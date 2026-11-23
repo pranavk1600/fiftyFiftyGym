@@ -15,7 +15,14 @@ import {
   Sparkles,
   Zap,
   Flame,
-  Award
+  Award,
+  Activity,
+  HeartPulse,
+  Users,
+  Compass,
+  Check,
+  Calendar,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -29,7 +36,7 @@ import '../../styles/screens/public/gymPortalScreen.css';
 
 export const GymPortalScreen = () => {
   const { slug } = useParams();
-  const { user, isAuthenticated, role, login } = useAuth();
+  const { user, isAuthenticated, role } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -37,14 +44,11 @@ export const GymPortalScreen = () => {
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Dedicated member/owner login modal
+  // Common Login Modal for Members and Gym Admins
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [loginRole, setLoginRole] = useState('MEMBER'); // 'MEMBER' or 'GYM_OWNER'
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [loginInitialRole, setLoginInitialRole] = useState('MEMBER');
 
-  // Inquiry modal
+  // Inquiry / Enrollment Modal
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [inquiryName, setInquiryName] = useState('');
   const [inquiryPhone, setInquiryPhone] = useState('');
@@ -52,6 +56,7 @@ export const GymPortalScreen = () => {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
 
+  // Fetch dynamic gym details and membership plans from database
   useEffect(() => {
     let isMounted = true;
     const fetchGymDetails = async () => {
@@ -76,36 +81,6 @@ export const GymPortalScreen = () => {
     return () => { isMounted = false; };
   }, [slug]);
 
-  // Handle member login on this gym page
-  const handleGymLogin = async (e) => {
-    e.preventDefault();
-    setIsSubmittingLogin(true);
-    try {
-      const response = await apiClient.post('/auth/login', {
-        email: loginEmail.trim(),
-        password: loginPassword,
-        portal: loginRole === 'GYM_OWNER' ? 'GYM_ADMIN' : 'MEMBER'
-      });
-      const data = response?.data || response;
-      const { user: authedUser, token } = data;
-
-      login(authedUser, token);
-      showToast(`Welcome to ${gymData?.name || 'Gym'}, ${authedUser.fullName || 'Member'}!`, 'success');
-      setIsLoginModalOpen(false);
-
-      if ((authedUser.role || '').toUpperCase() === 'GYM_OWNER') {
-        navigate('/owner/dashboard');
-      } else {
-        navigate('/member/dashboard');
-      }
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Invalid email or password';
-      showToast(errorMsg, 'danger');
-    } finally {
-      setIsSubmittingLogin(false);
-    }
-  };
-
   // Handle inquiry submit
   const handleInquirySubmit = async (e) => {
     e.preventDefault();
@@ -121,7 +96,7 @@ export const GymPortalScreen = () => {
         email: inquiryEmail,
         planId: selectedPlanId
       });
-      showToast(`Thank you ${inquiryName}! The gym management will contact you shortly.`, 'success');
+      showToast(`Thank you ${inquiryName}! The ${gymData?.name || 'gym'} team will contact you shortly.`, 'success');
       setIsInquiryModalOpen(false);
       setInquiryName('');
       setInquiryPhone('');
@@ -135,45 +110,84 @@ export const GymPortalScreen = () => {
 
   if (isLoading) {
     return (
-      <div className="gym-portal-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <Dumbbell className="animate-spin" size={36} color="var(--brand-primary)" style={{ margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Connecting to Gym Portal...</h2>
+      <div className="gym-portal-loader-container">
+        <div className="gym-portal-loader-box">
+          <Dumbbell className="animate-spin" size={40} color="var(--brand-primary)" style={{ margin: '0 auto 16px' }} />
+          <h2>Connecting to Gym Portal...</h2>
+          <p>Loading real-time member records, plans, and facility profile</p>
         </div>
       </div>
     );
   }
 
+  // Fallback gym data with dynamic slug if gym record is not returned
   const gym = gymData || {
-    name: 'FiftyFifty Fitness Hub',
+    name: 'FiftyFifty Fitness Club',
     slug: slug,
     address: 'Fitness Center Street',
     city: 'Mumbai',
     state: 'Maharashtra',
     opening_hours: '06:00 AM - 10:00 PM',
-    description: 'Premier fitness arena with modern equipment and certified personal trainers.',
+    description: 'Premier fitness arena with state-of-the-art strength equipment, cardio conditioning, and certified coaches.',
     phone: '+91 98000 00000',
     email: 'info@gym.com'
   };
 
+  // Professional facilities list with Lucide icons (no childish emojis)
+  const clubFacilities = [
+    {
+      icon: Dumbbell,
+      name: 'Olympic Free Weights & Racks',
+      desc: 'Commercial power racks, calibrated plates, Olympic barbells, and dumbells up to 50kg.'
+    },
+    {
+      icon: Activity,
+      name: 'Cardio Conditioning Zone',
+      desc: 'High-end treadmills, rowing ergs, curved runners, stairmasters, and cross-trainers.'
+    },
+    {
+      icon: Flame,
+      name: 'Functional & HIIT Arena',
+      desc: 'Sprint turf track, battle ropes, plyo boxes, sled pushes, and core conditioning zones.'
+    },
+    {
+      icon: Award,
+      name: 'Certified Personal Trainers',
+      desc: 'Elite form coaching, personalized transformation regimens, and goal tracking.'
+    },
+    {
+      icon: Zap,
+      name: 'Instant QR Attendance Check-In',
+      desc: 'Seamless sub-second attendance verification via the LeopardxGyms member network.'
+    },
+    {
+      icon: Shield,
+      name: 'Private Lockers & Luxury Suites',
+      desc: 'Sanitized digital locker storage, changing suites, and hygienic shower facilities.'
+    }
+  ];
+
   return (
     <div className="gym-portal-container">
-      {/* Top Navbar */}
-      <nav className="gym-portal-navbar">
+      {/* ====================================================================
+          STICKY TOP GYM NAVBAR
+          ==================================================================== */}
+      <nav className="gym-portal-navbar" aria-label="Gym Portal Navigation">
         <div className="gym-portal-nav-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
+          {/* Left Side: Leopardx Network Link & Dynamic Gym Branding */}
+          <div className="gym-portal-nav-left">
+            <Link to="/#gyms" className="gym-nav-network-link" title="Explore LeopardxGyms Network">
               <ChevronLeft size={16} />
               <span>LeopardxGyms Network</span>
             </Link>
 
-            <div style={{ width: 1, height: 20, background: 'var(--border-subtle)' }} />
+            <div className="gym-nav-divider" />
 
             <div className="gym-portal-brand">
               {gym.logo_url ? (
                 <img src={gym.logo_url} alt={gym.name} className="gym-portal-nav-logo" />
               ) : (
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--brand-primary)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                <div className="gym-portal-nav-logo-fallback">
                   {gym.name?.charAt(0) || 'G'}
                 </div>
               )}
@@ -181,6 +195,7 @@ export const GymPortalScreen = () => {
             </div>
           </div>
 
+          {/* Right Side: Theme Toggle & Authentication CTAs */}
           <div className="gym-portal-nav-actions">
             <ThemeToggle showLabel={false} />
 
@@ -198,234 +213,326 @@ export const GymPortalScreen = () => {
                 Go to Dashboard
               </Button>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="gym-nav-btn-group">
                 <Link
                   to={`/gym/${slug}/login`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 12px',
-                    borderRadius: 'var(--radius-md, 8px)',
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-surface-elevated)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.825rem',
-                    fontWeight: 600,
-                    textDecoration: 'none'
-                  }}
+                  className="btn-gym-nav-owner"
+                  title="Gym Owner Admin Access"
                 >
-                  <Shield size={13} color="var(--brand-primary)" />
+                  <Shield size={14} />
                   <span>Owner Login</span>
                 </Link>
-                <Button
-                  variant="outline"
-                  size="small"
-                  onClick={() => setIsLoginModalOpen(true)}
+
+                <button
+                  type="button"
+                  className="btn-gym-nav-member"
+                  onClick={() => {
+                    setLoginInitialRole('MEMBER');
+                    setIsLoginModalOpen(true);
+                  }}
+                  title="Member Sign In"
                 >
                   <User size={14} />
                   <span>Member Login</span>
-                </Button>
-                <Button
-                  variant="primary"
-                  size="small"
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-gym-nav-join"
                   onClick={() => setIsInquiryModalOpen(true)}
+                  title="Join This Gym"
                 >
-                  Join This Gym
-                </Button>
+                  <span>Join This Gym</span>
+                  <ArrowRight size={14} />
+                </button>
               </div>
             )}
           </div>
         </div>
       </nav>
 
-      {/* Gym Hero Banner */}
+      {/* ====================================================================
+          PREMIUM GYM HERO SECTION (DARK NAVY GRADIENT & FITNESS ATMOSPHERE)
+          ==================================================================== */}
       <section className="gym-portal-hero">
-        <div className="gym-hero-inner">
-          {gym.logo_url ? (
-            <img src={gym.logo_url} alt={gym.name} className="gym-hero-logo-large" />
-          ) : (
-            <div className="gym-hero-logo-fallback">
-              {gym.name?.charAt(0) || 'G'}
-            </div>
-          )}
+        <div className="gym-hero-backdrop-pattern" />
+        <div className="gym-hero-glow-accent" />
 
-          <div className="gym-hero-details">
-            <div className="gym-tenant-url-badge">
-              <span>Dedicated Portal: leopardxgyms.com/gym/{gym.slug || slug}</span>
+        <div className="gym-hero-inner">
+          {/* Gym Logo Badge */}
+          <div className="gym-hero-logo-box">
+            {gym.logo_url ? (
+              <img src={gym.logo_url} alt={gym.name} className="gym-hero-logo-img" />
+            ) : (
+              <div className="gym-hero-logo-placeholder">
+                <Dumbbell size={44} strokeWidth={2.2} />
+              </div>
+            )}
+            <span className="gym-badge-verified">
+              <CheckCircle2 size={13} />
+              <span>Verified Gym</span>
+            </span>
+          </div>
+
+          {/* Gym Details & Metadata */}
+          <div className="gym-hero-info">
+            <div className="gym-hero-portal-badge">
+              <Compass size={13} color="var(--brand-primary)" />
+              <span>Official Dedicated Portal • leopardxgyms.vercel.app/gym/{gym.slug || slug}</span>
             </div>
 
             <h1 className="gym-hero-title">{gym.name}</h1>
 
-            <p className="gym-hero-description">
-              {gym.description || 'Welcome to our fitness community! We offer state-of-the-art strength equipment, certified coaches, steam recovery, and group conditioning classes.'}
+            <p className="gym-hero-desc">
+              {gym.description ||
+                'Welcome to our premier fitness facility! We offer modern strength equipment, functional conditioning, steam recovery, and certified coaches dedicated to your personal health and physique transformation.'}
             </p>
 
-            <div className="gym-contact-chips">
-              <div className="gym-contact-chip">
-                <MapPin size={14} color="var(--brand-primary)" />
-                <span>{gym.address ? `${gym.address}, ${gym.city || ''}` : `${gym.city || 'Mumbai'}, ${gym.state || ''}`}</span>
+            {/* Quick Contact & Location Chips */}
+            <div className="gym-hero-chips">
+              <div className="gym-hero-chip">
+                <MapPin size={15} color="var(--brand-primary)" />
+                <span>
+                  {gym.address
+                    ? `${gym.address}, ${gym.city || ''} ${gym.state ? `, ${gym.state}` : ''}`
+                    : `${gym.city || 'Mumbai'}, ${gym.state || 'Maharashtra'}`}
+                </span>
               </div>
-              <div className="gym-contact-chip">
-                <Clock size={14} color="var(--brand-primary)" />
-                <span>{gym.opening_hours || '06:00 AM - 10:00 PM'}</span>
+
+              <div className="gym-hero-chip">
+                <Clock size={15} color="var(--brand-primary)" />
+                <span>Operating Hours: {gym.opening_hours || '06:00 AM - 10:00 PM'}</span>
               </div>
+
               {gym.phone && (
-                <div className="gym-contact-chip">
-                  <Phone size={14} color="var(--brand-primary)" />
+                <div className="gym-hero-chip">
+                  <Phone size={15} color="var(--brand-primary)" />
                   <span>{gym.phone}</span>
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="gym-hero-ctas">
-            <Button
-              variant="primary"
-              size="large"
-              onClick={() => setIsInquiryModalOpen(true)}
-            >
-              <Flame size={18} />
-              <span>Enroll / Inquire Now</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="large"
-              onClick={() => { setLoginRole('MEMBER'); setLoginEmail(''); setIsLoginModalOpen(true); }}
-            >
-              <User size={18} />
-              <span>Member Sign In</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="small"
-              onClick={() => { setLoginRole('GYM_OWNER'); setLoginEmail(''); setIsLoginModalOpen(true); }}
-            >
-              <Shield size={14} />
-              <span>Gym Admin Portal</span>
-            </Button>
+            {/* Hero Action CTA Buttons */}
+            <div className="gym-hero-actions">
+              <button
+                type="button"
+                className="btn-gym-cta-primary"
+                onClick={() => setIsInquiryModalOpen(true)}
+              >
+                <Flame size={18} />
+                <span>Enroll / Inquire Now</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-gym-cta-secondary"
+                onClick={() => {
+                  setLoginInitialRole('MEMBER');
+                  setIsLoginModalOpen(true);
+                }}
+              >
+                <User size={18} />
+                <span>Member Sign In</span>
+              </button>
+
+              <Link
+                to={`/gym/${slug}/login`}
+                className="btn-gym-cta-outline"
+                title="Gym Owner Admin Dashboard"
+              >
+                <Shield size={16} />
+                <span>Gym Admin Portal</span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Main Content Area */}
+      {/* ====================================================================
+          MAIN GYM CONTENT: FACILITIES & MEMBERSHIP TIERS
+          ==================================================================== */}
       <main className="gym-portal-main">
-        {/* Facilities & Amenities */}
-        <h2 className="gym-section-title">Club Facilities & Amenities</h2>
-        <p className="gym-section-subtitle">
-          Everything you need to elevate your strength, conditioning, and physique.
-        </p>
-
-        <div className="gym-amenities-row">
-          <div className="gym-amenity-card">🏋️ Olympic Free Weights Area</div>
-          <div className="gym-amenity-card">🏃 Cardio Theater & Treadmills</div>
-          <div className="gym-amenity-card">🧖 Steam & Sauna Recovery</div>
-          <div className="gym-amenity-card">🚿 Premium Showers & Lockers</div>
-          <div className="gym-amenity-card">🥊 Functional HIIT & Boxing Zone</div>
-          <div className="gym-amenity-card">📱 FiftyFifty QR Attendance App</div>
-          <div className="gym-amenity-card">🥗 Nutrition Consultation</div>
-        </div>
-
-        {/* Membership Plans */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 12 }}>
-          <div>
-            <h2 className="gym-section-title">Membership Plans & Pricing</h2>
-            <p className="gym-section-subtitle" style={{ marginBottom: 20 }}>
-              Choose the ideal plan for your training frequency. Transparent pricing with zero hidden charges.
+        {/* Facilities & Amenities Section */}
+        <section className="gym-facilities-section">
+          <div className="gym-section-header">
+            <span className="gym-section-tag">Premium Training Environment</span>
+            <h2 className="gym-section-title">Club Facilities & Amenities</h2>
+            <p className="gym-section-subtitle">
+              Engineered with world-class fitness equipment, specialized recovery zones, and sanitary amenities.
             </p>
           </div>
-        </div>
 
-        <div className="gym-plans-grid">
-          {plans.length === 0 ? (
-            <div style={{
-              gridColumn: '1 / -1',
-              padding: '36px 24px',
-              textAlign: 'center',
-              background: 'var(--bg-surface)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)'
-            }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: 6 }}>No Membership Plans Published Yet</h3>
-              <p style={{ fontSize: '0.9rem' }}>Please contact the gym team directly to inquire about customized membership packages and pricing.</p>
-            </div>
-          ) : (
-            plans.map((p) => {
-              const isPop = p.is_popular || false;
-              const features = Array.isArray(p.features) ? p.features : ['Full Gym Access', 'Locker Facility', 'App Check-in'];
-
+          <div className="gym-facilities-grid">
+            {clubFacilities.map((fac, idx) => {
+              const Icon = fac.icon;
               return (
-                <div key={p.id} className={`gym-plan-card ${isPop ? 'popular' : ''}`}>
-                  {isPop && <div className="gym-plan-badge">Most Popular</div>}
-                  <h3 className="gym-plan-title">{p.name}</h3>
-
-                  <div className="gym-plan-price-row">
-                    <span className="gym-plan-price">₹{Number(p.price).toLocaleString()}</span>
-                    <span className="gym-plan-duration">/ {p.duration_label || `${p.duration_days} Days`}</span>
+                <div key={idx} className="gym-facility-card">
+                  <div className="gym-facility-icon-box">
+                    <Icon size={24} />
                   </div>
+                  <h3 className="gym-facility-title">{fac.name}</h3>
+                  <p className="gym-facility-desc">{fac.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
-                  <ul className="gym-plan-features">
-                    {features.map((feat, idx) => (
-                      <li key={idx} className="gym-plan-feature">
-                        <CheckCircle2 size={16} color="var(--brand-primary)" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <span>{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
+        {/* Membership Plans & Pricing Section */}
+        <section id="plans" className="gym-plans-section">
+          <div className="gym-section-header">
+            <span className="gym-section-tag">Transparent Memberships</span>
+            <h2 className="gym-section-title">Membership Plans & Pricing</h2>
+            <p className="gym-section-subtitle">
+              Select the training plan that matches your fitness goals. Transparent pricing with zero hidden fees.
+            </p>
+          </div>
 
-                  <div className="gym-plan-action">
-                    <Button
-                      variant={isPop ? 'primary' : 'outline'}
-                      fullWidth
+          <div className="gym-plans-grid">
+            {plans.length === 0 ? (
+              <div className="gym-no-plans-box">
+                <Dumbbell size={36} color="var(--brand-primary)" style={{ margin: '0 auto 12px' }} />
+                <h3>No Public Membership Plans Published Yet</h3>
+                <p>
+                  Please contact the <strong>{gym.name}</strong> front desk directly or submit an inquiry to receive a customized pricing quote.
+                </p>
+                <button
+                  type="button"
+                  className="btn-gym-cta-primary"
+                  style={{ marginTop: 20 }}
+                  onClick={() => setIsInquiryModalOpen(true)}
+                >
+                  <Flame size={16} />
+                  <span>Inquire for Custom Pricing</span>
+                </button>
+              </div>
+            ) : (
+              plans.map((p) => {
+                const isPop = p.is_popular || false;
+                const features = Array.isArray(p.features) && p.features.length > 0
+                  ? p.features
+                  : ['Full Gym Access', 'Strength & Free Weights', 'Locker Room & Showers', 'App Attendance Verification'];
+
+                return (
+                  <div key={p.id} className={`gym-pricing-card ${isPop ? 'featured-card' : ''}`}>
+                    {isPop && (
+                      <div className="gym-pricing-popular-pill">
+                        <Sparkles size={12} />
+                        <span>Recommended Plan</span>
+                      </div>
+                    )}
+
+                    <h3 className="gym-pricing-plan-title">{p.name}</h3>
+                    <p className="gym-pricing-plan-desc">
+                      Full access membership designed for consistent strength and conditioning progress.
+                    </p>
+
+                    <div className="gym-pricing-price-box">
+                      <span className="gym-pricing-currency">₹</span>
+                      <span className="gym-pricing-amount">{Number(p.price).toLocaleString()}</span>
+                      <span className="gym-pricing-duration">
+                        / {p.duration_label || `${p.duration_days} Days`}
+                      </span>
+                    </div>
+
+                    <div className="gym-pricing-features-title">Plan Inclusions:</div>
+                    <ul className="gym-pricing-features-list">
+                      {features.map((feat, fIdx) => (
+                        <li key={fIdx} className="gym-pricing-feature-item">
+                          <CheckCircle2 size={16} color="var(--brand-primary)" className="feat-check-icon" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      type="button"
+                      className={`btn-gym-plan-select ${isPop ? 'btn-select-popular' : ''}`}
                       onClick={() => {
                         setSelectedPlanId(p.name);
                         setIsInquiryModalOpen(true);
                       }}
                     >
-                      Select {p.name}
-                    </Button>
+                      <span>Join Now with {p.name}</span>
+                      <ArrowRight size={15} />
+                    </button>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        </section>
       </main>
 
-      {/* Member / Owner Login Modal */}
-      {/* Unified Common Login Modal */}
+      {/* ====================================================================
+          GYM PORTAL FOOTER
+          ==================================================================== */}
+      <footer className="gym-portal-footer">
+        <div className="gym-portal-footer-inner">
+          <div className="gym-footer-brand">
+            <div className="gym-footer-logo-badge">
+              <Dumbbell size={20} color="#FFFFFF" />
+            </div>
+            <div>
+              <div className="gym-footer-title">{gym.name}</div>
+              <div className="gym-footer-sub">
+                Powered by LeopardxGyms Multi-Tenant Operating System • {gym.city || 'India'}
+              </div>
+            </div>
+          </div>
+
+          <div className="gym-footer-links">
+            <Link to="/#gyms" className="gym-footer-link">Other Gym Portals</Link>
+            <Link to={`/gym/${slug}/login`} className="gym-footer-link">Owner Admin</Link>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginInitialRole('MEMBER');
+                setIsLoginModalOpen(true);
+              }}
+              className="gym-footer-link-btn"
+            >
+              Member Login
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      {/* ====================================================================
+          MODALS: UNIFIED COMMON LOGIN MODAL & INQUIRY ENROLLMENT MODAL
+          ==================================================================== */}
       <CommonLoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        initialRole="MEMBER"
+        initialRole={loginInitialRole}
       />
 
-      {/* Inquiry / Join Gym Modal */}
       {isInquiryModalOpen && (
         <Modal
           isOpen={isInquiryModalOpen}
           onClose={() => setIsInquiryModalOpen(false)}
           title={`Join ${gym.name}`}
-          maxWidth="460px"
+          maxWidth="480px"
         >
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-            Leave your contact details and our fitness team will arrange a complimentary gym tour and plan consultation.
-          </p>
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ fontSize: '0.885rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Leave your details below and the <strong>{gym.name}</strong> team will arrange your complimentary club walkthrough and membership confirmation.
+            </p>
+          </div>
 
           <form onSubmit={handleInquirySubmit}>
             <Input
               label="Full Name *"
               value={inquiryName}
               onChange={(e) => setInquiryName(e.target.value)}
-              placeholder="e.g. Full Name"
+              placeholder="e.g. John Doe"
               required
             />
             <Input
               label="Mobile Number *"
               value={inquiryPhone}
               onChange={(e) => setInquiryPhone(e.target.value)}
-              placeholder="+91 98765 00000"
+              placeholder="+91 98765 43210"
               required
             />
             <Input
@@ -433,11 +540,25 @@ export const GymPortalScreen = () => {
               type="email"
               value={inquiryEmail}
               onChange={(e) => setInquiryEmail(e.target.value)}
-              placeholder="e.g. name@example.com"
+              placeholder="name@example.com"
             />
+
             {selectedPlanId && (
-              <div style={{ padding: '8px 12px', background: 'var(--brand-primary-soft)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--brand-primary)', fontWeight: 600, marginBottom: 14 }}>
-                Interested Plan: {selectedPlanId}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                background: 'var(--brand-primary-soft)',
+                border: '1px solid var(--brand-primary-soft-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--brand-primary)',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                marginBottom: 16
+              }}>
+                <Sparkles size={16} />
+                <span>Selected Membership Tier: {selectedPlanId}</span>
               </div>
             )}
 
@@ -448,7 +569,7 @@ export const GymPortalScreen = () => {
                 fullWidth
                 isLoading={isSubmittingInquiry}
               >
-                Submit Inquiry
+                Submit Membership Inquiry
               </Button>
             </div>
           </form>
