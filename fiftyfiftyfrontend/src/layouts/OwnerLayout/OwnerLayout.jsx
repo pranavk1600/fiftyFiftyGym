@@ -96,20 +96,19 @@ export const OwnerLayout = () => {
   }, [isMobileMenuOpen]);
 
   const handleLogout = () => {
-    const gymSlug =
-      gymProfile.slug ||
-      user?.gymSlug ||
-      user?.gym_slug ||
-      user?.gym?.slug ||
-      localStorage.getItem('fiftyfifty_last_gym_slug');
-
+    // 1. Clear Gym Owner authentication token and session data
     logout();
+    try {
+      localStorage.removeItem('fiftyfifty_owner_token');
+      localStorage.removeItem('fiftyfifty_owner_user');
+      localStorage.removeItem('fiftyfifty_token');
+      localStorage.removeItem('fiftyfifty_user');
+      localStorage.removeItem('fiftyfifty_last_gym_slug');
+      sessionStorage.clear();
+    } catch (_e) {}
 
-    if (gymSlug) {
-      navigate(`/gym/${gymSlug}/login`, { replace: true });
-    } else {
-      navigate('/admin/login', { replace: true });
-    }
+    // 2. Redirect to LeopardxGyms public homepage and open the universal Sign In modal
+    navigate('/?signin=true', { replace: true, state: { openSignIn: true } });
   };
 
   const closeMobileMenu = () => {

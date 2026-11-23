@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Dumbbell,
   Shield,
@@ -40,9 +40,26 @@ export const LandingScreen = () => {
   const { user, isAuthenticated, role, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Modal login state for seamless on-page sign in
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  // Auto-open Sign In modal if navigated with ?signin=true or state.openSignIn (e.g. after Gym Owner logout)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('signin') === 'true' || params.get('login') === 'true' || location.state?.openSignIn) {
+      setIsLoginModalOpen(true);
+    }
+  }, [location.search, location.state]);
+
+  const handleCloseLoginModal = () => {
+    setIsLoginModalOpen(false);
+    const params = new URLSearchParams(location.search);
+    if (params.get('signin') === 'true' || params.get('login') === 'true' || location.state?.openSignIn) {
+      navigate('/', { replace: true, state: {} });
+    }
+  };
 
   // Interactive documentation state
   const [activeDocsTab, setActiveDocsTab] = useState('quickstart');
@@ -867,7 +884,7 @@ export const LandingScreen = () => {
       {/* On-Page Universal Login Modal */}
       <CommonLoginModal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        onClose={handleCloseLoginModal}
       />
     </div>
   );
