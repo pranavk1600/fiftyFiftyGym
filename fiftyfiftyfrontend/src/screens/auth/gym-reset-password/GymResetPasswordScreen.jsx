@@ -122,8 +122,7 @@ export const GymResetPasswordScreen = () => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else if (isSuccess && countdown === 0) {
-      const targetPath = `/gym/${resolvedSlug || slug}/login`;
-      navigate(targetPath);
+      navigate('/?signin=true', { replace: true, state: { openSignIn: true } });
     }
     return () => {
       if (timer) clearTimeout(timer);
@@ -245,11 +244,11 @@ export const GymResetPasswordScreen = () => {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <Link
-                to={loginUrl}
+                to="/?signin=true"
                 className="dynamic-gym-submit-btn"
                 style={{ textDecoration: 'none', display: 'inline-flex' }}
               >
-                <span>Return to Gym Sign In</span>
+                <span>Return to Sign In</span>
                 <ArrowRight size={16} />
               </Link>
               <Link to="/" className="dynamic-gym-portal-link" style={{ marginTop: 8 }}>
@@ -298,14 +297,14 @@ export const GymResetPasswordScreen = () => {
                     color: '#FED7AA'
                   }}
                 >
-                  Redirecting to Gym Sign In in <strong>{countdown}s</strong>...
+                  Redirecting to Sign In in <strong>{countdown}s</strong>...
                 </div>
                 <button
                   type="button"
                   className="dynamic-gym-submit-btn"
-                  onClick={() => navigate(loginUrl)}
+                  onClick={() => navigate('/?signin=true', { replace: true, state: { openSignIn: true } })}
                 >
-                  <span>Sign In to Gym Portal Now</span>
+                  <span>Sign In to Portal Now</span>
                   <ArrowRight size={18} />
                 </button>
               </div>
