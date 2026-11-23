@@ -1053,52 +1053,63 @@
 .gyms-showcase-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
+  gap: 28px;
+  align-items: stretch;
 }
 
 .gym-showcase-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 18px;
+  border-radius: 20px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  height: 100%;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease;
 }
 
 .gym-showcase-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(255, 107, 0, 0.35);
+  box-shadow: 0 16px 32px rgba(16, 24, 40, 0.1);
 }
 
 .gym-card-banner {
-  height: 120px;
-  background: linear-gradient(135deg, var(--navy-primary) 0%, var(--navy-dark) 100%);
+  height: 130px;
+  background: linear-gradient(135deg, #101828 0%, #172554 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .gym-card-logo {
-  max-height: 70px;
-  max-width: 160px;
+  max-height: 76px;
+  max-width: 170px;
   object-fit: contain;
+  background: #FFFFFF;
+  padding: 8px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .gym-card-logo-placeholder {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--brand-primary);
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--brand-primary, #FF6B00) 0%, #FF8533 100%);
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 800;
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.4);
+  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.25);
 }
 
 .gym-card-body {
@@ -1109,10 +1120,12 @@
 }
 
 .gym-card-title {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
   font-weight: 800;
   color: var(--navy-primary);
   margin-bottom: 8px;
+  letter-spacing: -0.01em;
 }
 
 [data-theme="dark"] .gym-card-title {
@@ -1129,12 +1142,13 @@
   color: var(--brand-primary);
   margin-bottom: 14px;
   font-weight: 600;
+  border: 1px solid var(--border-subtle);
 }
 
 .gym-card-desc {
   font-size: 0.885rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.55;
   margin-bottom: 18px;
   flex: 1;
 }
@@ -1146,7 +1160,7 @@
   padding: 14px 0;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   font-size: 0.825rem;
   color: var(--text-secondary);
 }
@@ -1164,20 +1178,23 @@
   gap: 8px;
   width: 100%;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--navy-primary);
   color: #FFFFFF;
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 700;
-  transition: all 0.2s ease;
-  border: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--navy-primary);
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.15);
 }
 
 .btn-visit-gym:hover {
   background: var(--brand-primary);
+  border-color: var(--brand-primary);
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35);
 }
 
 /* --------------------------------------------------------------------------
