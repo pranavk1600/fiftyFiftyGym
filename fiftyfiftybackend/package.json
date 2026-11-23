@@ -10,6 +10,7 @@
     "db:migrate": "node src/database/migrate.js",
     "prisma:validate": "node scripts/validate_prisma.js",
     "test:email": "node src/tests/production_email_url.test.js",
+    "test:member-email": "node src/tests/member_creation_email.test.js",
     "test:otp": "node src/tests/otp_flow.test.js",
     "test:import": "node src/tests/bulk_import.test.js",
     "test:delete": "node src/tests/member_delete.test.js",

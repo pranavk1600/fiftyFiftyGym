@@ -6,7 +6,7 @@ import { sanitizeEmailUrl } from '../config/frontend.config.js';
  * Returns null if the API key is not configured.
  */
 export const getBrevoClient = () => {
-  const apiKey = (process.env.BREVO_API_KEY || '').trim();
+  const apiKey = (process.env.BREVO_API_KEY || process.env.SIB_API_KEY || process.env.BREVO_KEY || '').trim();
   if (!apiKey) {
     return null;
   }
@@ -47,8 +47,8 @@ export const sendEmail = async ({
   }
 
   const client = getBrevoClient();
-  const senderEmail = (process.env.BREVO_SENDER_EMAIL || '').trim();
-  const senderName = (process.env.BREVO_SENDER_NAME || 'FiftyFifty Gym').trim();
+  const senderEmail = (process.env.BREVO_SENDER_EMAIL || process.env.SENDER_EMAIL || process.env.EMAIL_FROM || process.env.BREVO_EMAIL || '').trim();
+  const senderName = (process.env.BREVO_SENDER_NAME || process.env.SENDER_NAME || 'LeopardxGyms').trim();
 
   // If credentials are unconfigured, log helpful server notice and return status
   if (!client || !senderEmail) {
@@ -81,20 +81,35 @@ export const sendEmail = async ({
       payload.attachment = attachments;
     }
 
-    const response = await client.transactionalEmails.sendTransacEmail(payload);
+    let response;
+    try {
+      response = await client.transactionalEmails.sendTransacEmail(payload);
+    } catch (sendErr) {
+      // If dispatch failed with attachment, retry without attachment as resilient fallback
+      if (payload.attachment && payload.attachment.length > 0) {
+        const attachErrMsg = sendErr?.body?.message || sendErr?.message || 'Attachment rejected';
+        console.warn(`[Email Service Notice] Brevo rejected email with attachment for <${to}> (${attachErrMsg}). Retrying without attachment...`);
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.attachment;
+        response = await client.transactionalEmails.sendTransacEmail(fallbackPayload);
+      } else {
+        throw sendErr;
+      }
+    }
 
-    const messageId = response?.messageId || 'accepted';
-    console.log(`[Email Service] Transactional email "${subject}" accepted by Brevo for <${to}> (messageId: ${messageId})`);
+    const messageId = response?.data?.messageId || response?.messageId || 'accepted';
+    console.log(`[Email Service Success] Transactional email "${subject}" accepted by Brevo for <${to}> (messageId: ${messageId})`);
 
     return {
       success: true,
       messageId
     };
   } catch (error) {
-    console.error(`[Email Service Error] Brevo API call failed for <${to}>:`, error?.message || error);
+    const errorDetails = error?.body?.message || error?.response?.body?.message || error?.message || 'Brevo transactional email dispatch failed.';
+    console.error(`[Email Service Error] Brevo dispatch failed for <${to}> [${subject}]: ${errorDetails}`);
     return {
       success: false,
-      error: error?.message || 'Brevo transactional email dispatch failed.'
+      error: errorDetails
     };
   }
 };
@@ -736,7 +751,7 @@ export const renderMemberInvitationHtml = ({
  * Exactly matches the WhatsApp registration welcome message text.
  */
 export const renderMemberInvitationText = ({
-  gymName = 'FiftyFifty Gym',
+  gymName = 'LeopardxGyms',
   memberName = 'Member',
   idNo = 'N/A',
   planName = 'Standard Plan',
@@ -753,7 +768,9 @@ export const renderMemberInvitationText = ({
 }) => {
   const safeLoginUrl = sanitizeEmailUrl(loginUrl);
   const safeActivationUrl = sanitizeEmailUrl(activationUrl);
-  return `WELCOME TO ${gymName.toUpperCase()} — YOUR MEMBER PORTAL ACCESS
+  const effectiveStartDate = startDate || joinDate || 'N/A';
+
+  let text = `WELCOME TO ${gymName.toUpperCase()} — YOUR MEMBER PORTAL ACCESS
 
 Hello ${memberName},
 Your gym membership has been successfully registered! Below are your membership and billing details:
@@ -773,22 +790,25 @@ Your gym membership has been successfully registered! Below are your membership 
   if (activationUrl) {
     text += `
 
-ACTIVATE YOUR ACCOUNT & SET YOUR PASSWORD:
-Click the link below to set your password (valid for ${expiryDays} days):
-${safeActivationUrl}
+🔑 ACTIVATE YOUR ACCOUNT & SET YOUR PASSWORD:
+Click the link below to set your password and access your member portal (valid for ${expiryDays} days):
+${safeActivationUrl}`;
+  }
 
-DEDICATED MEMBER LOGIN URL:
-${safeLoginUrl}
+  if (loginUrl) {
+    text += `
 
 📲 Member Login Portal:
-${loginUrl}`;
+${safeLoginUrl}
+
+Once your password is set, bookmark this page for easy sign-in on your device.`;
   }
 
   text += `
 
 Thank you for choosing ${gymName}! Stay fit and healthy! 💪🔥
 
-© 2026 FiftyFifty Gym Management Software`;
+© ${new Date().getFullYear()} ${gymName} Management Software`;
 
   return text;
 };
@@ -799,9 +819,9 @@ Thank you for choosing ${gymName}! Stay fit and healthy! 💪🔥
  */
 export const sendMemberInvitationEmail = async ({
   to,
-  gymName,
+  gymName = 'LeopardxGyms',
   gymLogoUrl,
-  memberName,
+  memberName = 'Member',
   idNo,
   planName,
   durationMonths = 1,
@@ -817,12 +837,21 @@ export const sendMemberInvitationEmail = async ({
   receiptPdfBuffer,
   receiptNumber
 }) => {
-  const subject = `Welcome to ${gymName} – Your Member Portal Access`;
+  if (!to || !String(to).trim()) {
+    return {
+      success: false,
+      status: 'skipped',
+      message: 'No recipient email address provided.'
+    };
+  }
+
+  const resolvedGymName = gymName || 'LeopardxGyms';
+  const subject = `Welcome to ${resolvedGymName} – Your Member Portal Access`;
   const resolvedId = idNo || receiptNumber || 'N/A';
   const resolvedStartDate = startDate || joinDate;
 
   const htmlContent = renderMemberInvitationHtml({
-    gymName,
+    gymName: resolvedGymName,
     gymLogoUrl,
     memberName,
     idNo: resolvedId,
@@ -838,7 +867,7 @@ export const sendMemberInvitationEmail = async ({
     expiryDays
   });
   const textContent = renderMemberInvitationText({
-    gymName,
+    gymName: resolvedGymName,
     memberName,
     idNo: resolvedId,
     planName,
@@ -853,15 +882,15 @@ export const sendMemberInvitationEmail = async ({
     expiryDays
   });
 
-  const attachments = receiptPdfBuffer && receiptNumber ? [
+  const attachments = receiptPdfBuffer && Buffer.isBuffer(receiptPdfBuffer) && receiptPdfBuffer.length > 0 && receiptNumber ? [
     {
-      name: `${receiptNumber}.pdf`,
+      name: `${String(receiptNumber).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
       content: receiptPdfBuffer.toString('base64')
     }
   ] : undefined;
 
   return sendEmail({
-    to,
+    to: String(to).trim().toLowerCase(),
     subject,
     htmlContent,
     textContent,
