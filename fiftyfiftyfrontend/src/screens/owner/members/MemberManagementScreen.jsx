@@ -4,6 +4,7 @@ import { Button } from '../../../shared/components/Button/Button';
 import { Table } from '../../../shared/components/Table/Table';
 import { ImportMembersModal } from './ImportMembersModal';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
 import { apiClient } from '../../../shared/services/apiClient';
 
 import { formatExcelDate } from '../../../shared/utils/formatters';
@@ -15,14 +16,32 @@ import { EditMemberModal } from './components/EditMemberModal';
 import { MemberProfileModal } from './components/MemberProfileModal';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { CustomAlertModal } from './components/CustomAlertModal';
+import { MemberFiltersBar } from './components/MemberFiltersBar';
 
 // Styles
 import './styles/memberManagement.css';
 
+// Helper for days until expiry
+const getDaysUntilExpiry = (expiryDate) => {
+  if (!expiryDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDate);
+  exp.setHours(0, 0, 0, 0);
+  const diffTime = exp.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 export const MemberManagementScreen = () => {
   const { showToast } = useToast();
+  const { user } = useAuth();
+  // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [quickFilter, setQuickFilter] = useState('ALL'); // ALL | ACTIVE | EXPIRING_SOON | BALANCE_DUE | EXPIRED
+  const [planFilter, setPlanFilter] = useState('ALL');
+  const [balanceFilter, setBalanceFilter] = useState('ALL'); // ALL | CLEARED | DUE
+  const [expiryWindow, setExpiryWindow] = useState('ALL'); // ALL | 7_DAYS | 15_DAYS | 30_DAYS | EXPIRED
+  const [sortBy, setSortBy] = useState('NEWEST'); // NEWEST | EXPIRY_SOON | BALANCE_HIGH | NAME_ASC
 
   const [members, setMembers] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -318,6 +337,74 @@ export const MemberManagementScreen = () => {
     }
   };
 
+  // Send WhatsApp Balance Due Reminder to Member
+  const handleSendWhatsAppBalanceReminder = (member) => {
+    if (!member) return;
+    const phone = member.phone;
+    if (!phone) {
+      showAlert({
+        type: 'warning',
+        title: 'No Phone Number',
+        message: 'This member does not have a phone number registered to send WhatsApp reminders.',
+        confirmText: 'Understood'
+      });
+      return;
+    }
+
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 10) {
+      showAlert({
+        type: 'warning',
+        title: 'Invalid Phone Number',
+        message: 'The registered phone number is incomplete or invalid.',
+        confirmText: 'Understood'
+      });
+      return;
+    }
+
+    const cleanPhone = digits.length === 10 ? `91${digits}` : digits;
+    const currentGymName = user?.gymName || user?.gym?.name || 'Our Gym';
+    const memberName = member.name || 'Member';
+    const idNo = member.customMemberId || member.id || member.receiptNumber || '—';
+    const planName = member.membershipType || member.plan || 'Gym Membership';
+    const startDate = formatExcelDate(member.joinDate || member.paymentDate);
+    const endDate = formatExcelDate(member.expiryDate);
+    const total = member.totalAmount !== undefined ? member.totalAmount : 0;
+    const paid = member.paidAmount !== undefined ? member.paidAmount : 0;
+    const balance = member.balanceAmount !== undefined ? member.balanceAmount : Math.max(0, total - paid);
+
+    const msgLines = [
+      `🏋️‍♂️ *PAYMENT REMINDER — ${currentGymName.toUpperCase()}*`,
+      ``,
+      `Hello *${memberName}*,`,
+      `This is a gentle reminder regarding your gym membership at *${currentGymName}*. You currently have an outstanding balance fee pending:`,
+      ``,
+      `📋 *MEMBERSHIP SUMMARY:*`,
+      `• *Member ID / Receipt #:* ${idNo}`,
+      `• *Plan:* ${planName}`,
+      `• *Start Date:* ${startDate}`,
+      `• *Expiry Date:* ${endDate}`,
+      ``,
+      `💰 *PAYMENT BREAKDOWN:*`,
+      `• *Total Fee:* ₹${total}`,
+      `• *Amount Paid:* ₹${paid}`,
+      `• ⚠️ *Balance Due:* *₹${balance}*`,
+      ``,
+      `Kindly clear the pending balance fee of *₹${balance}* at the gym reception desk or via UPI at your earliest convenience.`,
+      ``,
+      `📲 *Member Portal:*`,
+      `https://leopardxgyms.vercel.app/`,
+      ``,
+      `Thank you for your cooperation and dedication to fitness! 💪🔥`,
+      `*${currentGymName}*`
+    ];
+
+    const waText = encodeURIComponent(msgLines.join('\n'));
+    const whatsappUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${waText}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    showToast(`Opening WhatsApp chat with ${memberName} for balance reminder...`, 'success');
+  };
+
   // Open Membership Receipt Modal
   const handleOpenReceiptModal = async (member) => {
     setReceiptMember(member);
@@ -484,25 +571,140 @@ export const MemberManagementScreen = () => {
     });
   };
 
-  // Filtering
-  const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      const matchSearch =
-        !searchTerm ||
-        m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.customMemberId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.phone?.includes(searchTerm) ||
-        m.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.receiptNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Compute real-time counts for quick-filter pills
+  const counts = useMemo(() => {
+    let active = 0;
+    let expiringSoon = 0;
+    let balanceDue = 0;
+    let expired = 0;
 
-      const matchStatus =
-        statusFilter === 'ALL' ||
-        (m.status && m.status.toUpperCase() === statusFilter.toUpperCase());
+    members.forEach((m) => {
+      const days = getDaysUntilExpiry(m.expiryDate);
+      const bal = parseFloat(m.balanceAmount || 0);
+      const isExp = days !== null && days < 0;
 
-      return matchSearch && matchStatus;
+      if (isExp || (m.status && m.status.toLowerCase() === 'expired')) {
+        expired++;
+      } else {
+        active++;
+      }
+
+      if (days !== null && days >= 0 && days <= 7) {
+        expiringSoon++;
+      }
+
+      if (bal > 0) {
+        balanceDue++;
+      }
     });
-  }, [members, searchTerm, statusFilter]);
+
+    return {
+      all: members.length,
+      active,
+      expiringSoon,
+      balanceDue,
+      expired
+    };
+  }, [members]);
+
+  // Check if any filter is active
+  const hasActiveFilters = Boolean(
+    searchTerm.trim() ||
+    quickFilter !== 'ALL' ||
+    planFilter !== 'ALL' ||
+    balanceFilter !== 'ALL' ||
+    expiryWindow !== 'ALL' ||
+    sortBy !== 'NEWEST'
+  );
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setQuickFilter('ALL');
+    setPlanFilter('ALL');
+    setBalanceFilter('ALL');
+    setExpiryWindow('ALL');
+    setSortBy('NEWEST');
+  };
+
+  // Comprehensive Multi-Criteria Filtering & Sorting
+  const filteredMembers = useMemo(() => {
+    return members
+      .filter((m) => {
+        // 1. Search term
+        if (searchTerm && searchTerm.trim()) {
+          const term = searchTerm.toLowerCase().trim();
+          const matchSearch =
+            m.name?.toLowerCase().includes(term) ||
+            m.customMemberId?.toLowerCase().includes(term) ||
+            m.id?.toLowerCase().includes(term) ||
+            m.phone?.includes(term) ||
+            m.email?.toLowerCase().includes(term) ||
+            m.receiptNumber?.toLowerCase().includes(term);
+          if (!matchSearch) return false;
+        }
+
+        const days = getDaysUntilExpiry(m.expiryDate);
+        const bal = parseFloat(m.balanceAmount || 0);
+        const isExp = days !== null && days < 0;
+
+        // 2. Quick Pill Filter
+        if (quickFilter === 'ACTIVE') {
+          if (isExp || (m.status && m.status.toLowerCase() === 'expired')) return false;
+        } else if (quickFilter === 'EXPIRING_SOON') {
+          if (days === null || days < 0 || days > 7) return false;
+        } else if (quickFilter === 'BALANCE_DUE') {
+          if (bal <= 0) return false;
+        } else if (quickFilter === 'EXPIRED') {
+          if (!isExp && (!m.status || m.status.toLowerCase() !== 'expired')) return false;
+        }
+
+        // 3. Plan Filter
+        if (planFilter !== 'ALL') {
+          const mPlan = m.membershipType || m.plan || '';
+          if (mPlan.toLowerCase() !== planFilter.toLowerCase()) return false;
+        }
+
+        // 4. Balance / Payment Status Filter
+        if (balanceFilter === 'CLEARED') {
+          if (bal > 0) return false;
+        } else if (balanceFilter === 'DUE') {
+          if (bal <= 0) return false;
+        }
+
+        // 5. Expiry Window Filter
+        if (expiryWindow === '7_DAYS') {
+          if (days === null || days < 0 || days > 7) return false;
+        } else if (expiryWindow === '15_DAYS') {
+          if (days === null || days < 0 || days > 15) return false;
+        } else if (expiryWindow === '30_DAYS') {
+          if (days === null || days < 0 || days > 30) return false;
+        } else if (expiryWindow === 'EXPIRED') {
+          if (!isExp && (!m.status || m.status.toLowerCase() !== 'expired')) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'EXPIRY_SOON') {
+          const dateA = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+          const dateB = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+          return dateA - dateB;
+        }
+        if (sortBy === 'BALANCE_HIGH') {
+          const balA = parseFloat(a.balanceAmount || 0);
+          const balB = parseFloat(b.balanceAmount || 0);
+          return balB - balA;
+        }
+        if (sortBy === 'NAME_ASC') {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        // Default: NEWEST
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.joinDate ? new Date(a.joinDate).getTime() : 0);
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.joinDate ? new Date(b.joinDate).getTime() : 0);
+        return timeB - timeA;
+      });
+  }, [members, searchTerm, quickFilter, planFilter, balanceFilter, expiryWindow, sortBy]);
 
   const isAllSelected = useMemo(() => {
     if (filteredMembers.length === 0) return false;
@@ -586,6 +788,7 @@ export const MemberManagementScreen = () => {
         setIsEditModalOpen(true);
       },
       onDeleteMember: handleRequestDeleteMember,
+      onSendWhatsAppBalanceReminder: handleSendWhatsAppBalanceReminder,
       resendingId,
       renderInvitationBadge,
       selectedIds: selectedMemberIds,
@@ -643,94 +846,27 @@ export const MemberManagementScreen = () => {
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 16,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'var(--bg-surface)',
-          padding: '16px 20px',
-          borderRadius: 'var(--radius-lg, 16px)',
-          border: '1px solid var(--border-subtle)',
-          boxShadow: 'var(--shadow-xs)',
-          flexWrap: 'wrap'
-        }}
-      >
-        <div style={{ flex: '1 1 320px', maxWidth: '520px', position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: 14, pointerEvents: 'none' }} />
-          <input
-            type="text"
-            className="input-control"
-            placeholder="Search member by name, ID, phone, receipt #, or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              height: '42px',
-              paddingLeft: '40px',
-              paddingRight: searchTerm ? '36px' : '14px',
-              borderRadius: 'var(--radius-md, 10px)'
-            }}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              style={{
-                position: 'absolute',
-                right: 12,
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 4
-              }}
-              title="Clear search"
-            >
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
-            <select
-              className="input-control"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: '150px',
-                height: '42px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-md, 10px)'
-              }}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="EXPIRING_SOON">Expiring Soon</option>
-              <option value="EXPIRED">Expired</option>
-            </select>
-          </div>
-
-          <span style={{
-            fontSize: '0.8rem',
-            color: 'var(--text-secondary)',
-            background: 'var(--bg-surface-elevated)',
-            padding: '6px 12px',
-            borderRadius: '20px',
-            border: '1px solid var(--border-subtle)',
-            fontWeight: 600
-          }}>
-            Showing {filteredMembers.length} {filteredMembers.length === 1 ? 'member' : 'members'}
-          </span>
-        </div>
-      </div>
+      {/* Custom Member Filters & Advanced Controls Bar */}
+      <MemberFiltersBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        quickFilter={quickFilter}
+        onQuickFilterChange={setQuickFilter}
+        planFilter={planFilter}
+        onPlanFilterChange={setPlanFilter}
+        balanceFilter={balanceFilter}
+        onBalanceFilterChange={setBalanceFilter}
+        expiryWindow={expiryWindow}
+        onExpiryWindowChange={setExpiryWindow}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        onResetFilters={handleResetFilters}
+        hasActiveFilters={hasActiveFilters}
+        counts={counts}
+        plans={plans}
+        totalMembersCount={members.length}
+        filteredCount={filteredMembers.length}
+      />
 
       {/* Bulk Action Bar (when rows are selected) */}
       {selectedMemberIds.size > 0 && (
@@ -795,7 +931,9 @@ export const MemberManagementScreen = () => {
               ? 'Loading members...'
               : members.length === 0
                 ? "No members registered yet. Click 'Add New Member' to register your first member."
-                : 'No members found matching your search.'
+                : hasActiveFilters
+                  ? 'No members found matching your active filters.'
+                  : 'No members found matching your search.'
           }
         />
       </div>
